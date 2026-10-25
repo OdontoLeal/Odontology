@@ -5,7 +5,8 @@ import { PatientForm, PatientFormData } from '../components/PatientForm';
 import { Button } from '../../../../shared/ui/components/Button';
 import { Badge } from '../../../../shared/ui/components/Badge';
 import { Modal } from '../../../../shared/ui/components/Modal';
-import { useClinicalRecord } from '../../../clinical-records/ui/hooks/useClinicalRecord';
+import { useClinicalRecord, ClinicalEvolutionEntry } from '../../../clinical-records/ui/hooks/useClinicalRecord';
+import { OdontogramCanvas } from '../../../clinical-records/ui/components/OdontogramCanvas';
 import { useConsents } from '../../../consents/ui/hooks/useConsents';
 
 export interface PatientProfilePageProps {
@@ -39,6 +40,7 @@ export const PatientProfilePage: React.FC<PatientProfilePageProps> = ({
   onUpdatePatient,
 }) => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [selectedEvolutionForView, setSelectedEvolutionForView] = useState<ClinicalEvolutionEntry | null>(null);
   const [appointments, setAppointments] = useState<PatientAppointment[]>([]);
   const [isAppointmentsLoading, setIsAppointmentsLoading] = useState(false);
 
@@ -295,26 +297,44 @@ export const PatientProfilePage: React.FC<PatientProfilePageProps> = ({
               Cargando historial clínico...
             </div>
           ) : history.length > 0 ? (
-            <div className="space-y-2">
-              {history.map((item) => (
-                <div
-                  key={item.idEvolucion}
-                  className="flex items-center justify-between p-3.5 rounded-xl border border-[#E2E6EA] bg-[#F8F9FA] hover:bg-white hover:border-[#D4AF37] transition-all"
-                >
-                  <div>
-                    <span className="text-xs font-extrabold text-[#1E242B]">{item.fechaRegistro}</span>
-                    <p className="text-xs text-[#687380]">{item.profesional.nombreCompleto}</p>
-                    <p className="text-[11px] text-[#8F99A3] truncate max-w-xs">{item.procedimientoRealizado || item.motivoConsulta}</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => onViewClinicalHistoryDetail(item.idHistoriaClinica || item.idEvolucion)}
-                    className="text-xs font-bold text-[#D4AF37] hover:text-[#B8942A] inline-flex items-center gap-1"
+            <div className="space-y-3">
+              <div className="space-y-2">
+                {history.map((item) => (
+                  <div
+                    key={item.idEvolucion}
+                    onClick={() => setSelectedEvolutionForView(item)}
+                    className="flex items-center justify-between p-3.5 rounded-xl border border-[#E2E6EA] bg-[#F8F9FA] hover:bg-white hover:border-[#D4AF37] transition-all cursor-pointer group shadow-xs"
                   >
-                    Consultar Ficha →
-                  </button>
-                </div>
-              ))}
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-extrabold text-[#1E242B]">{item.fechaRegistro}</span>
+                        <Badge label="Solo Lectura" variant="neutral" size="sm" />
+                      </div>
+                      <p className="text-xs text-[#687380] mt-0.5">{item.profesional.nombreCompleto}</p>
+                      <p className="text-[11px] text-[#8F99A3] truncate max-w-xs">{item.procedimientoRealizado || item.motivoConsulta}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedEvolutionForView(item);
+                      }}
+                      className="text-xs font-bold text-[#D4AF37] group-hover:text-[#B8942A] inline-flex items-center gap-1"
+                    >
+                      Ver Evolución 👁️
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div className="pt-2 text-right">
+                <button
+                  type="button"
+                  onClick={() => onViewClinicalHistoryDetail(history[0]?.idHistoriaClinica || 1)}
+                  className="text-xs font-bold text-[#687380] hover:text-[#1E242B] transition-colors"
+                >
+                  Ver expediente histórico completo →
+                </button>
+              </div>
             </div>
           ) : (
             <div className="rounded-2xl border border-dashed border-[#E2E6EA] p-6 text-center space-y-2">
@@ -432,6 +452,127 @@ export const PatientProfilePage: React.FC<PatientProfilePageProps> = ({
           }}
           onCancel={() => setIsEditModalOpen(false)}
         />
+      </Modal>
+
+      {/* Modal Visor de Evolución Clínica (Solo Lectura • Registro Inmutable) */}
+      <Modal
+        isOpen={Boolean(selectedEvolutionForView)}
+        onClose={() => setSelectedEvolutionForView(null)}
+        title="Evolución Clínica Odontológica"
+        subtitle={
+          selectedEvolutionForView
+            ? `Atención del ${selectedEvolutionForView.fechaRegistro} • ${selectedEvolutionForView.profesional.nombreCompleto}`
+            : ''
+        }
+        maxWidth="4xl"
+      >
+        {selectedEvolutionForView && (
+          <div className="space-y-6">
+            {/* Header del profesional tratante y estado inmutable */}
+            <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-2xl bg-[#F8F9FA] border border-[#E2E6EA]">
+              <div>
+                <p className="text-xs font-extrabold text-[#1E242B]">
+                  👨‍⚕️ {selectedEvolutionForView.profesional.nombreCompleto}
+                </p>
+                <p className="text-[11px] text-[#687380] mt-0.5">
+                  {selectedEvolutionForView.profesional.rol}
+                  {selectedEvolutionForView.profesional.tarjetaProfesional && ` • TP: ${selectedEvolutionForView.profesional.tarjetaProfesional}`}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge label="Solo Lectura" variant="neutral" size="sm" />
+                <Badge label="Registro Inmutable (Res. 1995/1999)" variant="gold" size="sm" />
+              </div>
+            </div>
+
+            {/* Motivo y Diagnóstico */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+              <div className="p-4 rounded-2xl bg-[#F8F9FA] border border-[#E2E6EA] space-y-1">
+                <span className="font-extrabold text-[10px] uppercase tracking-wider text-[#8F99A3] block">
+                  Motivo de Consulta
+                </span>
+                <p className="text-[#1E242B] font-semibold leading-relaxed">
+                  {selectedEvolutionForView.motivoConsulta || 'Consulta odontológica programada'}
+                </p>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-[#F8F9FA] border border-[#E2E6EA] space-y-1">
+                <span className="font-extrabold text-[10px] uppercase tracking-wider text-[#8F99A3] block">
+                  Diagnóstico (CIE-10)
+                </span>
+                <p className="text-[#1E242B] font-semibold leading-relaxed">
+                  {selectedEvolutionForView.diagnostico || 'Evaluación clínica general'}
+                </p>
+              </div>
+            </div>
+
+            {/* Procedimiento Realizado */}
+            <div className="p-4 rounded-2xl bg-[#F8F9FA] border border-[#E2E6EA] space-y-1 text-xs">
+              <span className="font-extrabold text-[10px] uppercase tracking-wider text-[#8F99A3] block">
+                Procedimiento Realizado
+              </span>
+              <p className="text-[#1E242B] font-medium leading-relaxed whitespace-pre-line">
+                {selectedEvolutionForView.procedimientoRealizado || 'Sin procedimiento detallado'}
+              </p>
+            </div>
+
+            {/* Observaciones Clínicas */}
+            {selectedEvolutionForView.observaciones && (
+              <div className="p-4 rounded-2xl bg-[#F8F9FA] border border-[#E2E6EA] space-y-1 text-xs">
+                <span className="font-extrabold text-[10px] uppercase tracking-wider text-[#8F99A3] block">
+                  Observaciones Clínicas / Evolución
+                </span>
+                <p className="text-[#4B5563] leading-relaxed whitespace-pre-line">
+                  {selectedEvolutionForView.observaciones}
+                </p>
+              </div>
+            )}
+
+            {/* Acciones a Realizar / Recomendaciones */}
+            {selectedEvolutionForView.accionesARealizar && (
+              <div className="p-4 rounded-2xl bg-[#F8F9FA] border border-[#E2E6EA] space-y-1 text-xs">
+                <span className="font-extrabold text-[10px] uppercase tracking-wider text-[#8F99A3] block">
+                  Recomendaciones / Plan de Tratamiento
+                </span>
+                <p className="text-[#4B5563] leading-relaxed whitespace-pre-line">
+                  {selectedEvolutionForView.accionesARealizar}
+                </p>
+              </div>
+            )}
+
+            {/* Odontograma Clínico en Modo Lectura */}
+            {selectedEvolutionForView.odontograma && (
+              <div className="space-y-2 pt-2 border-t border-[#E2E6EA]">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-extrabold uppercase text-[#1E242B]">
+                    Estado del Odontograma en esta consulta:
+                  </span>
+                  <span className="text-[11px] text-[#8F99A3] italic">
+                    Modo Lectura • Simbología FDI Inalterable
+                  </span>
+                </div>
+                <div className="p-4 rounded-2xl bg-white border border-[#E2E6EA]">
+                  <OdontogramCanvas
+                    key={selectedEvolutionForView.idEvolucion}
+                    initialData={selectedEvolutionForView.odontograma}
+                    readOnly={true}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Footer: Únicamente botón para cerrar (sin opciones de edición) */}
+            <div className="flex justify-end pt-3 border-t border-[#E2E6EA]">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSelectedEvolutionForView(null)}
+              >
+                Cerrar Visualización
+              </Button>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );

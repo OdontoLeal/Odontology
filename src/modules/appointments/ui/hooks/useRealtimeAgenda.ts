@@ -27,6 +27,25 @@ export function useRealtimeAgenda(apiBaseUrl = '/api/v1') {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Sincronizar automáticamente mes y año del calendario izquierdo al cambiar de fecha con Ayer/Mañana
+  useEffect(() => {
+    if (!selectedDate) return;
+    try {
+      const clean = selectedDate.includes('T') ? selectedDate.split('T')[0] : selectedDate.split(' ')[0];
+      const parts = clean.split('-');
+      if (parts.length >= 2) {
+        const y = Number(parts[0]);
+        const m = Number(parts[1]);
+        if (!isNaN(y) && !isNaN(m) && m >= 1 && m <= 12) {
+          setCalendarYear((prevY) => (prevY !== y ? y : prevY));
+          setCalendarMonth((prevM) => (prevM !== m ? m : prevM));
+        }
+      }
+    } catch {
+      // noop
+    }
+  }, [selectedDate]);
+
   // Formateador robusto de horas HH:mm a partir de timestamp SQL ("2026-11-01 06:00:00") o ISO string
   const formatTimeHHmm = (dateStr: string | Date): string => {
     if (!dateStr) return '00:00';

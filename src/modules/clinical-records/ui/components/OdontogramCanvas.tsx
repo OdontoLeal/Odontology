@@ -1,5 +1,5 @@
 // src/modules/clinical-records/ui/components/OdontogramCanvas.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { OdontogramDataDTO } from '../../infrastructure/clinical-record.model';
 import { OdontogramEntity } from '../../domain/odontogram.entity';
 import { Badge } from '../../../../shared/ui/components/Badge';
@@ -39,6 +39,12 @@ export const OdontogramCanvas: React.FC<OdontogramCanvasProps> = ({
     if (initialData) return initialData;
     return OdontogramEntity.createBlankOdontogramJSON();
   });
+
+  useEffect(() => {
+    if (initialData) {
+      setOdontogramData(initialData);
+    }
+  }, [initialData]);
 
   const [activeTool, setActiveTool] = useState<FindingType>('caries_activa');
   const [activeSymbol, setActiveSymbol] = useState<TechnicalSymbolType>('none');

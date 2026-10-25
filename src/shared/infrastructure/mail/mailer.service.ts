@@ -638,4 +638,180 @@ export class MailerService implements IMailerPort {
       return { previewUrl: null };
     }
   }
+
+  /**
+   * Envía correo de reprogramación / modificación de cita al paciente (RF-AGE-006).
+   */
+  async sendAppointmentRescheduledEmail(params: {
+    to: string;
+    nombrePaciente: string;
+    fecha: string;
+    hora: string;
+    doctor: string;
+    motivo: string;
+    idCita?: number;
+    notas?: string;
+  }): Promise<{ messageId?: string; previewUrl?: string | null }> {
+    const { to, nombrePaciente, fecha, hora, doctor, motivo, idCita, notas } = params;
+
+    const htmlContent = `
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Cita Modificada - OdontoLeal</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #F8F9FA; margin: 0; padding: 24px; color: #1E242B; }
+    .card { max-width: 540px; margin: 0 auto; background: #FFFFFF; border-radius: 16px; border: 1px solid #E2E6EA; border-top: 5px solid #D4AF37; padding: 32px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+    .logo-badge { display: inline-block; background-color: #111111; color: #D4AF37; font-size: 12px; font-weight: bold; letter-spacing: 0.08em; text-transform: uppercase; padding: 6px 14px; border-radius: 999px; }
+    h1 { font-size: 22px; font-weight: 800; color: #1E242B; margin: 16px 0 8px 0; }
+    .details { background-color: #FBF6E6; border: 1px solid #EAD89B; border-radius: 12px; padding: 18px; margin: 20px 0; }
+    .detail-item { margin: 8px 0; font-size: 14px; }
+    .label { font-weight: bold; color: #687380; }
+    .value { font-weight: 600; color: #1E242B; }
+    .alert-box { background-color: #FEF3C7; border-left: 4px solid #D97706; padding: 12px; border-radius: 8px; margin: 16px 0; font-size: 13px; color: #92400E; }
+    .footer { text-align: center; font-size: 12px; color: #8F99A3; margin-top: 24px; border-top: 1px solid #E2E6EA; padding-top: 16px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div style="text-align: center;">
+      <span class="logo-badge">CONSULTORIO ODONTOLEAL • ACTUALIZACIÓN</span>
+      <h1>Tu cita ha sido modificada</h1>
+      <p style="color: #687380; font-size: 14px;">Te informamos que tu cita médica en nuestra agenda ha sido actualizada.</p>
+    </div>
+
+    <p>Estimado(a) <strong>${nombrePaciente}</strong>,</p>
+    <p>Le notificamos que su cita odontológica ha sido modificada con los siguientes datos actualizados:</p>
+
+    <div class="details">
+      <div class="detail-item"><span class="label">📅 Nueva Fecha:</span> <span class="value">${fecha}</span></div>
+      <div class="detail-item"><span class="label">⏰ Nuevo Horario:</span> <span class="value">${hora}</span></div>
+      <div class="detail-item"><span class="label">👨‍⚕️ Profesional Asignado:</span> <span class="value">${doctor}</span></div>
+      <div class="detail-item"><span class="label">📋 Procedimiento / Motivo:</span> <span class="value">${motivo}</span></div>
+      ${idCita ? `<div class="detail-item"><span class="label">🔢 Cita N°:</span> <span class="value">#${idCita}</span></div>` : ''}
+      ${notas ? `<div class="detail-item"><span class="label">📝 Observaciones:</span> <span class="value">${notas}</span></div>` : ''}
+    </div>
+
+    <div class="alert-box">
+      📍 <strong>Ubicación:</strong> Calle 127 # 14-54, Edificio Medical Prestige, Suite 402, Bogotá.<br>
+      ⏰ <em>Por favor presentarse con 10 minutos de anticipación al nuevo horario establecido.</em>
+    </div>
+
+    <p style="font-size: 13px; color: #687380;">Si tienes alguna pregunta o requieres una reprogramación adicional, comunícate directamente al WhatsApp <strong>+57 300 123 4567</strong>.</p>
+
+    <div class="footer">
+      © 2026 Consultorio Odontológico Dr. Eduar Leal Álvarez • Bogotá, Colombia
+    </div>
+  </div>
+</body>
+</html>
+    `;
+
+    try {
+      const transporter = await this.getTransporter();
+      const info = await transporter.sendMail({
+        from: this.fromAddress,
+        to,
+        subject: `Actualización de Cita Odontológica: ${fecha} a las ${hora}`,
+        text: `Hola ${nombrePaciente}.\n\nTu cita en OdontoLeal ha sido modificada.\nNueva fecha: ${fecha}\nNuevo horario: ${hora}\nProfesional: ${doctor}\nMotivo: ${motivo}\nUbicación: Calle 127 # 14-54, Suite 402, Bogotá.`,
+        html: htmlContent,
+      });
+
+      const previewUrl = nodemailer.getTestMessageUrl(info) || null;
+      console.log(`📧 Notificación de cita modificada enviada al paciente ${to}. Mensaje ID: ${info.messageId}`);
+      return { messageId: info.messageId, previewUrl };
+    } catch (err: any) {
+      console.error('❌ Error enviando correo de cita modificada al paciente:', err?.message);
+      return { previewUrl: null };
+    }
+  }
+
+  /**
+   * Envía correo de reprogramación / modificación de cita al doctor (RF-AGE-006).
+   */
+  async sendDoctorAppointmentRescheduledEmail(params: {
+    to: string;
+    doctorName: string;
+    patientName: string;
+    fecha: string;
+    hora: string;
+    motivo: string;
+    idCita?: number;
+    telefonoPaciente?: string;
+    notas?: string;
+  }): Promise<{ messageId?: string; previewUrl?: string | null }> {
+    const { to, doctorName, patientName, fecha, hora, motivo, idCita, telefonoPaciente, notas } = params;
+
+    const htmlContent = `
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Cita Modificada en Agenda - OdontoLeal</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #F8F9FA; margin: 0; padding: 24px; color: #1E242B; }
+    .card { max-width: 560px; margin: 0 auto; background: #FFFFFF; border-radius: 16px; border: 1px solid #E2E6EA; border-top: 5px solid #D4AF37; padding: 32px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+    .logo-badge { display: inline-block; background-color: #111111; color: #D4AF37; font-size: 12px; font-weight: bold; letter-spacing: 0.08em; text-transform: uppercase; padding: 6px 14px; border-radius: 999px; }
+    h1 { font-size: 22px; font-weight: 800; color: #1E242B; margin: 16px 0 8px 0; }
+    .details { background-color: #F8F9FA; border: 1px solid #E2E6EA; border-radius: 12px; padding: 18px; margin: 20px 0; }
+    .detail-item { margin: 8px 0; font-size: 14px; }
+    .label { font-weight: bold; color: #687380; }
+    .value { font-weight: 600; color: #1E242B; }
+    .highlight-box { background-color: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 12px; padding: 14px; margin: 16px 0; font-size: 13px; color: #1E40AF; }
+    .footer { text-align: center; font-size: 12px; color: #8F99A3; margin-top: 24px; border-top: 1px solid #E2E6EA; padding-top: 16px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div style="text-align: center;">
+      <span class="logo-badge">CONSULTORIO ODONTOLEAL • AGENDA MÉDICA</span>
+      <h1>Cita Modificada en tu Agenda</h1>
+      <p style="color: #687380; font-size: 14px;">Se ha registrado un cambio de fecha, horario o datos en una atención de tu agenda.</p>
+    </div>
+
+    <p>Estimado(a) <strong>${doctorName}</strong>,</p>
+    <p>Te informamos sobre la modificación de la siguiente cita en tu agenda clínica:</p>
+
+    <div class="details">
+      <div class="detail-item"><span class="label">👤 Paciente:</span> <span class="value">${patientName}</span></div>
+      ${telefonoPaciente ? `<div class="detail-item"><span class="label">📞 Teléfono contacto:</span> <span class="value">${telefonoPaciente}</span></div>` : ''}
+      <div class="detail-item"><span class="label">📅 Fecha Actualizada:</span> <span class="value">${fecha}</span></div>
+      <div class="detail-item"><span class="label">⏰ Horario Actualizado:</span> <span class="value">${hora}</span></div>
+      <div class="detail-item"><span class="label">📋 Procedimiento / Motivo:</span> <span class="value">${motivo}</span></div>
+      ${idCita ? `<div class="detail-item"><span class="label">🔢 N° Cita Clínica:</span> <span class="value">#${idCita}</span></div>` : ''}
+      ${notas ? `<div class="detail-item"><span class="label">📝 Observaciones:</span> <span class="value">${notas}</span></div>` : ''}
+    </div>
+
+    <div class="highlight-box">
+      ℹ️ <strong>Estado Actualizado:</strong><br>
+      Los bloques horarios han sido actualizados en la base de datos y el paciente ha recibido la notificación correspondiente.
+    </div>
+
+    <div class="footer">
+      © 2026 Consultorio Odontológico Dr. Eduar Leal Álvarez • Bogotá, Colombia
+    </div>
+  </div>
+</body>
+</html>
+    `;
+
+    try {
+      const transporter = await this.getTransporter();
+      const info = await transporter.sendMail({
+        from: this.fromAddress,
+        to,
+        subject: `Cita Modificada en tu Agenda - ${fecha} a las ${hora} (${patientName})`,
+        text: `Hola ${doctorName}.\n\nSe ha modificado la cita con el paciente ${patientName}.\nNueva fecha: ${fecha}\nNuevo horario: ${hora}\nMotivo: ${motivo}\nN° Cita: #${idCita || ''}`,
+        html: htmlContent,
+      });
+
+      const previewUrl = nodemailer.getTestMessageUrl(info) || null;
+      console.log(`📧 Notificación de cita modificada enviada al doctor ${to}. Mensaje ID: ${info.messageId}`);
+      return { messageId: info.messageId, previewUrl };
+    } catch (err: any) {
+      console.error('❌ Error enviando correo de cita modificada al doctor:', err?.message);
+      return { previewUrl: null };
+    }
+  }
 }

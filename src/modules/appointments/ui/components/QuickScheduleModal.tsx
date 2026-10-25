@@ -35,7 +35,6 @@ export interface QuickScheduleModalProps {
     bloques: string[];
     motivo: string;
     observaciones?: string;
-    consentimientos: string[];
   }) => Promise<void> | void;
   onOpenNewPatientModal?: () => void;
   isLoading?: boolean;
@@ -67,12 +66,6 @@ export const QuickScheduleModal: React.FC<QuickScheduleModalProps> = ({
 
   const [fecha, setFecha] = useState(initialDate);
   const [selectedBlocks, setSelectedBlocks] = useState<string[]>(['14:00-14:30', '14:30-15:00']);
-
-  const [consentimientos, setConsentimientos] = useState<string[]>([
-    'Consentimiento para Cirugía de Implante Dental y Regeneración Ósea',
-    'Consentimiento Informado para Anestesia Local y Sedación Consciente',
-    'Consentimiento General de Tratamiento Odontológico y Diagnóstico 3D',
-  ]);
 
   const [availableBlocks, setAvailableBlocks] = useState<string[]>([]);
   const [isLoadingSlots, setIsLoadingSlots] = useState(false);
@@ -123,10 +116,6 @@ export const QuickScheduleModal: React.FC<QuickScheduleModalProps> = ({
     );
   };
 
-  const removeConsent = (title: string) => {
-    setConsentimientos((prev) => prev.filter((c) => c !== title));
-  };
-
   const handleConfirm = () => {
     if (!selectedPatient) {
       showAlert({
@@ -152,7 +141,6 @@ export const QuickScheduleModal: React.FC<QuickScheduleModalProps> = ({
       bloques: selectedBlocks,
       motivo,
       observaciones,
-      consentimientos,
     });
   };
 
@@ -352,39 +340,6 @@ export const QuickScheduleModal: React.FC<QuickScheduleModalProps> = ({
                 })}
               </div>
             )}
-          </div>
-        </div>
-
-        {/* Paso 4: Consentimientos Informados */}
-        <div className="rounded-2xl border border-[#E2E6EA] p-5 space-y-3">
-          <div className="flex items-center justify-between">
-            <h4 className="text-xs font-extrabold uppercase tracking-wider text-[#1E242B] flex items-center gap-2">
-              <span className="h-5 w-5 rounded-full bg-[#111111] text-[#D4AF37] text-xs flex items-center justify-center font-bold">
-                4
-              </span>
-              Consentimientos Informados ({consentimientos.length} vinculados)
-            </h4>
-          </div>
-
-          <div className="space-y-2">
-            {consentimientos.map((item, idx) => (
-              <div
-                key={idx}
-                className="flex items-center justify-between p-3 rounded-xl bg-[#F8F9FA] border border-[#E2E6EA] text-xs"
-              >
-                <div className="flex items-center gap-2">
-                  <Badge label="Pendiente de firma" variant="warning" size="sm" />
-                  <span className="font-bold text-[#1E242B]">{item}</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => removeConsent(item)}
-                  className="text-xs text-[#DC2626] hover:underline font-semibold"
-                >
-                  Quitar
-                </button>
-              </div>
-            ))}
           </div>
         </div>
       </div>

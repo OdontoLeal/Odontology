@@ -69,12 +69,62 @@ export function useClinicalRecord(idPaciente: number, apiBaseUrl = '/api/v1') {
               notasAclaratorias: ev.notasAclaratorias || ev.evolucion?.notasAclaratorias || [],
             }))
           );
+        } else if (Array.isArray(data.historial)) {
+          const mappedEntries: ClinicalEvolutionEntry[] = [];
+          for (let i = 0; i < data.historial.length; i++) {
+            const item = data.historial[i];
+            if (Array.isArray(item.notasEvolucion) && item.notasEvolucion.length > 0) {
+              for (const note of item.notasEvolucion) {
+                mappedEntries.push({
+                  idEvolucion: Number(note.idEvolucion || item.idCita),
+                  idHistoriaClinica: Number(data.idHistoria || 1),
+                  idCita: Number(item.idCita),
+                  fechaRegistro: String(note.diligenciadoPor?.fechaHoraISO || item.fechaHoraRegistro || '').replace('T', ' ').slice(0, 16),
+                  profesional: {
+                    idUsuario: Number(note.diligenciadoPor?.idUsuario || 1),
+                    nombreCompleto: note.diligenciadoPor?.nombreUsuario || item.profesionalResponsable || 'Dr. Eduar Leal Álvarez',
+                    rol: note.diligenciadoPor?.rol || 'Odontólogo General',
+                  },
+                  motivoConsulta: item.motivoConsulta || 'Consulta Odontológica',
+                  enfermedadActual: item.antecedentes?.enfermedadActual,
+                  procedimientoRealizado: note.procedimientoRealizado || note.notaEvolucion || 'Atención odontológica realizada',
+                  diagnostico: note.notaEvolucion || 'Diagnóstico clínico',
+                  accionesARealizar: note.accionesARealizar,
+                  observaciones: note.notaEvolucion,
+                  odontograma: item.odontograma || OdontogramEntity.createBlankOdontogramJSON(),
+                  notasAclaratorias: [],
+                });
+              }
+            } else {
+              mappedEntries.push({
+                idEvolucion: Number(item.idCita || i + 1),
+                idHistoriaClinica: Number(data.idHistoria || 1),
+                idCita: Number(item.idCita || i + 1),
+                fechaRegistro: String(item.fechaHoraRegistro || '').replace('T', ' ').slice(0, 16),
+                profesional: {
+                  idUsuario: 1,
+                  nombreCompleto: item.profesionalResponsable || 'Dr. Eduar Leal Álvarez',
+                  rol: 'Odontólogo General',
+                },
+                motivoConsulta: item.motivoConsulta || 'Consulta Odontológica',
+                enfermedadActual: item.antecedentes?.enfermedadActual,
+                procedimientoRealizado: item.motivoConsulta || 'Atención odontológica',
+                diagnostico: item.motivoConsulta || 'Diagnóstico clínico',
+                observaciones: item.motivoConsulta,
+                odontograma: item.odontograma || OdontogramEntity.createBlankOdontogramJSON(),
+                notasAclaratorias: [],
+              });
+            }
+          }
+          setHistory(mappedEntries);
         } else {
           setHistory([]);
         }
 
         if (data.ultimoOdontograma) {
           setCurrentOdontogram(data.ultimoOdontograma);
+        } else if (Array.isArray(data.historial) && data.historial[0]?.odontograma) {
+          setCurrentOdontogram(data.historial[0].odontograma);
         }
       }
     } catch (err: any) {

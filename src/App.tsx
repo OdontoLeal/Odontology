@@ -216,7 +216,6 @@ export const App: React.FC = () => {
         }
         setCurrentRoute('LOGIN');
       }}
-      onSimulateMinute29={auth.simulateMinute29Warning}
     >
       <AlertModalComponent />
       {/* VISTA 1: MÓDULO B - AGENDAMIENTO DE CITAS & CONSULTA ACTIVA */}

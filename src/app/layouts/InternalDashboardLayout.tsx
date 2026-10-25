@@ -19,7 +19,6 @@ export interface InternalDashboardLayoutProps {
   onContinueSession: () => void;
   onTimeoutCloseSession: () => void;
   onManualCloseSession: () => void;
-  onSimulateMinute29?: () => void;
   children: React.ReactNode;
 }
 
@@ -32,7 +31,6 @@ export const InternalDashboardLayout: React.FC<InternalDashboardLayoutProps> = (
   onContinueSession,
   onTimeoutCloseSession,
   onManualCloseSession,
-  onSimulateMinute29,
   children,
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -176,19 +174,6 @@ export const InternalDashboardLayout: React.FC<InternalDashboardLayoutProps> = (
             })}
           </nav>
         </div>
-
-        {/* Botón inferior discreto para probar el aviso del minuto 29 */}
-        {onSimulateMinute29 && (
-          <div className="hidden lg:block p-4 border-t border-[#E2E6EA]">
-            <button
-              type="button"
-              onClick={onSimulateMinute29}
-              className="w-full min-h-[40px] rounded-xl border border-[#E2E6EA] bg-[#F8F9FA] px-3 py-2 text-left text-[12px] font-semibold text-[#687380] hover:border-[#D4AF37] hover:text-[#1E242B] transition-colors"
-            >
-              ⏱ Simular minuto 29
-            </button>
-          </div>
-        )}
       </aside>
 
       {/* Contenedor Derecho: Header Superior + Contenido */}

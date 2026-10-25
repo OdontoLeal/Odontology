@@ -269,7 +269,7 @@ export class AppointmentsController {
   scheduleAppointment = async (req: Request, res: Response): Promise<void> => {
     try {
       const { titulo, descripcion, idPaciente, idUsuarioProfesional, idUsuarioGestor, bloques } = req.body;
-      const cita = await this.appointmentRepo.scheduleAppointment({
+      const cita: any = await this.appointmentRepo.scheduleAppointment({
         titulo,
         descripcion,
         idPaciente,
@@ -277,6 +277,44 @@ export class AppointmentsController {
         idUsuarioGestor,
         bloques,
       });
+
+      // Envío de correo de confirmación al paciente (RF-AGE-002, RQNF-FIA-004)
+      if (cita?.correoPaciente) {
+        try {
+          await this.mailerService.sendAppointmentConfirmationEmail({
+            to: cita.correoPaciente,
+            nombrePaciente: cita.nombrePaciente || 'Paciente',
+            fecha: cita.fecha || 'Por confirmar',
+            hora: cita.hora || 'Por confirmar',
+            doctor: cita.nombreDoctor || 'Dr. Eduar Leal Álvarez',
+            motivo: cita.titulo || 'Consulta Odontológica Confirmada',
+            idCita: cita.id_cita,
+          });
+          console.log(`📧 Confirmación de nueva cita enviada al paciente ${cita.correoPaciente}`);
+        } catch (mailError: any) {
+          console.error('Error enviando correo de confirmación al paciente:', mailError?.message);
+        }
+      }
+
+      // Envío de correo de notificación al doctor (RF-AGE-002, RQNF-FIA-004)
+      if (cita?.correoDoctor) {
+        try {
+          await this.mailerService.sendDoctorAppointmentNotificationEmail({
+            to: cita.correoDoctor,
+            doctorName: cita.nombreDoctor || 'Doctor',
+            patientName: cita.nombrePaciente || 'Paciente',
+            fecha: cita.fecha || 'Por confirmar',
+            hora: cita.hora || 'Por confirmar',
+            motivo: cita.titulo || 'Consulta Odontológica Confirmada',
+            idCita: cita.id_cita,
+            telefonoPaciente: cita.telefonoPaciente,
+          });
+          console.log(`📧 Notificación de nueva cita enviada al doctor ${cita.correoDoctor}`);
+        } catch (docMailError: any) {
+          console.error('Error enviando correo de nueva cita al doctor:', docMailError?.message);
+        }
+      }
+
       res.status(201).json({ message: 'Cita confirmada exitosamente.', data: cita });
     } catch (error: any) {
       res.status(400).json({ message: error.message });
@@ -296,6 +334,45 @@ export class AppointmentsController {
         idUsuarioGestor: idUsuarioGestor || 1,
         motivo,
       });
+
+      // Envío de correo de reprogramación / modificación al paciente (RF-AGE-006, RQNF-FIA-004)
+      if (updated?.correoPaciente) {
+        try {
+          await this.mailerService.sendAppointmentRescheduledEmail({
+            to: updated.correoPaciente,
+            nombrePaciente: updated.nombrePaciente || 'Paciente',
+            fecha: updated.fecha || 'Por confirmar',
+            hora: updated.hora || 'Por confirmar',
+            doctor: updated.nombreDoctor || 'Dr. Eduar Leal Álvarez',
+            motivo: updated.titulo || 'Cita Odontológica Modificada',
+            idCita: updated.id_cita,
+            notas: updated.descripcion,
+          });
+          console.log(`📧 Notificación de cita modificada enviada al paciente ${updated.correoPaciente}`);
+        } catch (mailError: any) {
+          console.error('Error enviando correo de modificación al paciente:', mailError?.message);
+        }
+      }
+
+      // Envío de correo de notificación de reprogramación al doctor (RF-AGE-006, RQNF-FIA-004)
+      if (updated?.correoDoctor) {
+        try {
+          await this.mailerService.sendDoctorAppointmentRescheduledEmail({
+            to: updated.correoDoctor,
+            doctorName: updated.nombreDoctor || 'Doctor',
+            patientName: updated.nombrePaciente || 'Paciente',
+            fecha: updated.fecha || 'Por confirmar',
+            hora: updated.hora || 'Por confirmar',
+            motivo: updated.titulo || 'Cita Odontológica Modificada',
+            idCita: updated.id_cita,
+            telefonoPaciente: updated.telefonoPaciente,
+            notas: updated.descripcion,
+          });
+          console.log(`📧 Notificación de cita modificada enviada al doctor ${updated.correoDoctor}`);
+        } catch (docMailError: any) {
+          console.error('Error enviando correo de modificación al doctor:', docMailError?.message);
+        }
+      }
 
       res.json({
         message: 'Cita actualizada exitosamente.',

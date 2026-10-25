@@ -481,7 +481,37 @@ export class AppointmentRepository {
         [cita.id_cita, dto.idUsuarioGestor]
       );
 
-      return cita;
+      // Obtener datos del paciente y profesional para el envío de correos
+      const pacRes = await client.query(
+        `SELECT nombre_completo, correo, telefono FROM public.paciente WHERE id_paciente = $1;`,
+        [dto.idPaciente]
+      );
+      const docRes = await client.query(
+        `SELECT nombre_completo, correo FROM public.usuario WHERE id_usuario = $1;`,
+        [dto.idUsuarioProfesional]
+      );
+
+      // Calcular fecha y rango horario
+      const sortedBlocks = [...dto.bloques].sort();
+      const firstBlockStr = String(sortedBlocks[0]).replace('T', ' ');
+      const lastBlockStr = String(sortedBlocks[sortedBlocks.length - 1]).replace('T', ' ');
+      const fechaCita = firstBlockStr.split(' ')[0];
+      const startHHmm = (firstBlockStr.split(' ')[1] || '').slice(0, 5);
+      const lastDate = new Date(lastBlockStr);
+      const endDate = new Date(lastDate.getTime() + 30 * 60 * 1000);
+      const endHHmm = `${endDate.getHours().toString().padStart(2, '0')}:${endDate.getMinutes().toString().padStart(2, '0')}`;
+      const horaRango = `${startHHmm} - ${endHHmm}`;
+
+      return {
+        ...cita,
+        nombrePaciente: pacRes.rows[0]?.nombre_completo || 'Paciente',
+        correoPaciente: pacRes.rows[0]?.correo || null,
+        telefonoPaciente: pacRes.rows[0]?.telefono || null,
+        nombreDoctor: docRes.rows[0]?.nombre_completo || 'Doctor',
+        correoDoctor: docRes.rows[0]?.correo || null,
+        fecha: fechaCita,
+        hora: horaRango,
+      };
     });
   }
 
@@ -568,7 +598,7 @@ export class AppointmentRepository {
   }) {
     return db.withTransaction(async (client) => {
       const currentRes = await client.query(
-        `SELECT c.*, p.nombre_completo AS "nombrePaciente", p.correo AS "correoPaciente"
+        `SELECT c.*, p.nombre_completo AS "nombrePaciente", p.correo AS "correoPaciente", p.telefono AS "telefonoPaciente"
          FROM public.cita c
          JOIN public.paciente p ON c.id_paciente = p.id_paciente
          WHERE c.id_cita = $1 FOR UPDATE;`,
@@ -661,7 +691,7 @@ export class AppointmentRepository {
         [params.idCita, params.idUsuarioGestor, params.motivo || 'Modificación de detalles y/o bloques de la cita']
       );
 
-      // 4. Retornar cita actualizada
+      // 4. Retornar cita actualizada con fecha y horario calculado
       const updatedRes = await client.query(
         `SELECT c.*, u.nombre_completo AS "nombreDoctor", u.correo AS "correoDoctor"
          FROM public.cita c
@@ -670,10 +700,34 @@ export class AppointmentRepository {
         [params.idCita]
       );
 
+      const finalBcRes = await client.query(
+        `SELECT to_char(id_bloque, 'YYYY-MM-DD HH24:MI:SS') AS id_bloque 
+         FROM public.bloques_citas 
+         WHERE id_cita = $1 
+         ORDER BY id_bloque ASC;`,
+        [params.idCita]
+      );
+      const finalBlocks: string[] = finalBcRes.rows.map((r: any) => r.id_bloque);
+      let fechaCita = 'Fecha por confirmar';
+      let horaRango = 'Horario por confirmar';
+      if (finalBlocks.length > 0) {
+        const first = finalBlocks[0];
+        const last = finalBlocks[finalBlocks.length - 1];
+        fechaCita = first.split(' ')[0];
+        const startHHmm = (first.split(' ')[1] || '').slice(0, 5);
+        const lastDate = new Date(last);
+        const endDate = new Date(lastDate.getTime() + 30 * 60 * 1000);
+        const endHHmm = `${endDate.getHours().toString().padStart(2, '0')}:${endDate.getMinutes().toString().padStart(2, '0')}`;
+        horaRango = `${startHHmm} - ${endHHmm}`;
+      }
+
       return {
         ...updatedRes.rows[0],
         correoPaciente: cita.correoPaciente,
         nombrePaciente: cita.nombrePaciente,
+        telefonoPaciente: cita.telefonoPaciente,
+        fecha: fechaCita,
+        hora: horaRango,
       };
     });
   }
