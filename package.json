@@ -7,7 +7,8 @@
     "dev": "tsx watch src/app/server.ts",
     "build": "tsc && vite build",
     "heroku-postbuild": "npm run build",
-    "start": "node dist/app/server.js"
+    "start": "node dist/app/server.js",
+    "test": "tsx --test src/modules/**/__tests__/*.test.ts"
   },
   "engines": {
     "node": ">=20.0.0",

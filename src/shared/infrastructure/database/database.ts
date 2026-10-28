@@ -1,4 +1,10 @@
-import { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg';
+import { Pool, PoolClient, QueryResult, QueryResultRow, types } from 'pg';
+
+// OID 1114 = TIMESTAMP WITHOUT TIME ZONE (ej. bloques_horario.inicio, final)
+// OID 1082 = DATE
+// Prevenir que el driver pg serialice a Date en UTC (+5h) y asegurar que retorne el string local de BD tal cual
+types.setTypeParser(1114, (str: string) => str);
+types.setTypeParser(1082, (str: string) => str);
 import { envConfig } from '../../../app/config/env.config';
 
 class Database {

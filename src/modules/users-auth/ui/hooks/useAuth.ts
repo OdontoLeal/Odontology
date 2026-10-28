@@ -439,7 +439,6 @@ export function useAuth(options?: {
     authenticate,
     logout,
     continueSessionAfterWarning: resetInactivityTimer,
-     simulateMinute29Warning: () => setIsWarningModalOpen(true),
     requestPasswordRecovery,
     resetPasswordWithToken,
     searchUsers,

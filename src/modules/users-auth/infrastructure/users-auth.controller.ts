@@ -191,14 +191,10 @@ export class UsersAuthController {
         estado: estado !== undefined ? estado === 'true' : undefined,
       });
 
-      if (result.data.length === 0) {
-        res.status(404).json({
-          message: result.message || 'ninguna coincidencia encontrada',
-          data: [],
-        });
-        return;
-      }
-      res.json({ data: result.data });
+      res.status(200).json({
+        data: result.data || [],
+        message: result.message,
+      });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }

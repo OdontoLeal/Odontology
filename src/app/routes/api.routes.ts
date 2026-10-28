@@ -15,6 +15,7 @@ import { ClinicalRecordRepository } from '../../modules/clinical-records/infrast
 import { ClinicalRecordsController } from '../../modules/clinical-records/infrastructure/clinical-records.controller';
 
 import { ConsentRepository } from '../../modules/consents/infrastructure/consent.repository';
+import { ConsentService } from '../../modules/consents/application/consent.service';
 import { ConsentsController } from '../../modules/consents/infrastructure/consents.controller';
 
 import { ClinicalDocumentRepository } from '../../modules/clinical-documents/infrastructure/clinical-document.repository';
@@ -26,7 +27,7 @@ const usersController = new UsersAuthController(new UserRepository());
 const appointmentsController = new AppointmentsController(new AppointmentRepository());
 const patientsController = new PatientsController(new PatientRepository());
 const clinicalRecordsController = new ClinicalRecordsController(new ClinicalRecordRepository());
-const consentsController = new ConsentsController(new ConsentRepository());
+const consentsController = new ConsentsController(new ConsentService(new ConsentRepository()));
 const clinicalDocumentsController = new ClinicalDocumentsController(new ClinicalDocumentRepository());
 
 // 0. Healthcheck de conexión a Heroku Postgres (RQNF-FIA-001)
@@ -57,10 +58,17 @@ router.patch('/users/:id/status', usersController.toggleUserStatus);
 
 // 2. Rutas Módulo B: Agendamiento de Citas
 router.post('/appointments/slots', appointmentsController.upsertTimeSlot);
+router.get('/appointments/available-slots', appointmentsController.getAvailableSlots);
+router.post('/appointments/generate-day-slots', appointmentsController.generateDaySlots);
+router.patch('/appointments/slots/toggle', appointmentsController.toggleSlotStatus);
 router.get('/appointments/slots', appointmentsController.getTimeSlots);
+router.get('/appointments/monthly-summary', appointmentsController.getMonthlySummary);
+router.get('/appointments/requests', appointmentsController.getRequests);
+router.get('/appointments/requests/:id', appointmentsController.getRequestById);
 router.post('/appointments/public-requests', appointmentsController.requestAppointmentPublic);
 router.post('/appointments/requests/:id/review', appointmentsController.reviewRequest);
 router.post('/appointments', appointmentsController.scheduleAppointment);
+router.put('/appointments/:id', appointmentsController.updateAppointment);
 router.patch('/appointments/:id/state', appointmentsController.changeState);
 router.get('/appointments/agenda', appointmentsController.getAgenda);
 
