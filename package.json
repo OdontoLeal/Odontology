@@ -11,7 +11,7 @@
     "test": "tsx --test src/modules/**/__tests__/*.test.ts"
   },
   "engines": {
-    "node": ">=20.0.0",
+    "node": "=24.13.0",
     "npm": ">=10.0.0"
   },
   "repository": {
