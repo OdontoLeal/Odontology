@@ -176,7 +176,7 @@ export class EmbedProfessionalSignatureService {
 
     return {
       archivoPdfUrl,
-      modoFirmaAplicado: modoSolicitado,
+      modoFirmaAplicado: firmaFusionada ? 'CON_FIRMA_REGISTRADA' : 'FIRMA_MANUSCRITA',
       firmaFusionada,
       aviso,
       fechaExpedicionColombia: fechaDDMMAAAA,
