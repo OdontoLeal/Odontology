@@ -25,6 +25,22 @@ export class AppointmentsController {
         res.status(400).json({ message: 'El parámetro fecha es obligatorio en formato YYYY-MM-DD.' });
         return;
       }
+
+      const cleanFecha = fecha.trim().split('T')[0].split(' ')[0];
+      const todayColombia = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'America/Bogota',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }).format(new Date());
+
+      if (cleanFecha < todayColombia) {
+        res.status(400).json({
+          message: `No se pueden generar bloques de horario para fechas pasadas (${cleanFecha}).`,
+        });
+        return;
+      }
+
       const result = await this.appointmentRepo.generateDaySlots(fecha);
       res.status(201).json({
         message: `Se generaron ${result.totalGenerados} bloques de horario para la fecha ${result.fecha} (06:00 a 20:00).`,
@@ -130,6 +146,21 @@ export class AppointmentsController {
       if (!nombreSolicitante || !documentoSolicitante || !correoSolicitante || !bloqueSolicitado) {
         res.status(400).json({
           message: 'Nombre, documento, correo y horario son campos obligatorios para la solicitud.',
+        });
+        return;
+      }
+
+      const reqDate = String(bloqueSolicitado).trim().split('T')[0].split(' ')[0];
+      const todayColombia = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'America/Bogota',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }).format(new Date());
+
+      if (reqDate < todayColombia) {
+        res.status(400).json({
+          message: `No se pueden solicitar citas para fechas pasadas (${reqDate}).`,
         });
         return;
       }
@@ -269,6 +300,26 @@ export class AppointmentsController {
   scheduleAppointment = async (req: Request, res: Response): Promise<void> => {
     try {
       const { titulo, descripcion, idPaciente, idUsuarioProfesional, idUsuarioGestor, bloques } = req.body;
+
+      const todayColombia = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'America/Bogota',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }).format(new Date());
+
+      if (Array.isArray(bloques)) {
+        for (const b of bloques) {
+          const bDate = String(b).trim().split('T')[0].split(' ')[0];
+          if (bDate < todayColombia) {
+            res.status(400).json({
+              message: `No se pueden agendar citas para fechas pasadas (${bDate}).`,
+            });
+            return;
+          }
+        }
+      }
+
       const cita: any = await this.appointmentRepo.scheduleAppointment({
         titulo,
         descripcion,

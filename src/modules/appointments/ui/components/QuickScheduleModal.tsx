@@ -117,6 +117,22 @@ export const QuickScheduleModal: React.FC<QuickScheduleModalProps> = ({
   };
 
   const handleConfirm = () => {
+    const todayColombia = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Bogota',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date());
+
+    if (fecha < todayColombia) {
+      showAlert({
+        title: 'Fecha en el Pasado',
+        message: 'No es posible agendar citas en fechas pasadas.',
+        type: 'warning',
+      });
+      return;
+    }
+
     if (!selectedPatient) {
       showAlert({
         title: 'Paciente No Seleccionado',
@@ -300,6 +316,12 @@ export const QuickScheduleModal: React.FC<QuickScheduleModalProps> = ({
               </label>
               <input
                 type="date"
+                min={new Intl.DateTimeFormat('en-CA', {
+                  timeZone: 'America/Bogota',
+                  year: 'numeric',
+                  month: '2-digit',
+                  day: '2-digit',
+                }).format(new Date())}
                 value={fecha}
                 onChange={(e) => setFecha(e.target.value)}
                 className="w-full min-h-[40px] rounded-xl border border-[#E2E6EA] px-3 text-sm font-semibold text-[#1E242B]"

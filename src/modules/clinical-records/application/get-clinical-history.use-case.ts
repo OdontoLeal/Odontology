@@ -14,8 +14,17 @@ export interface ClinicalHistoryConsultationItem {
   fechaHoraRegistro: string | null;
   profesionalResponsable: string | null;
   motivoConsulta: string | null;
+  enfermedadActual?: string | null;
   antecedentes: AntecedentsMap | null;
+  habitosHigiene?: any;
+  examenEstomatognatico?: any;
+  examenFisicoObservaciones?: string | null;
   odontograma: OdontogramDataDTO | null;
+  procedimientoRealizado?: string | null;
+  diagnosticoGenerado?: string | null;
+  accionesARealizar?: string | null;
+  hallazgosObservaciones?: string | null;
+  planManejo?: any;
   notasEvolucion: Array<{
     idEvolucion: number;
     tipoRegistro: string;
@@ -56,9 +65,7 @@ export class GetClinicalHistoryUseCase {
       params.idPaciente
     );
 
-    const validEvolutionRows = rows.filter(
-      (r) => r.idEvolucion !== null && r.evolucion !== null
-    );
+    const validEvolutionRows = rows.filter((r) => r.idEvolucion !== null);
     const inasistencias = params.inasistenciasPaciente ?? [];
 
     if (validEvolutionRows.length === 0 && inasistencias.length === 0) {
@@ -74,7 +81,7 @@ export class GetClinicalHistoryUseCase {
     const consultationsByCita = new Map<number, ClinicalHistoryConsultationItem>();
 
     for (const row of validEvolutionRows) {
-      if (!row.idCita || !row.evolucion) continue;
+      if (!row.idCita) continue;
 
       const fechaDate = row.fechaRegistro ? new Date(row.fechaRegistro) : new Date();
       const isSameDay =
@@ -87,49 +94,117 @@ export class GetClinicalHistoryUseCase {
           esInasistencia: row.estadoCita === 'Inasistencia',
           fechaHoraRegistro: row.fechaRegistro
             ? new Date(row.fechaRegistro).toISOString()
-            : row.evolucion.diligenciadoPor.fechaHoraISO,
+            : row.evolucion?.diligenciadoPor?.fechaHoraISO ?? new Date().toISOString(),
           profesionalResponsable: row.profesionalResponsable,
           motivoConsulta: null,
+          enfermedadActual: null,
           antecedentes: null,
+          habitosHigiene: null,
+          examenEstomatognatico: null,
+          examenFisicoObservaciones: null,
           odontograma: null,
+          procedimientoRealizado: null,
+          diagnosticoGenerado: null,
+          accionesARealizar: null,
+          hallazgosObservaciones: null,
+          planManejo: null,
           notasEvolucion: [],
         });
       }
 
       const item = consultationsByCita.get(row.idCita)!;
 
-      if (row.evolucion.motivoConsulta && !item.motivoConsulta) {
-        item.motivoConsulta = row.evolucion.motivoConsulta;
+      const motivo = row.motivoConsulta || row.evolucion?.motivoConsulta;
+      if (motivo && !item.motivoConsulta) {
+        item.motivoConsulta = motivo;
       }
 
-      if (row.evolucion.antecedentes && !item.antecedentes) {
-        item.antecedentes = row.evolucion.antecedentes;
+      const enfActual = row.enfermedadActual || row.evolucion?.enfermedadActual;
+      if (enfActual && !item.enfermedadActual) {
+        item.enfermedadActual = enfActual;
       }
 
-      // Toma el odontograma más reciente de esa consulta (como las filas vienen en ORDER BY fecha DESC, el primero es el último guardado)
-      if (
-        row.evolucion.odontograma &&
-        row.evolucion.odontograma.cuadrantes &&
-        !item.odontograma
-      ) {
-        item.odontograma = row.evolucion.odontograma;
+      const antec = row.antecedentesClinicos || row.evolucion?.antecedentes;
+      if (antec && !item.antecedentes) {
+        item.antecedentes = antec;
       }
 
-      if (
-        row.evolucion.procedimientoRealizado ||
-        row.evolucion.notaEvolucion ||
-        row.evolucion.tipoRegistro === 'NOTA_ACLARATORIA'
-      ) {
-        item.notasEvolucion.push({
-          idEvolucion: row.idEvolucion!,
-          tipoRegistro: row.evolucion.tipoRegistro,
-          procedimientoRealizado: row.evolucion.procedimientoRealizado,
-          notaEvolucion: row.evolucion.notaEvolucion,
-          diligenciadoPor: row.evolucion.diligenciadoPor,
-          editableHoy:
-            isSameDay && row.evolucion.tipoRegistro !== 'NOTA_ACLARATORIA',
-        });
+      const habitos = row.habitosHigiene || row.evolucion?.habitosHigiene;
+      if (habitos && !item.habitosHigiene) {
+        item.habitosHigiene = habitos;
       }
+
+      const examen = row.examenEstomatognatico || row.evolucion?.examenEstomatognatico;
+      if (examen && !item.examenEstomatognatico) {
+        item.examenEstomatognatico = examen;
+      }
+
+      const examObs = row.examenFisicoObservaciones || row.evolucion?.examenFisicoObservaciones;
+      if (examObs && !item.examenFisicoObservaciones) {
+        item.examenFisicoObservaciones = examObs;
+      }
+
+      let odonto = row.odontograma || row.evolucion?.odontograma;
+      if (typeof odonto === 'string') {
+        try {
+          odonto = JSON.parse(odonto);
+        } catch {}
+      }
+      if (odonto && (odonto as any).cuadrantes && !item.odontograma) {
+        item.odontograma = odonto;
+      }
+
+      const proc = row.procedimientoRealizado || row.evolucion?.procedimientoRealizado;
+      if (proc && !item.procedimientoRealizado) {
+        item.procedimientoRealizado = proc;
+      }
+
+      const diag =
+        row.diagnosticoGenerado ||
+        row.evolucion?.diagnosticoGenerado ||
+        row.evolucion?.diagnostico;
+      if (diag && !item.diagnosticoGenerado) {
+        item.diagnosticoGenerado = diag;
+      }
+
+      const acciones = row.accionesARealizar || row.evolucion?.accionesARealizar;
+      if (acciones && !item.accionesARealizar) {
+        item.accionesARealizar = acciones;
+      }
+
+      const hallazgos =
+        row.hallazgosObservaciones ||
+        row.evolucion?.hallazgosObservaciones ||
+        row.evolucion?.observaciones;
+      if (hallazgos && !item.hallazgosObservaciones) {
+        item.hallazgosObservaciones = hallazgos;
+      }
+
+      const plan = row.planManejo || row.evolucion?.planManejo;
+      if (plan && !item.planManejo) {
+        item.planManejo = plan;
+      }
+
+      item.notasEvolucion.push({
+        idEvolucion: row.idEvolucion!,
+        tipoRegistro: row.evolucion?.tipoRegistro ?? 'EVOLUCION_CLINICA',
+        procedimientoRealizado: proc ?? undefined,
+        notaEvolucion:
+          row.evolucion?.notaEvolucion ??
+          proc ??
+          hallazgos ??
+          motivo ??
+          'Atención odontológica realizada.',
+        diligenciadoPor: row.evolucion?.diligenciadoPor ?? {
+          idUsuario: 1,
+          nombreUsuario: row.profesionalResponsable ?? 'Personal Clínico',
+          idProfesionalResponsable: 1,
+          fechaHoraISO: row.fechaRegistro
+            ? new Date(row.fechaRegistro).toISOString()
+            : new Date().toISOString(),
+        },
+        editableHoy: isSameDay,
+      });
     }
 
     for (const inasistencia of inasistencias) {

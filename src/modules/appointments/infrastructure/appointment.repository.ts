@@ -50,6 +50,17 @@ export class AppointmentRepository {
       throw new Error('La fecha debe tener formato YYYY-MM-DD');
     }
 
+    const todayColombia = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Bogota',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date());
+
+    if (cleanFecha < todayColombia) {
+      throw new Error(`No se pueden generar bloques de horario para fechas pasadas (${cleanFecha}).`);
+    }
+
     const slots: { inicio: string; final: string }[] = [];
     // Horarios ERS RF-AGE-001: 06:00 a 20:00 cada 30 minutos (28 bloques)
     for (let hour = 6; hour < 20; hour++) {
@@ -100,6 +111,19 @@ export class AppointmentRepository {
     if (cleanInicio.includes('T')) {
       cleanInicio = cleanInicio.replace('T', ' ').split('.')[0];
     }
+
+    const todayColombia = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Bogota',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date());
+
+    const slotDate = cleanInicio.split(' ')[0];
+    if (slotDate < todayColombia) {
+      throw new Error(`No se pueden modificar bloques de horario de fechas pasadas (${slotDate}).`);
+    }
+
     const slotRes = await db.query<TimeSlotRow>(
       `SELECT inicio, final, estado, ocupacion FROM public.bloques_horario WHERE inicio = $1;`,
       [cleanInicio]
@@ -119,6 +143,18 @@ export class AppointmentRepository {
 
   // RF-AGE-003: Solicitar cita desde sección pública y reservar bloque (Regla de Negocio 1)
   async createPublicRequest(dto: CreateSolicitudCitaDTO) {
+    const todayColombia = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Bogota',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date());
+
+    const reqDate = String(dto.bloqueSolicitado).trim().split('T')[0].split(' ')[0];
+    if (reqDate < todayColombia) {
+      throw new Error(`No se pueden solicitar citas para fechas pasadas (${reqDate}).`);
+    }
+
     return db.withTransaction(async (client) => {
       // 1. Asegurar que el bloque horario existe en la base de datos
       const startDate = new Date(dto.bloqueSolicitado);
@@ -445,6 +481,20 @@ export class AppointmentRepository {
 
   // RF-AGE-002: Agendar cita directamente (Confirmada) ocupando múltiples bloques
   async scheduleAppointment(dto: CreateCitaDTO) {
+    const todayColombia = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Bogota',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date());
+
+    for (const bloque of dto.bloques) {
+      const blockDate = String(bloque).trim().split('T')[0].split(' ')[0];
+      if (blockDate < todayColombia) {
+        throw new Error(`No se pueden agendar citas para fechas pasadas (${blockDate}).`);
+      }
+    }
+
     return db.withTransaction(async (client) => {
       for (const bloque of dto.bloques) {
         const check = await client.query<TimeSlotRow>(

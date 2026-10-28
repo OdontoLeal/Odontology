@@ -40,13 +40,21 @@ export class ManageOdontogramUseCase {
 
     const lastRecordWithOdontogram = history.find(
       (row) =>
-        row.evolucion?.odontograma &&
-        typeof row.evolucion.odontograma === 'object' &&
-        'cuadrantes' in row.evolucion.odontograma
+        (row.odontograma &&
+          typeof row.odontograma === 'object' &&
+          'cuadrantes' in (row.odontograma as any)) ||
+        (row.evolucion?.odontograma &&
+          typeof row.evolucion.odontograma === 'object' &&
+          'cuadrantes' in row.evolucion.odontograma)
     );
 
+    const previousOdontogram =
+      (lastRecordWithOdontogram?.odontograma as OdontogramDataDTO) ||
+      lastRecordWithOdontogram?.evolucion?.odontograma ||
+      null;
+
     const odontogram = OdontogramEntity.fromPreviousOdontogram({
-      previousOdontogram: lastRecordWithOdontogram?.evolucion?.odontograma ?? null,
+      previousOdontogram,
       isMinorUnder18: esMenorDe18Anios,
     });
 
@@ -55,7 +63,7 @@ export class ManageOdontogramUseCase {
 
   /**
    * RF-HCL-007: Parte del último odontograma, valida y aplica el nuevo JSON de odontograma
-   * enviado por el Frontend, y lo guarda en el campo JSONB con "diligenciadoPor".
+   * enviado por el Frontend, y lo guarda en la columna odontograma (JSONB) y payload de autoría.
    */
   async execute(command: ManageOdontogramCommand): Promise<EvolutionRecordRow> {
     if (!command.idPaciente || !command.idCita) {
@@ -71,7 +79,7 @@ export class ManageOdontogramUseCase {
 
     const existingEvolutionRow = command.idEvolucionExistente
       ? history.find((r) => r.idEvolucion === command.idEvolucionExistente)
-      : undefined;
+      : history.find((r) => r.idCita === command.idCita);
 
     const fechaCreacionTarget = existingEvolutionRow?.fechaRegistro
       ? new Date(existingEvolutionRow.fechaRegistro)
@@ -87,23 +95,33 @@ export class ManageOdontogramUseCase {
 
     const lastRecordWithOdontogram = history.find(
       (row) =>
-        row.evolucion?.odontograma &&
-        typeof row.evolucion.odontograma === 'object' &&
-        'cuadrantes' in row.evolucion.odontograma
+        (row.odontograma &&
+          typeof row.odontograma === 'object' &&
+          'cuadrantes' in (row.odontograma as any)) ||
+        (row.evolucion?.odontograma &&
+          typeof row.evolucion.odontograma === 'object' &&
+          'cuadrantes' in row.evolucion.odontograma)
     );
 
+    const previousOdontogram =
+      (lastRecordWithOdontogram?.odontograma as OdontogramDataDTO) ||
+      lastRecordWithOdontogram?.evolucion?.odontograma ||
+      null;
+
     const odontogramEntity = OdontogramEntity.fromPreviousOdontogram({
-      previousOdontogram: lastRecordWithOdontogram?.evolucion?.odontograma ?? null,
+      previousOdontogram,
       isMinorUnder18: command.esMenorDe18Anios,
     });
 
     odontogramEntity.applyUpdatedOdontogram(command.odontograma);
 
+    const updatedSnapshot = odontogramEntity.getSnapshot();
+
     const payload: ClinicalEvolutionPayload = {
       ...(existingEvolutionRow?.evolucion ?? {}),
       tipoRegistro:
         existingEvolutionRow?.evolucion?.tipoRegistro ?? 'EVOLUCION_ODONTOGRAMA',
-      odontograma: odontogramEntity.getSnapshot(),
+      odontograma: updatedSnapshot,
       diligenciadoPor: {
         idUsuario: command.actor.idUsuario,
         nombreUsuario: command.actor.nombreUsuario,
@@ -115,13 +133,18 @@ export class ManageOdontogramUseCase {
     if (existingEvolutionRow && existingEvolutionRow.idEvolucion) {
       return await this.clinicalRepo.updateEvolutionEntrySameDay(
         existingEvolutionRow.idEvolucion,
-        payload
+        {
+          ...payload,
+          odontograma: updatedSnapshot,
+        }
       );
     }
 
     return await this.clinicalRepo.createEvolutionEntry({
       idPaciente: command.idPaciente,
       idCita: command.idCita,
+      motivoConsulta: existingEvolutionRow?.motivoConsulta || 'Evolución con Odontograma',
+      odontograma: updatedSnapshot,
       payload,
     });
   }

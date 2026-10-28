@@ -62,6 +62,9 @@ export class RegisterEvolutionUseCase {
     return await this.clinicalRepo.createEvolutionEntry({
       idPaciente: command.idPaciente,
       idCita: command.idCita,
+      motivoConsulta: payload.motivoConsulta || 'Evolución clínica',
+      procedimientoRealizado: command.procedimientoRealizado,
+      hallazgosObservaciones: command.notaEvolucionTextoLibre,
       payload,
     });
   }
@@ -84,7 +87,7 @@ export class RegisterEvolutionUseCase {
     }
 
     const idProfesionalResponsableCita =
-      targetRow.evolucion.diligenciadoPor.idProfesionalResponsable;
+      targetRow.evolucion.diligenciadoPor?.idProfesionalResponsable ?? 1;
 
     const updatedPayload = EvolutionNoteEntity.updateExistingEvolutionPayload({
       actor: command.actor,
@@ -100,7 +103,11 @@ export class RegisterEvolutionUseCase {
 
     return await this.clinicalRepo.updateEvolutionEntrySameDay(
       command.idEvolucion,
-      updatedPayload
+      {
+        ...updatedPayload,
+        procedimientoRealizado: command.procedimientoRealizado,
+        hallazgosObservaciones: command.notaEvolucionTextoLibre,
+      }
     );
   }
 }

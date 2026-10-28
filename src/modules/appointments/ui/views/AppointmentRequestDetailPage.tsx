@@ -2,6 +2,11 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '../../../../shared/ui/components/Button';
 import { useAlertModal } from '../../../../shared/ui/hooks/useAlertModal';
+import {
+  ClockIcon,
+  FileTextIcon,
+  UserIcon,
+} from '../../../../shared/ui/components/Icons';
 
 export interface RequestDetailData {
   idSolicitud: number;
@@ -393,7 +398,7 @@ export const AppointmentRequestDetailPage: React.FC<AppointmentRequestDetailPage
           {/* Card 1: Fecha y Horario Solicitado Originalmente */}
           <div className="rounded-3xl border border-[#E2E6EA] bg-white p-6 shadow-xs space-y-4">
             <div className="flex items-center gap-2 text-sm font-extrabold text-[#1E242B]">
-              <span className="text-[#D4AF37]">🕒</span>
+              <ClockIcon size={16} color="#D4AF37" />
               <h3>Fecha y Horario Solicitado por el Paciente</h3>
             </div>
 
@@ -427,7 +432,7 @@ export const AppointmentRequestDetailPage: React.FC<AppointmentRequestDetailPage
           {/* Card 2: Motivo de Consulta Registrado */}
           <div className="rounded-3xl border border-[#E2E6EA] bg-white p-6 shadow-xs space-y-4">
             <div className="flex items-center gap-2 text-sm font-extrabold text-[#1E242B]">
-              <span className="text-[#D4AF37]">💬</span>
+              <FileTextIcon size={16} color="#D4AF37" />
               <h3>Motivo de Consulta Registrado</h3>
             </div>
 
@@ -511,7 +516,7 @@ export const AppointmentRequestDetailPage: React.FC<AppointmentRequestDetailPage
           <div className="rounded-3xl border border-[#E2E6EA] bg-white p-6 shadow-xs space-y-5">
             <div className="flex items-center justify-between pb-3 border-b border-[#E2E6EA]">
               <div className="flex items-center gap-2 text-sm font-extrabold text-[#1E242B]">
-                <span className="text-[#D4AF37]">👤</span>
+                <UserIcon size={16} color="#D4AF37" />
                 <h3>Datos del Paciente</h3>
               </div>
               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#EFF6FF] text-[#2563EB] border border-[#BFDBFE]">

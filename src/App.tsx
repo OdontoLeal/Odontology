@@ -1,5 +1,5 @@
 // src/App.tsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
   InternalDashboardLayout,
   InternalNavigationView,
@@ -54,6 +54,18 @@ export const App: React.FC = () => {
     idPaciente: number;
     idCita: number;
   } | null>(null);
+
+  const calculatedPatientAge = useMemo(() => {
+    if (selectedPatient?.edad !== undefined) return selectedPatient.edad;
+    if (!selectedPatient?.fechaNacimiento) return undefined;
+    const birth = new Date(selectedPatient.fechaNacimiento);
+    if (isNaN(birth.getTime())) return undefined;
+    const today = new Date();
+    let age = today.getFullYear() - birth.getFullYear();
+    const m = today.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+    return age >= 0 ? age : undefined;
+  }, [selectedPatient]);
 
   const { drafts, saveDraftForUser, discardDraft } = useSessionDraft(null);
 
@@ -228,6 +240,8 @@ export const App: React.FC = () => {
             patientDoc={selectedPatient?.documentoIdentidad || ''}
             patientPhone={selectedPatient?.telefono || ''}
             patientEmail={selectedPatient?.correo || ''}
+            patientAge={calculatedPatientAge}
+            patientSex={selectedPatient?.sexo}
             doctorName={auth.session.usuario.nombreCompleto}
             onBackToAgenda={() => setActiveConsultationContext(null)}
             onFinishConsultation={async (idCita) => {

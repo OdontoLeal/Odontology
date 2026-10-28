@@ -1,12 +1,18 @@
 // src/modules/clinical-records/ui/views/ActiveConsultationPage.tsx
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { EvolutionTemplateEditor, EvolutionFormData } from '../components/EvolutionTemplateEditor';
 import { OdontogramCanvas } from '../components/OdontogramCanvas';
 import { useClinicalRecord } from '../hooks/useClinicalRecord';
 import { Button } from '../../../../shared/ui/components/Button';
-import { Badge } from '../../../../shared/ui/components/Badge';
 import { Modal } from '../../../../shared/ui/components/Modal';
 import { useAlertModal } from '../../../../shared/ui/hooks/useAlertModal';
+import { SparklesIcon } from '../../../../shared/ui/components/Icons';
+import {
+  DEFAULT_ANTECEDENTES_CLINICOS,
+  DEFAULT_HABITOS_HIGIENE,
+  DEFAULT_EXAMEN_ESTOMATOGNATICO,
+  DEFAULT_PLAN_MANEJO,
+} from '../../infrastructure/clinical-record.model';
 
 export interface ActiveConsultationPageProps {
   idPaciente: number;
@@ -15,6 +21,8 @@ export interface ActiveConsultationPageProps {
   patientDoc: string;
   patientPhone?: string;
   patientEmail?: string;
+  patientAge?: number;
+  patientSex?: string;
   doctorName?: string;
   treatmentTitle?: string;
   appointmentDate?: string;
@@ -30,6 +38,8 @@ export const ActiveConsultationPage: React.FC<ActiveConsultationPageProps> = ({
   patientDoc,
   patientPhone = '',
   patientEmail = '',
+  patientAge,
+  patientSex,
   doctorName = 'Dr. Eduar Leal Álvarez',
   treatmentTitle = 'Atención y Valoración Odontológica',
   appointmentDate,
@@ -37,22 +47,88 @@ export const ActiveConsultationPage: React.FC<ActiveConsultationPageProps> = ({
   onBackToAgenda,
   onFinishConsultation,
 }) => {
-  const { currentOdontogram, saveEvolutionEntry } = useClinicalRecord(idPaciente);
+  const { history, currentOdontogram, isLoading, saveEvolutionEntry } = useClinicalRecord(idPaciente);
   const { showAlert, showConfirm, AlertModalComponent } = useAlertModal();
 
   // Modal de Odontograma Ampliado
   const [isExpandedOdontogramOpen, setIsExpandedOdontogramOpen] = useState(false);
   const [workingOdontogram, setWorkingOdontogram] = useState(currentOdontogram);
 
-  // Iniciales del paciente para avatar
-  const initials = useMemo(() => {
-    return (patientName || 'Paciente')
-      .split(' ')
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((w) => w[0].toUpperCase())
-      .join('');
-  }, [patientName]);
+  // Sincronizar el odontograma al cargar
+  useEffect(() => {
+    if (currentOdontogram?.cuadrantes) {
+      setWorkingOdontogram(currentOdontogram);
+    }
+  }, [currentOdontogram]);
+
+  // Buscar si esta cita ya tiene evolución o si existe una previa para precargar
+  const previousEvolution = useMemo(() => {
+    if (!history || history.length === 0) return null;
+    const sameCita = history.find((e) => Number(e.idCita) === Number(idCita));
+    if (sameCita) return sameCita;
+    const otherCita = history.find((e) => Number(e.idCita) !== Number(idCita));
+    return otherCita || history[0];
+  }, [history, idCita]);
+
+  // Inicialización inteligente de datos (Precarga automática de la última consulta)
+  const initialFormData = useMemo<Partial<EvolutionFormData>>(() => {
+    const isSameCita = previousEvolution && Number(previousEvolution.idCita) === Number(idCita);
+
+    if (isSameCita && previousEvolution) {
+      // Reabriendo o editando la consulta actual
+      return {
+        motivoConsulta: previousEvolution.motivoConsulta || treatmentTitle || '',
+        enfermedadActual: previousEvolution.enfermedadActual || '',
+        antecedentesClinicos: previousEvolution.antecedentesClinicos || DEFAULT_ANTECEDENTES_CLINICOS,
+        habitosHigiene: previousEvolution.habitosHigiene || DEFAULT_HABITOS_HIGIENE,
+        examenEstomatognatico: previousEvolution.examenEstomatognatico || DEFAULT_EXAMEN_ESTOMATOGNATICO,
+        examenFisicoObservaciones: previousEvolution.examenFisicoObservaciones || '',
+        procedimientoRealizado: previousEvolution.procedimientoRealizado || '',
+        diagnostico: previousEvolution.diagnostico || '',
+        diagnosticoGenerado: previousEvolution.diagnosticoGenerado || previousEvolution.diagnostico || '',
+        accionesARealizar: previousEvolution.accionesARealizar || '',
+        observaciones: previousEvolution.observaciones || previousEvolution.hallazgosObservaciones || '',
+        odontograma: previousEvolution.odontograma || workingOdontogram || currentOdontogram,
+        planManejo: previousEvolution.planManejo || DEFAULT_PLAN_MANEJO,
+      };
+    }
+
+    if (previousEvolution) {
+      // Precarga automática desde la consulta previa para una NUEVA cita:
+      return {
+        motivoConsulta: treatmentTitle || '',
+        enfermedadActual: '',
+        antecedentesClinicos: previousEvolution.antecedentesClinicos || DEFAULT_ANTECEDENTES_CLINICOS,
+        habitosHigiene: previousEvolution.habitosHigiene || DEFAULT_HABITOS_HIGIENE,
+        examenEstomatognatico: previousEvolution.examenEstomatognatico || DEFAULT_EXAMEN_ESTOMATOGNATICO,
+        examenFisicoObservaciones: previousEvolution.examenFisicoObservaciones || '',
+        procedimientoRealizado: '',
+        diagnostico: previousEvolution.diagnostico || '',
+        diagnosticoGenerado: previousEvolution.diagnosticoGenerado || previousEvolution.diagnostico || '',
+        accionesARealizar: previousEvolution.accionesARealizar || '',
+        observaciones: '',
+        odontograma: previousEvolution.odontograma || workingOdontogram || currentOdontogram,
+        planManejo: previousEvolution.planManejo || DEFAULT_PLAN_MANEJO,
+      };
+    }
+
+    // Primera vez que el paciente asiste (sin consultas previas)
+    return {
+      motivoConsulta: treatmentTitle || '',
+      enfermedadActual: '',
+      antecedentesClinicos: DEFAULT_ANTECEDENTES_CLINICOS,
+      habitosHigiene: DEFAULT_HABITOS_HIGIENE,
+      examenEstomatognatico: DEFAULT_EXAMEN_ESTOMATOGNATICO,
+      examenFisicoObservaciones: '',
+      procedimientoRealizado: '',
+      diagnostico: '',
+      diagnosticoGenerado: '',
+      accionesARealizar: '',
+      observaciones: '',
+      odontograma: workingOdontogram || currentOdontogram,
+      planManejo: DEFAULT_PLAN_MANEJO,
+    };
+  }, [previousEvolution, idCita, treatmentTitle, workingOdontogram, currentOdontogram]);
 
   // Fecha legible
   const displayDate = useMemo(() => {
@@ -60,7 +136,7 @@ export const ActiveConsultationPage: React.FC<ActiveConsultationPageProps> = ({
     return new Intl.DateTimeFormat('es-CO', {
       weekday: 'long',
       year: 'numeric',
-      month: 'long',
+      month: 'short',
       day: 'numeric',
     }).format(new Date());
   }, [appointmentDate]);
@@ -109,16 +185,24 @@ export const ActiveConsultationPage: React.FC<ActiveConsultationPageProps> = ({
         idCita,
         motivoConsulta: formData.motivoConsulta,
         enfermedadActual: formData.enfermedadActual,
+        antecedentesClinicos: formData.antecedentesClinicos,
+        habitosHigiene: formData.habitosHigiene,
+        examenEstomatognatico: formData.examenEstomatognatico,
+        examenFisicoObservaciones: formData.examenFisicoObservaciones,
         procedimientoRealizado: formData.procedimientoRealizado,
         diagnostico: formData.diagnostico,
+        diagnosticoGenerado: formData.diagnosticoGenerado || formData.diagnostico,
         accionesARealizar: formData.accionesARealizar,
         observaciones: formData.observaciones,
+        hallazgosObservaciones: formData.hallazgosObservaciones || formData.observaciones,
         odontograma: workingOdontogram || formData.odontograma,
+        planManejo: formData.planManejo,
       });
 
       showAlert({
         title: '¡Evolución Registrada con Éxito!',
-        message: 'La evolución clínica y el odontograma se han firmado y guardado inalterablemente en la Historia Clínica del paciente (Resolución 1995/1999).',
+        message:
+          'La evolución clínica, antecedentes, examen físico, plan de manejo y odontograma se han firmado y guardado inalterablemente en la Historia Clínica del paciente.',
         type: 'success',
         confirmText: 'Aceptar',
         onConfirm: () => onFinishConsultation(idCita),
@@ -126,7 +210,9 @@ export const ActiveConsultationPage: React.FC<ActiveConsultationPageProps> = ({
     } catch (err: any) {
       showAlert({
         title: 'No se pudo guardar la evolución clínica',
-        message: err.message || 'Ocurrió un error al procesar el registro clínico. Por favor verifique los campos obligatorios e intente nuevamente.',
+        message:
+          err.message ||
+          'Ocurrió un error al procesar el registro clínico. Por favor verifique los campos obligatorios e intente nuevamente.',
         type: 'error',
       });
     }
@@ -135,7 +221,8 @@ export const ActiveConsultationPage: React.FC<ActiveConsultationPageProps> = ({
   const handleFinishConsultationClick = () => {
     showConfirm({
       title: '¿Finalizar Atención de la Cita?',
-      message: 'Esta acción dará por concluida la consulta activa y registrará la cita como Atendida en la agenda médica.',
+      message:
+        'Esta acción dará por concluida la consulta activa y registrará la cita como Atendida en la agenda médica sin registrar evolución.',
       confirmText: 'Sí, finalizar cita',
       cancelText: 'Volver a la consulta',
       onConfirm: () => onFinishConsultation(idCita),
@@ -143,71 +230,38 @@ export const ActiveConsultationPage: React.FC<ActiveConsultationPageProps> = ({
   };
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+    <div className="space-y-6 max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 animate-fadeIn">
       <AlertModalComponent />
 
-      {/* Barra Superior de Navegación y Cierre de Consulta */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <button
-          type="button"
-          onClick={onBackToAgenda}
-          className="inline-flex items-center gap-2 text-xs font-bold text-[#687380] hover:text-[#1E242B]"
-        >
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-          </svg>
-          Volver a la Agenda
-        </button>
-
-        <div className="flex items-center gap-3">
-          <Button
-            variant="secondary"
-            onClick={handleFinishConsultationClick}
-            leftIcon={<span>🏁</span>}
-          >
-            Terminar Cita
-          </Button>
-        </div>
-      </div>
-
-      {/* Header Resumen de la Cita en Curso */}
-      <div className="rounded-3xl border-2 border-[#D4AF37]/50 bg-white p-6 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div className="space-y-1">
-          <div className="flex items-center gap-3">
-            <h1 className="text-xl sm:text-2xl font-extrabold text-[#1E242B]">
-              {treatmentTitle}
-            </h1>
-            <Badge label="En consulta" variant="gold" />
-          </div>
-          <p className="text-xs text-[#687380]">
-            📅 {displayDate} {appointmentTime ? `• ${appointmentTime} hrs` : ''} • {doctorName}
-          </p>
-        </div>
-
-        {/* Resumen del Paciente */}
-        <div className="flex items-center gap-3 p-3 rounded-2xl bg-[#F8F9FA] border border-[#E2E6EA] text-xs">
-          <div className="h-10 w-10 rounded-xl bg-[#1E242B] text-[#D4AF37] font-bold flex items-center justify-center">
-            {initials}
-          </div>
-          <div>
-            <p className="font-extrabold text-[#1E242B]">{patientName}</p>
-            <p className="text-[#8F99A3]">
-              C.C. {patientDoc} {patientPhone ? `• Tel: +57 ${patientPhone}` : ''}
+      {/* Banner Informativo de Precarga Automática de Consulta Anterior */}
+      {previousEvolution && Number(previousEvolution.idCita) !== Number(idCita) && (
+        <div className="flex items-start sm:items-center gap-3 p-4 rounded-2xl bg-[#FBF6E6] border border-[#E9C765] text-xs text-[#111111]">
+          <SparklesIcon size={20} color="#D4AF37" className="shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <strong className="font-black text-[#926C15] block">
+              Precarga Automática de la Consulta Anterior ({previousEvolution.fechaRegistro})
+            </strong>
+            <p className="text-[#687380] text-[11px] mt-0.5">
+              Se han precargado los antecedentes clínicos, hábitos higiénicos, examen físico estomatognático y el último odontograma registrado en el historial médico del paciente. Cada evolución es independiente y se guardará como un registro nuevo para esta cita.
             </p>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Editor Completo de Evolución con 5 Pestañas */}
+      {/* Editor Completo de Evolución con 5 Pestañas y Diseño Exacto */}
       <EvolutionTemplateEditor
         patientName={patientName}
         patientDoc={patientDoc}
+        patientAge={patientAge}
+        patientSex={patientSex}
         doctorName={doctorName}
-        initialData={{
-          odontograma: workingOdontogram,
-        }}
+        displayDate={displayDate}
+        initialData={initialFormData}
+        odontogram={workingOdontogram}
+        onOdontogramChange={setWorkingOdontogram}
         onSubmitOfficial={handleOfficialSubmit}
         onOpenExpandedOdontogram={() => setIsExpandedOdontogramOpen(true)}
+        onBackToDetail={onBackToAgenda}
       />
 
       {/* MODAL PANTALLA COMPLETA: Odontograma Clínico FDI - Modo Edición Ampliada */}
@@ -229,7 +283,8 @@ export const ActiveConsultationPage: React.FC<ActiveConsultationPageProps> = ({
                 setIsExpandedOdontogramOpen(false);
                 showAlert({
                   title: 'Odontograma Actualizado',
-                  message: 'Los hallazgos y notas del odontograma ampliado se han aplicado correctamente a la consulta activa.',
+                  message:
+                    'Los hallazgos y notas del odontograma ampliado se han aplicado correctamente a la consulta activa.',
                   type: 'success',
                 });
               }}
@@ -243,19 +298,22 @@ export const ActiveConsultationPage: React.FC<ActiveConsultationPageProps> = ({
         <div className="space-y-4">
           <OdontogramCanvas
             initialData={workingOdontogram}
+            onChange={(updated) => setWorkingOdontogram(updated)}
             onSave={(updated) => setWorkingOdontogram(updated)}
           />
 
           {/* Tabla inferior de Observaciones y Notas Clínicas por Pieza Dental */}
-          <div className="rounded-2xl border border-[#E2E6EA] bg-[#F8F9FA] p-4 space-y-2">
-            <span className="text-xs font-extrabold uppercase text-[#1E242B] block">
+          <div className="rounded-2xl border border-[#E7E7E3] bg-[#F6F6F4] p-4 space-y-2">
+            <span className="text-xs font-black uppercase text-[#111111] block">
               Observaciones y Notas Clínicas por Pieza Dental
             </span>
             {toothNotes.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
                 {toothNotes.map((note) => (
-                  <div key={note.fdi} className="p-2.5 rounded-xl bg-white border border-[#E2E6EA]">
-                    <strong className="text-[#D4AF37]">Pieza {note.fdi} ({note.zona}):</strong>
+                  <div key={note.fdi} className="p-2.5 rounded-xl bg-white border border-[#E7E7E3]">
+                    <strong className="text-[#D4AF37]">
+                      Pieza {note.fdi} ({note.zona}):
+                    </strong>
                     <p className="text-[#687380] mt-0.5">{note.descripcion}</p>
                   </div>
                 ))}

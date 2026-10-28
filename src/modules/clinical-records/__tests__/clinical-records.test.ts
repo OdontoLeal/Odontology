@@ -42,12 +42,66 @@ class InMemoryClinicalRecordRepository implements IClinicalRecordRepository {
     const idHistoria = this.pacienteHistoriaMap.get(dto.idPaciente)!;
     const idEvolucion = this.evolucionIdSeq++;
 
+    const motivoConsulta =
+      dto.motivoConsulta ?? dto.payload?.motivoConsulta ?? 'Consulta Odontológica';
+    const enfermedadActual =
+      dto.enfermedadActual ?? dto.payload?.enfermedadActual ?? 'N/A';
+    const antecedentesClinicos =
+      dto.antecedentesClinicos ?? dto.payload?.antecedentesClinicos ?? dto.payload?.antecedentes ?? {};
+    const habitosHigiene =
+      dto.habitosHigiene ?? dto.payload?.habitosHigiene ?? {};
+    const examenEstomatognatico =
+      dto.examenEstomatognatico ?? dto.payload?.examenEstomatognatico ?? {};
+    const examenFisicoObservaciones =
+      dto.examenFisicoObservaciones ?? dto.payload?.examenFisicoObservaciones ?? null;
+    const odontograma =
+      dto.odontograma ?? dto.payload?.odontograma ?? null;
+    const procedimientoRealizado =
+      dto.procedimientoRealizado ?? dto.payload?.procedimientoRealizado ?? dto.payload?.notaEvolucion ?? null;
+    const diagnosticoGenerado =
+      dto.diagnosticoGenerado ?? dto.payload?.diagnosticoGenerado ?? dto.payload?.diagnostico ?? null;
+    const accionesARealizar =
+      dto.accionesARealizar ?? dto.payload?.accionesARealizar ?? null;
+    const hallazgosObservaciones =
+      dto.hallazgosObservaciones ?? dto.payload?.hallazgosObservaciones ?? dto.payload?.observaciones ?? null;
+    const planManejo =
+      dto.planManejo ?? dto.payload?.planManejo ?? {};
+
+    const payload = dto.payload ? structuredClone(dto.payload) : {
+      tipoRegistro: 'EVOLUCION_ODONTOGRAMA',
+      motivoConsulta,
+      enfermedadActual,
+      antecedentes: antecedentesClinicos,
+      odontograma,
+      procedimientoRealizado,
+      diagnostico: diagnosticoGenerado,
+      observaciones: hallazgosObservaciones,
+      diligenciadoPor: {
+        idUsuario: 1,
+        nombreUsuario: 'Dr. Eduar Leal Álvarez',
+        idProfesionalResponsable: 1,
+        fechaHoraISO: new Date().toISOString(),
+      },
+    };
+
     const row: EvolutionRecordRow = {
       idEvolucion,
       idHistoria,
       fecha: new Date(),
       idCita: dto.idCita,
-      evolucion: structuredClone(dto.payload),
+      motivoConsulta,
+      enfermedadActual,
+      antecedentesClinicos,
+      habitosHigiene,
+      examenEstomatognatico,
+      examenFisicoObservaciones,
+      odontograma,
+      procedimientoRealizado,
+      diagnosticoGenerado,
+      accionesARealizar,
+      hallazgosObservaciones,
+      planManejo,
+      evolucion: payload as any,
     };
     this.evoluciones.set(idEvolucion, row);
     return row;
@@ -55,7 +109,7 @@ class InMemoryClinicalRecordRepository implements IClinicalRecordRepository {
 
   async updateEvolutionEntrySameDay(
     idEvolucion: number,
-    nuevoPayload: ClinicalEvolutionPayload
+    nuevoPayload: ClinicalEvolutionPayload | Partial<EvolutionRecordRow>
   ): Promise<EvolutionRecordRow> {
     const existing = this.evoluciones.get(idEvolucion);
     if (!existing) {
@@ -70,7 +124,15 @@ class InMemoryClinicalRecordRepository implements IClinicalRecordRepository {
       throw new Error('La historia clínica solo se puede editar el día en que fue creada');
     }
 
-    existing.evolucion = structuredClone(nuevoPayload);
+    const p = nuevoPayload as any;
+    if (p.motivoConsulta) existing.motivoConsulta = p.motivoConsulta;
+    if (p.enfermedadActual) existing.enfermedadActual = p.enfermedadActual;
+    if (p.antecedentes || p.antecedentesClinicos) existing.antecedentesClinicos = p.antecedentesClinicos ?? p.antecedentes;
+    if (p.odontograma) existing.odontograma = p.odontograma;
+    if (p.procedimientoRealizado) existing.procedimientoRealizado = p.procedimientoRealizado;
+    if (p.diagnostico || p.diagnosticoGenerado) existing.diagnosticoGenerado = p.diagnosticoGenerado ?? p.diagnostico;
+    if (p.observaciones || p.hallazgosObservaciones) existing.hallazgosObservaciones = p.hallazgosObservaciones ?? p.observaciones;
+    existing.evolucion = structuredClone(p);
     return existing;
   }
 
@@ -92,6 +154,18 @@ class InMemoryClinicalRecordRepository implements IClinicalRecordRepository {
           idCita: evo.idCita,
           estadoCita: 'Atendida',
           profesionalResponsable: 'Dr. Eduar Leal Álvarez',
+          motivoConsulta: evo.motivoConsulta,
+          enfermedadActual: evo.enfermedadActual,
+          antecedentesClinicos: evo.antecedentesClinicos,
+          habitosHigiene: evo.habitosHigiene,
+          examenEstomatognatico: evo.examenEstomatognatico,
+          examenFisicoObservaciones: evo.examenFisicoObservaciones,
+          odontograma: evo.odontograma,
+          procedimientoRealizado: evo.procedimientoRealizado,
+          diagnosticoGenerado: evo.diagnosticoGenerado,
+          accionesARealizar: evo.accionesARealizar,
+          hallazgosObservaciones: evo.hallazgosObservaciones,
+          planManejo: evo.planManejo,
           evolucion: evo.evolucion,
         });
       }

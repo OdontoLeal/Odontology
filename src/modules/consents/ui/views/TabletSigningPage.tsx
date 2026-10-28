@@ -76,7 +76,7 @@ export const TabletSigningPage: React.FC<TabletSigningPageProps> = ({
             ¡Documento Procesado con Éxito!
           </h2>
           <p className="text-xs text-[#687380] leading-relaxed">
-            La firma y constancia del consentimiento se han integrado de forma segura y encriptada (AES-256) al expediente clínico del paciente en el sistema médico (RF-CON-002).
+            El consentimiento se ha integrado al expediente clínico del paciente en el sistema médico.
           </p>
           <div className="pt-4">
             <Button variant="primary" className="w-full min-h-[48px]" onClick={onExit}>

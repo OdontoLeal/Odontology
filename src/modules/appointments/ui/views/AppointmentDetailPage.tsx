@@ -4,6 +4,14 @@ import { Button } from '../../../../shared/ui/components/Button';
 import { Badge } from '../../../../shared/ui/components/Badge';
 import { useAlertModal } from '../../../../shared/ui/hooks/useAlertModal';
 import { DoctorOption } from '../components/ServiceSelector';
+import {
+  UserIcon,
+  ClockIcon,
+  PhoneIcon,
+  FileTextIcon,
+  ClipboardIcon,
+  LockIcon,
+} from '../../../../shared/ui/components/Icons';
 
 export interface AppointmentDetailPageData {
   idCita: number;
@@ -559,7 +567,7 @@ export const AppointmentDetailPage: React.FC<AppointmentDetailPageProps> = ({
               {/* Datos del Paciente (Solo Lectura) */}
               <div className="rounded-2xl border border-[#E2E6EA] bg-[#F8F9FA] p-5 space-y-4">
                 <div className="flex items-center gap-2 text-xs font-extrabold uppercase text-[#D4AF37] tracking-wider">
-                  <span>👤</span>
+                  <UserIcon size={14} color="#D4AF37" />
                   <h3>Paciente Programado</h3>
                 </div>
 
@@ -636,7 +644,7 @@ export const AppointmentDetailPage: React.FC<AppointmentDetailPageProps> = ({
               <div className="rounded-2xl border border-[#E2E6EA] bg-[#F8F9FA] p-5 space-y-4">
                 <div className="flex items-center justify-between pb-3 border-b border-[#E2E6EA]">
                   <div className="flex items-center gap-2 text-xs font-extrabold uppercase text-[#D4AF37] tracking-wider">
-                    <span>🕒</span>
+                    <ClockIcon size={14} color="#D4AF37" />
                     <h3>Bloques Horarios Disponibles</h3>
                   </div>
                   <span className="text-xs font-bold text-[#1E242B]">
@@ -826,7 +834,7 @@ export const AppointmentDetailPage: React.FC<AppointmentDetailPageProps> = ({
               </div>
 
               <div className="flex items-center gap-2 mt-1.5 text-xs text-[#687380] font-medium">
-                <span className="text-[#D4AF37]">🕒</span>
+                <ClockIcon size={14} color="#D4AF37" />
                 <span>
                   {formatSpanishHeaderDate(appointment.fecha)} • {appointment.horaInicio} - {appointment.horaFin} hrs ({appointment.sillon || 'Gabinete 02'})
                 </span>
@@ -947,14 +955,14 @@ export const AppointmentDetailPage: React.FC<AppointmentDetailPageProps> = ({
 
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 text-xs">
             <div>
-              <span className="block text-[11px] font-bold text-[#8F99A3] flex items-center gap-1">
-                📞 Teléfono
+              <span className="block text-[11px] font-bold text-[#8F99A3] flex items-center gap-1.5">
+                <PhoneIcon size={12} color="#D4AF37" /> Teléfono
               </span>
               <span className="font-extrabold text-[#1E242B]">{appointment.telefono}</span>
             </div>
             <div>
-              <span className="block text-[11px] font-bold text-[#8F99A3] flex items-center gap-1">
-                ✉ Correo Electrónico
+              <span className="block text-[11px] font-bold text-[#8F99A3] flex items-center gap-1.5">
+                <span className="text-[#D4AF37]">✉</span> Correo Electrónico
               </span>
               <span className="font-extrabold text-[#1E242B]">{appointment.correo}</span>
             </div>
@@ -966,8 +974,8 @@ export const AppointmentDetailPage: React.FC<AppointmentDetailPageProps> = ({
       <div className="rounded-3xl border border-[#E2E6EA] bg-white p-6 shadow-xs space-y-4">
         <div className="flex items-center justify-between pb-3 border-b border-[#E2E6EA]">
           <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-xl bg-[#111827] text-[#D4AF37] flex items-center justify-center shrink-0">
-              🎓
+            <div className="h-9 w-9 rounded-xl bg-[#111111] flex items-center justify-center shrink-0">
+              <ClipboardIcon size={18} color="#D4AF37" />
             </div>
             <div className="flex items-center gap-2">
               <h3 className="text-sm font-extrabold text-[#1E242B]">Historias Clínicas</h3>
@@ -1256,7 +1264,7 @@ export const AppointmentDetailPage: React.FC<AppointmentDetailPageProps> = ({
             <div className="space-y-2">
               <label className="text-xs font-extrabold uppercase text-[#1E242B] flex items-center justify-between">
                 <span className="flex items-center gap-1.5">
-                  <span>📝</span> MOTIVO DE CANCELACIÓN
+                  <FileTextIcon size={14} color="#D4AF37" /> MOTIVO DE CANCELACIÓN
                 </span>
                 <span className="text-[#DC2626] font-bold">* OBLIGATORIO</span>
               </label>
@@ -1313,8 +1321,8 @@ export const AppointmentDetailPage: React.FC<AppointmentDetailPageProps> = ({
           <div className="w-full max-w-lg rounded-3xl border border-[#E2E6EA] bg-white p-6 sm:p-8 shadow-xl space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-[#E2E6EA]">
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-2xl bg-[#111827] text-[#D4AF37] flex items-center justify-center">
-                  📄
+                <div className="h-10 w-10 rounded-2xl bg-[#111111] flex items-center justify-center">
+                  <FileTextIcon size={18} color="#D4AF37" />
                 </div>
                 <div>
                   <h3 className="text-base font-extrabold text-[#1E242B]">Adjuntar Consentimientos Informados</h3>

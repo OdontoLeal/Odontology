@@ -1,5 +1,12 @@
 // src/modules/appointments/ui/components/WeeklyCalendarGrid.tsx
 import React from 'react';
+import {
+  CalendarIcon,
+  ClockIcon,
+  ToothIcon,
+  LockIcon,
+  UnlockIcon,
+} from '../../../../shared/ui/components/Icons';
 
 export interface CalendarTimeSlot {
   idBloque: number;
@@ -30,6 +37,7 @@ export interface CalendarTimeSlot {
 export interface WeeklyCalendarGridProps {
   slots: CalendarTimeSlot[];
   filterMode: 'all' | 'appointments_only' | 'requests_only';
+  isPastDate?: boolean;
   onSelectSlot?: (slot: CalendarTimeSlot) => void;
   onSelectPendingRequest?: (slot: CalendarTimeSlot) => void;
   onToggleSlotStatus?: (slot: CalendarTimeSlot) => void;
@@ -40,6 +48,7 @@ export interface WeeklyCalendarGridProps {
 export const WeeklyCalendarGrid: React.FC<WeeklyCalendarGridProps> = ({
   slots,
   filterMode,
+  isPastDate = false,
   onSelectSlot,
   onSelectPendingRequest,
   onToggleSlotStatus,
@@ -99,7 +108,7 @@ export const WeeklyCalendarGrid: React.FC<WeeklyCalendarGridProps> = ({
       case 'Solicitada':
         return (
           <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-semibold bg-[#EFF6FF] text-[#2563EB] border border-[#BFDBFE]">
-            <span>🕒</span>
+            <ClockIcon size={12} className="text-[#2563EB]" />
             Pendiente de confirmación
           </span>
         );
@@ -123,8 +132,8 @@ export const WeeklyCalendarGrid: React.FC<WeeklyCalendarGridProps> = ({
   if (slots.length === 0) {
     return (
       <div className="rounded-3xl border border-dashed border-[#E2E6EA] bg-white p-12 text-center space-y-4 shadow-2xs">
-        <div className="h-14 w-14 mx-auto rounded-2xl bg-[#FFFBEB] text-[#D4AF37] flex items-center justify-center text-2xl border border-[#FDE68A]">
-          📅
+        <div className="h-14 w-14 mx-auto rounded-2xl bg-[#FFFBEB] text-[#D4AF37] flex items-center justify-center border border-[#FDE68A]">
+          <CalendarIcon size={24} color="#D4AF37" />
         </div>
         <div>
           <h3 className="text-base font-extrabold text-[#1E242B]">
@@ -134,7 +143,7 @@ export const WeeklyCalendarGrid: React.FC<WeeklyCalendarGridProps> = ({
             Para habilitar la programación de citas, genera los bloques de 30 minutos (06:00 a 20:00) establecidos en las especificaciones del sistema.
           </p>
         </div>
-        {onCreateBlocks && (
+        {onCreateBlocks && !isPastDate ? (
           <button
             type="button"
             onClick={onCreateBlocks}
@@ -142,7 +151,11 @@ export const WeeklyCalendarGrid: React.FC<WeeklyCalendarGridProps> = ({
           >
             <span>➕</span> Crear bloques (06:00 - 20:00)
           </button>
-        )}
+        ) : isPastDate ? (
+          <span className="inline-block px-4 py-2 rounded-xl bg-gray-100 text-gray-400 text-xs font-bold border border-gray-200">
+            ⊘ No es posible generar bloques para fechas pasadas
+          </span>
+        ) : null}
       </div>
     );
   }
@@ -192,7 +205,7 @@ export const WeeklyCalendarGrid: React.FC<WeeklyCalendarGridProps> = ({
                     {renderStatusBadge(slot.estadoCita)}
                   </div>
                   <div className="flex items-center gap-2 text-xs text-[#687380] font-medium">
-                    <span className="text-[#D4AF37]">🦷</span>
+                    <ToothIcon size={14} color="#D4AF37" />
                     <span>{slot.tratamiento || 'Consulta Odontológica'}</span>
                     {slot.doctorNombre && (
                       <>
@@ -235,7 +248,7 @@ export const WeeklyCalendarGrid: React.FC<WeeklyCalendarGridProps> = ({
               <div className="flex items-center gap-2.5">
                 {isEnabled ? (
                   <>
-                    <span className="text-base">📅</span>
+                    <CalendarIcon size={16} className="text-[#687380]" />
                     <span className="text-xs sm:text-sm font-medium text-[#687380]">
                       Sin cita asignada
                     </span>
@@ -251,14 +264,18 @@ export const WeeklyCalendarGrid: React.FC<WeeklyCalendarGridProps> = ({
               </div>
 
               <div className="flex items-center gap-2 self-end sm:self-center">
-                {isEnabled ? (
+                {isPastDate ? (
+                  <span className="text-[11px] font-bold text-[#8F99A3] px-2 py-1 rounded-lg bg-gray-100">
+                    Fecha pasada
+                  </span>
+                ) : isEnabled ? (
                   <>
                     <button
                       type="button"
                       onClick={() => onToggleSlotStatus?.(slot)}
                       className="text-xs font-semibold px-3 py-1.5 rounded-xl border border-[#E2E6EA] bg-white text-[#B45309] hover:bg-[#FFFBEB] transition-colors inline-flex items-center gap-1.5 shadow-2xs"
                     >
-                      <span>🔓</span> Deshabilitar bloque
+                      <UnlockIcon size={14} className="text-[#B45309]" /> Deshabilitar bloque
                     </button>
                     {onScheduleSlot && (
                       <button
@@ -266,7 +283,7 @@ export const WeeklyCalendarGrid: React.FC<WeeklyCalendarGridProps> = ({
                         onClick={() => onScheduleSlot(slot)}
                         className="text-xs font-bold px-3 py-1.5 rounded-xl border border-[#E2E6EA] bg-white text-[#1E242B] hover:bg-[#F3F4F6] transition-colors inline-flex items-center gap-1 shadow-2xs"
                       >
-                        <span>➕</span> Agendar
+                        <span className="font-extrabold text-sm leading-none">+</span> Agendar
                       </button>
                     )}
                   </>
@@ -276,7 +293,7 @@ export const WeeklyCalendarGrid: React.FC<WeeklyCalendarGridProps> = ({
                     onClick={() => onToggleSlotStatus?.(slot)}
                     className="text-xs font-semibold px-3 py-1.5 rounded-xl border border-[#E2E6EA] bg-white text-[#B45309] hover:bg-[#FFFBEB] transition-colors inline-flex items-center gap-1.5 shadow-2xs"
                   >
-                    <span>🔒</span> Habilitar bloque
+                    <LockIcon size={14} className="text-[#B45309]" /> Habilitar bloque
                   </button>
                 )}
               </div>

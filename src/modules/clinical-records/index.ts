@@ -22,10 +22,10 @@ export class ClinicalRecordsModulePublicApi implements IClinicalRecordCheckerPor
    */
   async hasConsultationReasonRegistered(idCita: number): Promise<boolean> {
     const evo = await this.clinicalRepo.findEvolutionByCitaId(idCita);
-    if (!evo || !evo.evolucion) {
+    if (!evo) {
       return false;
     }
-    const motivo = evo.evolucion.motivoConsulta;
+    const motivo = evo.motivoConsulta || evo.evolucion?.motivoConsulta;
     return typeof motivo === 'string' && motivo.trim().length > 0;
   }
 
@@ -35,12 +35,11 @@ export class ClinicalRecordsModulePublicApi implements IClinicalRecordCheckerPor
   ): Promise<boolean> {
     const history = await this.clinicalRepo.getClinicalHistoryByPatient(idPaciente);
 
-    return history.some(
-      (row) =>
-        row.idCita === idCita &&
-        typeof row.evolucion?.motivoConsulta === 'string' &&
-        row.evolucion.motivoConsulta.trim().length > 0
-    );
+    return history.some((row) => {
+      if (row.idCita !== idCita) return false;
+      const motivo = row.motivoConsulta || row.evolucion?.motivoConsulta;
+      return typeof motivo === 'string' && motivo.trim().length > 0;
+    });
   }
 
   async assertConsultationReasonRegistered(

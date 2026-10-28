@@ -12,6 +12,7 @@ import { IClinicalRecordRepository } from '../domain/clinical-record.repository.
 import { OdontogramDataDTO } from './clinical-record.model';
 
 export class ClinicalRecordsController {
+  private readonly repo?: IClinicalRecordRepository;
   private readonly createClinicalRecordUseCase: CreateClinicalRecordUseCase;
   private readonly updateClinicalRecordUseCase: UpdateClinicalRecordUseCase;
   private readonly manageOdontogramUseCase: ManageOdontogramUseCase;
@@ -27,6 +28,7 @@ export class ClinicalRecordsController {
   ) {
     if ('createEvolutionEntry' in repoOrUseCase) {
       const repo = repoOrUseCase as IClinicalRecordRepository;
+      this.repo = repo;
       this.createClinicalRecordUseCase = new CreateClinicalRecordUseCase(repo);
       this.updateClinicalRecordUseCase = new UpdateClinicalRecordUseCase(repo);
       this.manageOdontogramUseCase = new ManageOdontogramUseCase(repo);
@@ -87,18 +89,22 @@ export class ClinicalRecordsController {
   // RF-HCL-005, RF-HCL-007, RF-HCL-009: Crear entrada de historia clínica, odontograma JSON o evolución
   createEntry = async (req: Request, res: Response): Promise<void> => {
     try {
-      const { idPaciente, idCita, estadoCita, esMenorDe18Anios, payload } = req.body;
+      const { idPaciente, idCita, estadoCita, esMenorDe18Anios } = req.body;
+      const body = req.body;
+      const payload = body.payload || {};
       const actor = this.extractActor(req);
 
-      if (!idPaciente || !idCita || !payload) {
+      if (!idPaciente || !idCita) {
         res.status(400).json({
-          message: 'idPaciente, idCita y payload son obligatorios.',
+          message: 'idPaciente e idCita son obligatorios.',
         });
         return;
       }
 
       const idProfesionalResponsable = Number(
-        payload.diligenciadoPor?.idProfesionalResponsable ?? actor.idUsuario
+        body.idProfesionalResponsable ??
+          payload.diligenciadoPor?.idProfesionalResponsable ??
+          actor.idUsuario
       );
 
       let entry;
@@ -110,14 +116,15 @@ export class ClinicalRecordsController {
           estadoCita: estadoCita ?? 'En consulta',
           idProfesionalResponsable,
           actor,
-          motivoConsulta: payload.motivoConsulta ?? '',
-          antecedentes: payload.antecedentes,
+          motivoConsulta: payload.motivoConsulta ?? body.motivoConsulta ?? '',
+          antecedentes: payload.antecedentes ?? body.antecedentesClinicos,
           marcarTodoNoAplica: Boolean(req.body.marcarTodoNoAplica),
         });
       } else if (
         payload.tipoRegistro === 'EVOLUCION_ODONTOGRAMA' &&
         this.isOdontogramObject(payload.odontograma) &&
-        !payload.procedimientoRealizado
+        !payload.procedimientoRealizado &&
+        !body.procedimientoRealizado
       ) {
         entry = await this.manageOdontogramUseCase.execute({
           idPaciente: Number(idPaciente),
@@ -128,12 +135,92 @@ export class ClinicalRecordsController {
           actor,
           odontograma: payload.odontograma,
         });
+      } else if (this.repo) {
+        // Guardado estructurado directo mapeado a las 5 pestañas de la tabla evolucion
+        const motivoConsulta =
+          body.motivoConsulta ?? payload.motivoConsulta ?? 'Consulta Odontológica';
+        const enfermedadActual =
+          body.enfermedadActual ?? payload.enfermedadActual ?? 'N/A';
+        const antecedentesClinicos =
+          body.antecedentesClinicos ??
+          payload.antecedentesClinicos ??
+          payload.antecedentes ??
+          {};
+        const habitosHigiene =
+          body.habitosHigiene ?? payload.habitosHigiene ?? {};
+        const examenEstomatognatico =
+          body.examenEstomatognatico ?? payload.examenEstomatognatico ?? {};
+        const examenFisicoObservaciones =
+          body.examenFisicoObservaciones ?? payload.examenFisicoObservaciones ?? null;
+        const odontograma =
+          body.odontograma ?? payload.odontograma ?? {};
+        const procedimientoRealizado =
+          body.procedimientoRealizado ??
+          payload.procedimientoRealizado ??
+          payload.notaEvolucion ??
+          null;
+        const diagnosticoGenerado =
+          body.diagnosticoGenerado ??
+          payload.diagnosticoGenerado ??
+          payload.diagnostico ??
+          null;
+        const accionesARealizar =
+          body.accionesARealizar ?? payload.accionesARealizar ?? null;
+        const hallazgosObservaciones =
+          body.hallazgosObservaciones ??
+          payload.hallazgosObservaciones ??
+          payload.observaciones ??
+          null;
+        const planManejo =
+          body.planManejo ?? payload.planManejo ?? {};
+
+        entry = await this.repo.createEvolutionEntry({
+          idPaciente: Number(idPaciente),
+          idCita: Number(idCita),
+          motivoConsulta,
+          enfermedadActual,
+          antecedentesClinicos,
+          habitosHigiene,
+          examenEstomatognatico,
+          examenFisicoObservaciones,
+          odontograma,
+          procedimientoRealizado,
+          diagnosticoGenerado,
+          accionesARealizar,
+          hallazgosObservaciones,
+          planManejo,
+          payload: {
+            tipoRegistro: 'EVOLUCION_ODONTOGRAMA',
+            motivoConsulta,
+            enfermedadActual,
+            antecedentesClinicos,
+            habitosHigiene,
+            examenEstomatognatico,
+            examenFisicoObservaciones: examenFisicoObservaciones ?? undefined,
+            odontograma,
+            procedimientoRealizado: procedimientoRealizado ?? undefined,
+            diagnostico: diagnosticoGenerado ?? undefined,
+            accionesARealizar: accionesARealizar ?? undefined,
+            observaciones: hallazgosObservaciones ?? undefined,
+            planManejo,
+            diligenciadoPor: {
+              idUsuario: actor.idUsuario,
+              nombreUsuario: actor.nombreUsuario,
+              idProfesionalResponsable,
+              fechaHoraISO: new Date().toISOString(),
+            },
+          },
+        });
       } else {
         const notaEvolucionTextoLibre =
           payload.notaEvolucion ||
+          body.observaciones ||
           payload.observaciones ||
+          body.procedimientoRealizado ||
           payload.procedimientoRealizado ||
-          (payload.motivoConsulta ? `Atención clínica: ${payload.motivoConsulta}` : 'Evolución clínica registrada.');
+          (body.motivoConsulta
+            ? `Atención clínica: ${body.motivoConsulta}`
+            : 'Evolución clínica registrada.');
 
         entry = await this.registerEvolutionUseCase.execute({
           idPaciente: Number(idPaciente),
@@ -141,7 +228,11 @@ export class ClinicalRecordsController {
           estadoCita: estadoCita ?? 'En consulta',
           idProfesionalResponsable,
           actor,
-          procedimientoRealizado: payload.procedimientoRealizado || payload.motivoConsulta || 'Atención Odontológica',
+          procedimientoRealizado:
+            body.procedimientoRealizado ||
+            payload.procedimientoRealizado ||
+            body.motivoConsulta ||
+            'Atención Odontológica',
           notaEvolucionTextoLibre,
           plantillaCodigo: req.body.plantillaCodigo,
           camposPlantilla: req.body.camposPlantilla,
@@ -158,11 +249,13 @@ export class ClinicalRecordsController {
     }
   };
 
-  // RF-HCL-006: Actualizar historia clínica, odontograma JSON o nota de evolución hasta las 23:59 UTC-5
+  // RF-HCL-006: Actualizar historia clínica, odontograma o campos de evolución hasta las 23:59 UTC-5
   updateEntry = async (req: Request, res: Response): Promise<void> => {
     try {
       const idEvolucion = Number(req.params.idEvolucion);
-      const { idPaciente, estadoCita, payload } = req.body;
+      const { idPaciente, estadoCita } = req.body;
+      const body = req.body;
+      const payload = body.payload || {};
       const actor = this.extractActor(req);
 
       let updated;
@@ -172,12 +265,14 @@ export class ClinicalRecordsController {
           idPaciente: Number(idPaciente),
           idEvolucion,
           actor,
-          motivoConsulta: payload.motivoConsulta,
-          antecedentes: payload.antecedentes,
+          motivoConsulta: payload.motivoConsulta ?? body.motivoConsulta,
+          antecedentes: payload.antecedentes ?? body.antecedentesClinicos,
         });
       } else if (
+        payload?.tipoRegistro === 'EVOLUCION_ODONTOGRAMA' &&
         this.isOdontogramObject(payload?.odontograma) &&
-        !payload?.procedimientoRealizado
+        !payload?.procedimientoRealizado &&
+        !body.procedimientoRealizado
       ) {
         updated = await this.manageOdontogramUseCase.execute({
           idPaciente: Number(idPaciente),
@@ -190,14 +285,38 @@ export class ClinicalRecordsController {
           actor,
           odontograma: payload.odontograma,
         });
+      } else if (this.repo) {
+        updated = await this.repo.updateEvolutionEntrySameDay(idEvolucion, {
+          motivoConsulta: body.motivoConsulta ?? payload.motivoConsulta,
+          enfermedadActual: body.enfermedadActual ?? payload.enfermedadActual,
+          antecedentesClinicos:
+            body.antecedentesClinicos ?? payload.antecedentesClinicos ?? payload.antecedentes,
+          habitosHigiene: body.habitosHigiene ?? payload.habitosHigiene,
+          examenEstomatognatico:
+            body.examenEstomatognatico ?? payload.examenEstomatognatico,
+          examenFisicoObservaciones:
+            body.examenFisicoObservaciones ?? payload.examenFisicoObservaciones,
+          odontograma: body.odontograma ?? payload.odontograma,
+          procedimientoRealizado:
+            body.procedimientoRealizado ?? payload.procedimientoRealizado ?? payload.notaEvolucion,
+          diagnosticoGenerado:
+            body.diagnosticoGenerado ?? payload.diagnosticoGenerado ?? payload.diagnostico,
+          accionesARealizar: body.accionesARealizar ?? payload.accionesARealizar,
+          hallazgosObservaciones:
+            body.hallazgosObservaciones ?? payload.hallazgosObservaciones ?? payload.observaciones,
+          planManejo: body.planManejo ?? payload.planManejo,
+          evolucion: payload,
+        });
       } else {
         updated = await this.registerEvolutionUseCase.updateNote({
           idPaciente: Number(idPaciente),
           idEvolucion,
           estadoCita: estadoCita ?? 'En consulta',
           actor,
-          procedimientoRealizado: payload?.procedimientoRealizado ?? '',
-          notaEvolucionTextoLibre: payload?.notaEvolucion,
+          procedimientoRealizado:
+            body?.procedimientoRealizado ?? payload?.procedimientoRealizado ?? '',
+          notaEvolucionTextoLibre:
+            body?.observaciones ?? payload?.notaEvolucion ?? payload?.observaciones,
           plantillaCodigo: req.body.plantillaCodigo,
           camposPlantilla: req.body.camposPlantilla,
         });
@@ -212,7 +331,7 @@ export class ClinicalRecordsController {
     }
   };
 
-  // RF-HCL-007: Obtener el último JSON de odontograma del paciente (o plantilla JSON limpia en 1ra consulta)
+  // RF-HCL-007: Obtener el último JSON de odontograma del paciente (o plantilla limpia en 1ra consulta)
   getLatestOdontogram = async (req: Request, res: Response): Promise<void> => {
     try {
       const idPaciente = Number(req.params.idPaciente);

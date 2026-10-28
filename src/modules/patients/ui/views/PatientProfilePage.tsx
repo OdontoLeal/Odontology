@@ -481,7 +481,7 @@ export const PatientProfilePage: React.FC<PatientProfilePageProps> = ({
               </div>
               <div className="flex items-center gap-2">
                 <Badge label="Solo Lectura" variant="neutral" size="sm" />
-                <Badge label="Registro Inmutable (Res. 1995/1999)" variant="gold" size="sm" />
+                <Badge label="Registro Inmutable" variant="gold" size="sm" />
               </div>
             </div>
 
@@ -489,7 +489,7 @@ export const PatientProfilePage: React.FC<PatientProfilePageProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
               <div className="p-4 rounded-2xl bg-[#F8F9FA] border border-[#E2E6EA] space-y-1">
                 <span className="font-extrabold text-[10px] uppercase tracking-wider text-[#8F99A3] block">
-                  Motivo de Consulta
+                  1. Motivo de Consulta
                 </span>
                 <p className="text-[#1E242B] font-semibold leading-relaxed">
                   {selectedEvolutionForView.motivoConsulta || 'Consulta odontológica programada'}
@@ -498,7 +498,7 @@ export const PatientProfilePage: React.FC<PatientProfilePageProps> = ({
 
               <div className="p-4 rounded-2xl bg-[#F8F9FA] border border-[#E2E6EA] space-y-1">
                 <span className="font-extrabold text-[10px] uppercase tracking-wider text-[#8F99A3] block">
-                  Diagnóstico (CIE-10)
+                  Diagnóstico (CIE-10 / Presuntivo)
                 </span>
                 <p className="text-[#1E242B] font-semibold leading-relaxed">
                   {selectedEvolutionForView.diagnostico || 'Evaluación clínica general'}
@@ -506,10 +506,111 @@ export const PatientProfilePage: React.FC<PatientProfilePageProps> = ({
               </div>
             </div>
 
+            {/* Enfermedad Actual */}
+            {selectedEvolutionForView.enfermedadActual && selectedEvolutionForView.enfermedadActual !== 'N/A' && (
+              <div className="p-4 rounded-2xl bg-[#F8F9FA] border border-[#E2E6EA] space-y-1 text-xs">
+                <span className="font-extrabold text-[10px] uppercase tracking-wider text-[#8F99A3] block">
+                  Enfermedad Actual
+                </span>
+                <p className="text-[#4B5563] leading-relaxed whitespace-pre-line">
+                  {selectedEvolutionForView.enfermedadActual}
+                </p>
+              </div>
+            )}
+
+            {/* Antecedentes Clínicos y Hábitos de Higiene */}
+            {(selectedEvolutionForView.antecedentesClinicos || selectedEvolutionForView.habitosHigiene) && (
+              <div className="p-4 rounded-2xl bg-[#F8F9FA] border border-[#E2E6EA] space-y-3 text-xs">
+                <span className="font-extrabold text-[10px] uppercase tracking-wider text-[#8F99A3] block">
+                  2. Antecedentes Clínicos y Hábitos Bucodentales
+                </span>
+
+                {selectedEvolutionForView.antecedentesClinicos && Object.keys(selectedEvolutionForView.antecedentesClinicos).length > 0 && (
+                  <div className="space-y-2">
+                    <span className="font-bold text-[11px] text-[#1E242B] block">Antecedentes Registrados:</span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {Object.entries(selectedEvolutionForView.antecedentesClinicos).map(([k, val]: [string, any]) => (
+                        <div key={k} className="p-2.5 rounded-xl bg-white border border-[#E2E6EA] text-xs">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-[#1E242B] capitalize">{k.replace(/_/g, ' ')}</span>
+                            <Badge
+                              label={val?.presenta ? 'Sí presenta' : 'No presenta'}
+                              variant={val?.presenta ? 'danger' : 'neutral'}
+                              size="sm"
+                            />
+                          </div>
+                          {val?.observaciones && (
+                            <p className="text-[11px] text-[#687380] mt-1 italic">{val.observaciones}</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {selectedEvolutionForView.habitosHigiene && Object.keys(selectedEvolutionForView.habitosHigiene).length > 0 && (
+                  <div className="space-y-2 pt-2 border-t border-[#E2E6EA]">
+                    <span className="font-bold text-[11px] text-[#1E242B] block">Hábitos y Rutina de Higiene:</span>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      {Object.entries(selectedEvolutionForView.habitosHigiene).map(([k, val]: [string, any]) => (
+                        <div key={k} className="p-2 rounded-xl bg-white border border-[#E2E6EA] text-[11px]">
+                          <span className="font-bold text-[#1E242B] capitalize block">{k.replace(/_/g, ' ')}</span>
+                          <span className="text-[#687380]">
+                            {val?.aplica ? 'Aplica' : 'No aplica'} • {val?.frecuencia_cantidad || 'N/A'}
+                          </span>
+                          {val?.observaciones && (
+                            <p className="text-[10px] text-[#8F99A3] mt-0.5 italic">{val.observaciones}</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Examen Físico Estomatognático */}
+            {(selectedEvolutionForView.examenEstomatognatico || selectedEvolutionForView.examenFisicoObservaciones) && (
+              <div className="p-4 rounded-2xl bg-[#F8F9FA] border border-[#E2E6EA] space-y-3 text-xs">
+                <span className="font-extrabold text-[10px] uppercase tracking-wider text-[#8F99A3] block">
+                  3. Examen Físico Estomatognático
+                </span>
+
+                {selectedEvolutionForView.examenEstomatognatico && Object.keys(selectedEvolutionForView.examenEstomatognatico).length > 0 && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {Object.entries(selectedEvolutionForView.examenEstomatognatico).map(([k, val]: [string, any]) => (
+                      <div key={k} className="p-2.5 rounded-xl bg-white border border-[#E2E6EA] text-xs">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-[#1E242B] capitalize">{k.replace(/_/g, ' ')}</span>
+                          <Badge
+                            label={val?.presenta_anormalidades ? 'Anormalidad' : 'Normal'}
+                            variant={val?.presenta_anormalidades ? 'warning' : 'neutral'}
+                            size="sm"
+                          />
+                        </div>
+                        {val?.observaciones && (
+                          <p className="text-[11px] text-[#687380] mt-1">{val.observaciones}</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {selectedEvolutionForView.examenFisicoObservaciones && (
+                  <div className="pt-2 border-t border-[#E2E6EA]">
+                    <span className="font-bold text-[11px] text-[#1E242B] block">Observaciones Generales:</span>
+                    <p className="text-[#4B5563] text-xs leading-relaxed whitespace-pre-line mt-0.5">
+                      {selectedEvolutionForView.examenFisicoObservaciones}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Procedimiento Realizado */}
             <div className="p-4 rounded-2xl bg-[#F8F9FA] border border-[#E2E6EA] space-y-1 text-xs">
               <span className="font-extrabold text-[10px] uppercase tracking-wider text-[#8F99A3] block">
-                Procedimiento Realizado
+                4. Procedimiento Realizado
               </span>
               <p className="text-[#1E242B] font-medium leading-relaxed whitespace-pre-line">
                 {selectedEvolutionForView.procedimientoRealizado || 'Sin procedimiento detallado'}
@@ -520,7 +621,7 @@ export const PatientProfilePage: React.FC<PatientProfilePageProps> = ({
             {selectedEvolutionForView.observaciones && (
               <div className="p-4 rounded-2xl bg-[#F8F9FA] border border-[#E2E6EA] space-y-1 text-xs">
                 <span className="font-extrabold text-[10px] uppercase tracking-wider text-[#8F99A3] block">
-                  Observaciones Clínicas / Evolución
+                  Hallazgos y Observaciones Clínicas
                 </span>
                 <p className="text-[#4B5563] leading-relaxed whitespace-pre-line">
                   {selectedEvolutionForView.observaciones}
@@ -532,11 +633,86 @@ export const PatientProfilePage: React.FC<PatientProfilePageProps> = ({
             {selectedEvolutionForView.accionesARealizar && (
               <div className="p-4 rounded-2xl bg-[#F8F9FA] border border-[#E2E6EA] space-y-1 text-xs">
                 <span className="font-extrabold text-[10px] uppercase tracking-wider text-[#8F99A3] block">
-                  Recomendaciones / Plan de Tratamiento
+                  Acciones a Realizar / Plan de Tratamiento
                 </span>
                 <p className="text-[#4B5563] leading-relaxed whitespace-pre-line">
                   {selectedEvolutionForView.accionesARealizar}
                 </p>
+              </div>
+            )}
+
+            {/* Plan de Manejo y Conducta */}
+            {selectedEvolutionForView.planManejo && (
+              <div className="p-4 rounded-2xl bg-[#F8F9FA] border border-[#E2E6EA] space-y-3 text-xs">
+                <span className="font-extrabold text-[10px] uppercase tracking-wider text-[#8F99A3] block">
+                  5. Plan de Manejo y Conducta
+                </span>
+
+                {selectedEvolutionForView.planManejo.conducta && (
+                  <div>
+                    <span className="font-bold text-[11px] text-[#1E242B] block">Conducta y Recomendaciones:</span>
+                    <p className="text-[#4B5563] leading-relaxed whitespace-pre-line mt-0.5">
+                      {selectedEvolutionForView.planManejo.conducta}
+                    </p>
+                  </div>
+                )}
+
+                {Array.isArray(selectedEvolutionForView.planManejo.prescripcion_farmacologica) &&
+                  selectedEvolutionForView.planManejo.prescripcion_farmacologica.length > 0 && (
+                    <div className="space-y-1.5 pt-2 border-t border-[#E2E6EA]">
+                      <span className="font-bold text-[11px] text-[#1E242B] block">💊 Prescripción Farmacológica:</span>
+                      <div className="space-y-1.5">
+                        {selectedEvolutionForView.planManejo.prescripcion_farmacologica.map((med: any, i: number) => (
+                          <div key={i} className="p-2.5 rounded-xl bg-white border border-[#E2E6EA] flex flex-wrap justify-between items-center text-xs">
+                            <span className="font-bold text-[#1E242B]">
+                              {med.medicamento_principio_activo} {med.dosis_concentracion}
+                            </span>
+                            <span className="text-[#687380]">
+                              {med.frecuencia_via} • {med.duracion_tratamiento}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                {selectedEvolutionForView.planManejo.incapacidad_medica?.requiere_incapacidad && (
+                  <div className="p-3 rounded-xl bg-white border border-[#E2E6EA] space-y-1 text-xs">
+                    <span className="font-bold text-[#1E242B] block">🛌 Incapacidad Médica Otorgada:</span>
+                    <p className="text-[#687380]">
+                      Vigencia: {selectedEvolutionForView.planManejo.incapacidad_medica.fecha_inicio} al {selectedEvolutionForView.planManejo.incapacidad_medica.fecha_culminacion}
+                    </p>
+                    {selectedEvolutionForView.planManejo.incapacidad_medica.diagnostico_justificacion && (
+                      <p className="text-[#4B5563] italic mt-1">
+                        {selectedEvolutionForView.planManejo.incapacidad_medica.diagnostico_justificacion}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {selectedEvolutionForView.planManejo.remision_medica?.requiere_remision && (
+                  <div className="p-3 rounded-xl bg-white border border-[#E2E6EA] space-y-1 text-xs">
+                    <span className="font-bold text-[#1E242B] block">↗️ Remisión Médica:</span>
+                    <p className="text-[#687380]">
+                      Destino: {selectedEvolutionForView.planManejo.remision_medica.especialidad_destino} (Prioridad: {selectedEvolutionForView.planManejo.remision_medica.prioridad_atencion})
+                    </p>
+                    {selectedEvolutionForView.planManejo.remision_medica.motivo_resumen_clinico && (
+                      <p className="text-[#4B5563] italic mt-1">
+                        {selectedEvolutionForView.planManejo.remision_medica.motivo_resumen_clinico}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {Array.isArray(selectedEvolutionForView.planManejo.documentos) && selectedEvolutionForView.planManejo.documentos.length > 0 && (
+                  <div className="pt-2 flex flex-wrap gap-2 border-t border-[#E2E6EA]">
+                    {selectedEvolutionForView.planManejo.documentos.map((doc: any, i: number) => (
+                      <span key={i} className="px-2.5 py-1 rounded-lg bg-white border border-[#CBD2D9] font-bold text-[#1E242B] text-[11px]">
+                        📄 {doc.tipoDocumento === 'ORDEN_MEDICAMENTOS' ? 'Fórmula / Receta' : doc.tipoDocumento === 'INCAPACIDAD' ? 'Incapacidad' : 'Remisión'}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 

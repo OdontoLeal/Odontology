@@ -45,7 +45,7 @@ export class UpdateClinicalRecordUseCase {
 
     const existingPayload = targetRow.evolucion;
     const idProfesionalResponsableCita =
-      existingPayload.diligenciadoPor.idProfesionalResponsable;
+      existingPayload.diligenciadoPor?.idProfesionalResponsable ?? 1;
 
     // Validar que el usuario sea el profesional responsable y esté dentro del mismo día en Colombia (UTC-5)
     const entity = new ClinicalRecordEntity(
@@ -70,7 +70,11 @@ export class UpdateClinicalRecordUseCase {
 
     return await this.clinicalRepo.updateEvolutionEntrySameDay(
       command.idEvolucion,
-      updatedPayload
+      {
+        ...updatedPayload,
+        motivoConsulta: updatedPayload.motivoConsulta,
+        antecedentesClinicos: updatedPayload.antecedentes,
+      }
     );
   }
 }

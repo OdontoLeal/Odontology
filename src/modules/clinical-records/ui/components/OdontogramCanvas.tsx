@@ -8,6 +8,7 @@ import { Button } from '../../../../shared/ui/components/Button';
 export interface OdontogramCanvasProps {
   initialData?: OdontogramDataDTO;
   readOnly?: boolean;
+  onChange?: (data: OdontogramDataDTO) => void;
   onSave?: (data: OdontogramDataDTO) => void;
   onOpenExpandedMode?: () => void;
 }
@@ -32,6 +33,7 @@ type TechnicalSymbolType =
 export const OdontogramCanvas: React.FC<OdontogramCanvasProps> = ({
   initialData,
   readOnly = false,
+  onChange,
   onSave,
   onOpenExpandedMode,
 }) => {
@@ -51,11 +53,27 @@ export const OdontogramCanvas: React.FC<OdontogramCanvasProps> = ({
   const [selectedToothForNote, setSelectedToothForNote] = useState<number | null>(null);
   const [toothNoteInput, setToothNoteInput] = useState('');
 
-  // Cuadrantes estándar
+  // Cuadrantes estándar FDI
   const q1Keys = ['18', '17', '16', '15', '14', '13', '12', '11'];
   const q2Keys = ['21', '22', '23', '24', '25', '26', '27', '28'];
   const q4Keys = ['48', '47', '46', '45', '44', '43', '42', '41'];
   const q3Keys = ['31', '32', '33', '34', '35', '36', '37', '38'];
+
+  // Toggle de herramientas en la barra superior
+  const handleToggleTool = (tool: FindingType) => {
+    setActiveSymbol('none');
+    setActiveTool((prev) => (prev === tool ? 'none' : tool));
+  };
+
+  const handleToggleSymbol = (symbol: TechnicalSymbolType) => {
+    setActiveTool('none');
+    setActiveSymbol((prev) => (prev === symbol ? 'none' : symbol));
+  };
+
+  const handleToggleEraser = () => {
+    setActiveTool('none');
+    setActiveSymbol('none');
+  };
 
   // Obtener color para una superficie
   const getSurfaceColor = (surfaceFlags: any): string => {
@@ -75,13 +93,34 @@ export const OdontogramCanvas: React.FC<OdontogramCanvasProps> = ({
   ) => {
     if (readOnly) return;
 
+    // Si hay un símbolo técnico activo, el clic en cualquier cara del diente aplica el símbolo al diente completo
+    if (activeSymbol !== 'none') {
+      handleToothSymbolClick(quadrantKey, toothCode);
+      return;
+    }
+
     setOdontogramData((prev) => {
       const next = structuredClone(prev);
       const tooth = next.cuadrantes[quadrantKey]?.piezas[toothCode];
       if (!tooth) return prev;
 
+      // Si la herramienta activa es borrador (activeTool === 'none' && activeSymbol === 'none'),
+      // también borramos los símbolos técnicos de esta pieza dental
+      if (activeTool === 'none') {
+        tooth.simbolos_tecnicos.diente_extraido = false;
+        tooth.simbolos_tecnicos.extraccion_requerida = false;
+        tooth.simbolos_tecnicos.corona = false;
+        tooth.simbolos_tecnicos.implante = false;
+        tooth.simbolos_tecnicos.protesis_fija = false;
+        tooth.simbolos_tecnicos.endodoncia = false;
+        tooth.simbolos_tecnicos.puente = false;
+      }
+
       const surfaceObj = (tooth.caras as any)[surface];
       if (!surfaceObj) return prev;
+
+      // Comprobar si ya tenía esta patología activa para permitir deseleccionarla (toggle off)
+      const wasAlreadyActive = activeTool !== 'none' && Boolean(surfaceObj[activeTool]);
 
       // Resetea todas las banderas de esta superficie (invariante: un solo hallazgo por cara)
       surfaceObj.caries_activa = false;
@@ -89,11 +128,12 @@ export const OdontogramCanvas: React.FC<OdontogramCanvasProps> = ({
       surfaceObj.sellante_fosas = false;
       surfaceObj.desgaste_faceta = false;
 
-      // Aplica la herramienta seleccionada si no es borrador
-      if (activeTool !== 'none') {
+      // Si no estaba activa y no es borrador, la activa (si ya estaba activa, se queda en false = toggle off)
+      if (activeTool !== 'none' && !wasAlreadyActive) {
         surfaceObj[activeTool] = true;
       }
 
+      onChange?.(next);
       return next;
     });
   };
@@ -103,14 +143,39 @@ export const OdontogramCanvas: React.FC<OdontogramCanvasProps> = ({
     quadrantKey: 'cuadrante_1' | 'cuadrante_2' | 'cuadrante_3' | 'cuadrante_4',
     toothCode: string
   ) => {
-    if (readOnly || activeSymbol === 'none') return;
+    if (readOnly) return;
+
+    // Si se hace clic con el Borrador activo, limpiamos todos los símbolos técnicos del diente
+    if (activeTool === 'none' && activeSymbol === 'none') {
+      setOdontogramData((prev) => {
+        const next = structuredClone(prev);
+        const tooth = next.cuadrantes[quadrantKey]?.piezas[toothCode];
+        if (!tooth) return prev;
+
+        tooth.simbolos_tecnicos.diente_extraido = false;
+        tooth.simbolos_tecnicos.extraccion_requerida = false;
+        tooth.simbolos_tecnicos.corona = false;
+        tooth.simbolos_tecnicos.implante = false;
+        tooth.simbolos_tecnicos.protesis_fija = false;
+        tooth.simbolos_tecnicos.endodoncia = false;
+        tooth.simbolos_tecnicos.puente = false;
+
+        onChange?.(next);
+        return next;
+      });
+      return;
+    }
+
+    if (activeSymbol === 'none') return;
 
     setOdontogramData((prev) => {
       const next = structuredClone(prev);
       const tooth = next.cuadrantes[quadrantKey]?.piezas[toothCode];
       if (!tooth) return prev;
 
-      // Reset símbolos
+      const currentVal = Boolean((tooth.simbolos_tecnicos as any)[activeSymbol]);
+
+      // Reset símbolos previos del diente
       tooth.simbolos_tecnicos.diente_extraido = false;
       tooth.simbolos_tecnicos.extraccion_requerida = false;
       tooth.simbolos_tecnicos.corona = false;
@@ -119,8 +184,12 @@ export const OdontogramCanvas: React.FC<OdontogramCanvasProps> = ({
       tooth.simbolos_tecnicos.endodoncia = false;
       tooth.simbolos_tecnicos.puente = false;
 
-      (tooth.simbolos_tecnicos as any)[activeSymbol] = true;
+      // Toggle: si no estaba activo lo activa; si ya estaba activo queda en false (deselección)
+      if (!currentVal) {
+        (tooth.simbolos_tecnicos as any)[activeSymbol] = true;
+      }
 
+      onChange?.(next);
       return next;
     });
   };
@@ -145,13 +214,6 @@ export const OdontogramCanvas: React.FC<OdontogramCanvasProps> = ({
     const colorOclusal = getSurfaceColor(caras.oclusal_incisal);
 
     const st = tooth.simbolos_tecnicos;
-    const hasSymbol =
-      st.diente_extraido ||
-      st.extraccion_requerida ||
-      st.corona ||
-      st.implante ||
-      st.endodoncia ||
-      st.puente;
 
     return (
       <div key={toothKey} className="flex flex-col items-center p-1 select-none">
@@ -229,24 +291,57 @@ export const OdontogramCanvas: React.FC<OdontogramCanvasProps> = ({
               }}
             />
 
-            {/* Superposiciones de Símbolos Técnicos */}
+            {/* Superposiciones de Símbolos Técnicos (con pointer-events: none para no interferir en clics) */}
             {st.diente_extraido && (
-              <line x1="10" y1="10" x2="90" y2="90" stroke="#1E242B" strokeWidth="6" />
+              <line
+                x1="10"
+                y1="10"
+                x2="90"
+                y2="90"
+                stroke="#1E242B"
+                strokeWidth="6"
+                style={{ pointerEvents: 'none' }}
+              />
             )}
             {st.extraccion_requerida && (
-              <>
+              <g style={{ pointerEvents: 'none' }}>
                 <line x1="10" y1="10" x2="90" y2="90" stroke="#EF4444" strokeWidth="6" />
                 <line x1="90" y1="10" x2="10" y2="90" stroke="#EF4444" strokeWidth="6" />
-              </>
+              </g>
             )}
             {st.corona && (
-              <circle cx="50" cy="50" r="38" fill="none" stroke="#D4AF37" strokeWidth="6" />
+              <circle
+                cx="50"
+                cy="50"
+                r="38"
+                fill="none"
+                stroke="#D4AF37"
+                strokeWidth="6"
+                style={{ pointerEvents: 'none' }}
+              />
             )}
             {st.endodoncia && (
-              <line x1="50" y1="5" x2="50" y2="95" stroke="#3B82F6" strokeWidth="6" />
+              <line
+                x1="50"
+                y1="5"
+                x2="50"
+                y2="95"
+                stroke="#3B82F6"
+                strokeWidth="6"
+                style={{ pointerEvents: 'none' }}
+              />
             )}
             {st.implante && (
-              <rect x="35" y="25" width="30" height="50" rx="4" fill="#687380" opacity="0.8" />
+              <rect
+                x="35"
+                y="25"
+                width="30"
+                height="50"
+                rx="4"
+                fill="#687380"
+                opacity="0.8"
+                style={{ pointerEvents: 'none' }}
+              />
             )}
           </svg>
         </div>
@@ -280,28 +375,22 @@ export const OdontogramCanvas: React.FC<OdontogramCanvasProps> = ({
             </span>
             <button
               type="button"
-              onClick={() => {
-                setActiveTool('none');
-                setActiveSymbol('none');
-              }}
-              className={`px-2.5 py-1 text-xs font-bold rounded-lg border transition-all ${
+              onClick={handleToggleEraser}
+              className={`px-2.5 py-1 text-xs font-bold rounded-lg border transition-all cursor-pointer ${
                 activeTool === 'none' && activeSymbol === 'none'
-                  ? 'border-black bg-white shadow-xs'
-                  : 'border-[#CBD2D9] text-[#687380]'
+                  ? 'border-black bg-white shadow-xs text-black ring-1 ring-black'
+                  : 'border-[#CBD2D9] text-[#687380] hover:text-[#111111]'
               }`}
             >
               🧹 Borrador
             </button>
             <button
               type="button"
-              onClick={() => {
-                setActiveTool('caries_activa');
-                setActiveSymbol('none');
-              }}
-              className={`px-2.5 py-1 text-xs font-bold rounded-lg border flex items-center gap-1.5 transition-all ${
+              onClick={() => handleToggleTool('caries_activa')}
+              className={`px-2.5 py-1 text-xs font-bold rounded-lg border flex items-center gap-1.5 transition-all cursor-pointer ${
                 activeTool === 'caries_activa'
-                  ? 'border-[#EF4444] bg-[#FEE2E2] text-[#991B1B] shadow-xs'
-                  : 'border-[#CBD2D9] text-[#687380]'
+                  ? 'border-[#EF4444] bg-[#FEE2E2] text-[#991B1B] shadow-xs ring-1 ring-[#EF4444]'
+                  : 'border-[#CBD2D9] text-[#687380] hover:text-[#111111]'
               }`}
             >
               <span className="h-2.5 w-2.5 rounded-full bg-[#EF4444]" />
@@ -309,14 +398,11 @@ export const OdontogramCanvas: React.FC<OdontogramCanvasProps> = ({
             </button>
             <button
               type="button"
-              onClick={() => {
-                setActiveTool('restauracion_resina');
-                setActiveSymbol('none');
-              }}
-              className={`px-2.5 py-1 text-xs font-bold rounded-lg border flex items-center gap-1.5 transition-all ${
+              onClick={() => handleToggleTool('restauracion_resina')}
+              className={`px-2.5 py-1 text-xs font-bold rounded-lg border flex items-center gap-1.5 transition-all cursor-pointer ${
                 activeTool === 'restauracion_resina'
-                  ? 'border-[#3B82F6] bg-[#DBEAFE] text-[#1E40AF] shadow-xs'
-                  : 'border-[#CBD2D9] text-[#687380]'
+                  ? 'border-[#3B82F6] bg-[#DBEAFE] text-[#1E40AF] shadow-xs ring-1 ring-[#3B82F6]'
+                  : 'border-[#CBD2D9] text-[#687380] hover:text-[#111111]'
               }`}
             >
               <span className="h-2.5 w-2.5 rounded-full bg-[#3B82F6]" />
@@ -324,14 +410,11 @@ export const OdontogramCanvas: React.FC<OdontogramCanvasProps> = ({
             </button>
             <button
               type="button"
-              onClick={() => {
-                setActiveTool('sellante_fosas');
-                setActiveSymbol('none');
-              }}
-              className={`px-2.5 py-1 text-xs font-bold rounded-lg border flex items-center gap-1.5 transition-all ${
+              onClick={() => handleToggleTool('sellante_fosas')}
+              className={`px-2.5 py-1 text-xs font-bold rounded-lg border flex items-center gap-1.5 transition-all cursor-pointer ${
                 activeTool === 'sellante_fosas'
-                  ? 'border-[#10B981] bg-[#D1FAE5] text-[#065F46] shadow-xs'
-                  : 'border-[#CBD2D9] text-[#687380]'
+                  ? 'border-[#10B981] bg-[#D1FAE5] text-[#065F46] shadow-xs ring-1 ring-[#10B981]'
+                  : 'border-[#CBD2D9] text-[#687380] hover:text-[#111111]'
               }`}
             >
               <span className="h-2.5 w-2.5 rounded-full bg-[#10B981]" />
@@ -339,14 +422,11 @@ export const OdontogramCanvas: React.FC<OdontogramCanvasProps> = ({
             </button>
             <button
               type="button"
-              onClick={() => {
-                setActiveTool('desgaste_faceta');
-                setActiveSymbol('none');
-              }}
-              className={`px-2.5 py-1 text-xs font-bold rounded-lg border flex items-center gap-1.5 transition-all ${
+              onClick={() => handleToggleTool('desgaste_faceta')}
+              className={`px-2.5 py-1 text-xs font-bold rounded-lg border flex items-center gap-1.5 transition-all cursor-pointer ${
                 activeTool === 'desgaste_faceta'
-                  ? 'border-[#F59E0B] bg-[#FEF3C7] text-[#92400E] shadow-xs'
-                  : 'border-[#CBD2D9] text-[#687380]'
+                  ? 'border-[#F59E0B] bg-[#FEF3C7] text-[#92400E] shadow-xs ring-1 ring-[#F59E0B]'
+                  : 'border-[#CBD2D9] text-[#687380] hover:text-[#111111]'
               }`}
             >
               <span className="h-2.5 w-2.5 rounded-full bg-[#F59E0B]" />
@@ -361,72 +441,59 @@ export const OdontogramCanvas: React.FC<OdontogramCanvasProps> = ({
             </span>
             <button
               type="button"
-              onClick={() => setActiveSymbol('diente_extraido')}
-              className={`px-2.5 py-1 text-xs font-bold rounded-lg border transition-all ${
+              onClick={() => handleToggleSymbol('diente_extraido')}
+              className={`px-2.5 py-1 text-xs font-bold rounded-lg border transition-all cursor-pointer ${
                 activeSymbol === 'diente_extraido'
-                  ? 'border-black bg-white shadow-xs'
-                  : 'border-[#CBD2D9] text-[#687380]'
+                  ? 'border-black bg-[#111111] text-white shadow-xs'
+                  : 'border-[#CBD2D9] text-[#687380] hover:text-[#111111]'
               }`}
             >
               ✕ Diente Extraído
             </button>
             <button
               type="button"
-              onClick={() => setActiveSymbol('extraccion_requerida')}
-              className={`px-2.5 py-1 text-xs font-bold rounded-lg border transition-all ${
+              onClick={() => handleToggleSymbol('extraccion_requerida')}
+              className={`px-2.5 py-1 text-xs font-bold rounded-lg border transition-all cursor-pointer ${
                 activeSymbol === 'extraccion_requerida'
-                  ? 'border-[#EF4444] bg-[#FEE2E2] text-[#991B1B] shadow-xs'
-                  : 'border-[#CBD2D9] text-[#687380]'
+                  ? 'border-[#EF4444] bg-[#FEE2E2] text-[#991B1B] shadow-xs ring-1 ring-[#EF4444]'
+                  : 'border-[#CBD2D9] text-[#687380] hover:text-[#111111]'
               }`}
             >
               ✚ Extracción Requerida
             </button>
             <button
               type="button"
-              onClick={() => setActiveSymbol('corona')}
-              className={`px-2.5 py-1 text-xs font-bold rounded-lg border transition-all ${
+              onClick={() => handleToggleSymbol('corona')}
+              className={`px-2.5 py-1 text-xs font-bold rounded-lg border transition-all cursor-pointer ${
                 activeSymbol === 'corona'
-                  ? 'border-[#D4AF37] bg-[#FBF6E6] text-[#8F721A] shadow-xs'
-                  : 'border-[#CBD2D9] text-[#687380]'
+                  ? 'border-[#D4AF37] bg-[#FBF6E6] text-[#8F721A] shadow-xs ring-1 ring-[#D4AF37]'
+                  : 'border-[#CBD2D9] text-[#687380] hover:text-[#111111]'
               }`}
             >
               ◯ Corona
             </button>
             <button
               type="button"
-              onClick={() => setActiveSymbol('implante')}
-              className={`px-2.5 py-1 text-xs font-bold rounded-lg border transition-all ${
+              onClick={() => handleToggleSymbol('implante')}
+              className={`px-2.5 py-1 text-xs font-bold rounded-lg border transition-all cursor-pointer ${
                 activeSymbol === 'implante'
-                  ? 'border-blue-600 bg-blue-50 text-blue-800 shadow-xs'
-                  : 'border-[#CBD2D9] text-[#687380]'
+                  ? 'border-blue-600 bg-blue-50 text-blue-800 shadow-xs ring-1 ring-blue-600'
+                  : 'border-[#CBD2D9] text-[#687380] hover:text-[#111111]'
               }`}
             >
               🔩 Implante
             </button>
             <button
               type="button"
-              onClick={() => setActiveSymbol('endodoncia')}
-              className={`px-2.5 py-1 text-xs font-bold rounded-lg border transition-all ${
+              onClick={() => handleToggleSymbol('endodoncia')}
+              className={`px-2.5 py-1 text-xs font-bold rounded-lg border transition-all cursor-pointer ${
                 activeSymbol === 'endodoncia'
-                  ? 'border-indigo-600 bg-indigo-50 text-indigo-800 shadow-xs'
-                  : 'border-[#CBD2D9] text-[#687380]'
+                  ? 'border-indigo-600 bg-indigo-50 text-indigo-800 shadow-xs ring-1 ring-indigo-600'
+                  : 'border-[#CBD2D9] text-[#687380] hover:text-[#111111]'
               }`}
             >
               ┃ Endodoncia
             </button>
-
-            {onOpenExpandedMode && (
-              <Button
-                size="sm"
-                variant="outline"
-                type="button"
-                className="ml-auto"
-                onClick={onOpenExpandedMode}
-                leftIcon={<span>🔍</span>}
-              >
-                Modo Edición Ampliada
-              </Button>
-            )}
           </div>
         </div>
       )}

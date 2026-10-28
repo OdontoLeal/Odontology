@@ -47,11 +47,11 @@ export class CreateClinicalRecordUseCase {
       command.idPaciente
     );
 
-    // Verificar que no exista ya una apertura de historia clínica para la misma cita (una por cita según RF-HCL-005)
+    // Verificar que no exista ya una apertura de historia clínica para la misma cita (1:1 según uq_evolucion_cita)
     const existingForAppointment = historyRows.find(
       (row) =>
         row.idCita === command.idCita &&
-        row.evolucion?.tipoRegistro === 'APERTURA_CONSULTA'
+        (row.evolucion?.tipoRegistro === 'APERTURA_CONSULTA' || (row.motivoConsulta && row.motivoConsulta.trim().length > 0))
     );
 
     if (existingForAppointment) {
@@ -64,11 +64,15 @@ export class CreateClinicalRecordUseCase {
     // Buscar antecedentes de la última historia clínica registrada para precargar (desde la 2da consulta)
     const lastOpeningRecord = historyRows.find(
       (row) =>
-        row.evolucion?.tipoRegistro === 'APERTURA_CONSULTA' &&
-        row.evolucion?.antecedentes
+        (row.antecedentesClinicos && Object.keys(row.antecedentesClinicos).length > 0) ||
+        (row.evolucion?.tipoRegistro === 'APERTURA_CONSULTA' && row.evolucion?.antecedentes)
     );
 
     const estadoCitaActual = command.estadoCita ?? 'En consulta';
+
+    const antecedentesPrevios =
+      (lastOpeningRecord?.antecedentesClinicos as AntecedentsMap) ||
+      lastOpeningRecord?.evolucion?.antecedentes;
 
     const clinicalRecord = ClinicalRecordEntity.createForConsultation({
       idPaciente: command.idPaciente,
@@ -82,13 +86,17 @@ export class CreateClinicalRecordUseCase {
       catalogoAntecedentes:
         command.catalogoAntecedentes ??
         CreateClinicalRecordUseCase.DEFAULT_ANTECEDENTS_CATALOG,
-      antecedentesPrevios: lastOpeningRecord?.evolucion?.antecedentes,
+      antecedentesPrevios,
     });
+
+    const payload = clinicalRecord.toEvolutionPayload();
 
     return await this.clinicalRepo.createEvolutionEntry({
       idPaciente: command.idPaciente,
       idCita: command.idCita,
-      payload: clinicalRecord.toEvolutionPayload(),
+      motivoConsulta: payload.motivoConsulta,
+      antecedentesClinicos: payload.antecedentes,
+      payload,
     });
   }
 }

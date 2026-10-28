@@ -1,5 +1,5 @@
 // src/modules/appointments/ui/views/InternalAgendaPage.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useRealtimeAgenda } from '../hooks/useRealtimeAgenda';
 import { WeeklyCalendarGrid, CalendarTimeSlot } from '../components/WeeklyCalendarGrid';
 import { QuickScheduleModal, DoctorCandidate, PatientCandidate } from '../components/QuickScheduleModal';
@@ -8,6 +8,11 @@ import { AppointmentDetailPage, AppointmentDetailPageData } from './AppointmentD
 import { Button } from '../../../../shared/ui/components/Button';
 import { usePatients } from '../../../patients/ui/hooks/usePatients';
 import { useAlertModal } from '../../../../shared/ui/hooks/useAlertModal';
+import {
+  CalendarIcon,
+  DoctorIcon,
+  SearchIcon,
+} from '../../../../shared/ui/components/Icons';
 
 export interface InternalAgendaPageProps {
   onStartAttention?: (idCita: number, idPaciente: number) => void;
@@ -186,8 +191,26 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
     setViewMode('APPOINTMENT_DETAIL');
   };
 
+  const todayColombia = useMemo(() => {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Bogota',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date());
+  }, []);
+  const isPastDate = selectedDate < todayColombia;
+
   // Crear bloques de horario (06:00 a 20:00 cada 30 min) en BD para el día seleccionado (RF-AGE-001)
   const handleGenerateDaySlots = async () => {
+    if (isPastDate) {
+      showAlert({
+        title: 'Fecha en el Pasado',
+        message: 'No es posible crear bloques de horario para fechas pasadas.',
+        type: 'warning',
+      });
+      return;
+    }
     try {
       await generateDaySlots(selectedDate);
       showAlert({
@@ -202,6 +225,18 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
         type: 'error',
       });
     }
+  };
+
+  const handleScheduleSlot = (_slot?: any) => {
+    if (isPastDate) {
+      showAlert({
+        title: 'Fecha en el Pasado',
+        message: 'No es posible agendar citas para fechas que ya pasaron.',
+        type: 'warning',
+      });
+      return;
+    }
+    setIsQuickScheduleOpen(true);
   };
 
   // Aprobación de la solicitud desde el Detalle (Imagen 1)
@@ -365,8 +400,8 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
       <div className="rounded-2xl border border-[#E2E6EA] bg-white p-4 shadow-xs flex flex-wrap items-center justify-between gap-4">
         <div className="flex flex-wrap items-center gap-6">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-[#687380] flex items-center gap-1.5">
-              <span>🎚</span> Filtrar bloques:
+            <span className="text-xs font-bold text-[#687380]">
+              Filtrar bloques:
             </span>
             <select
               value={filterMode}
@@ -381,7 +416,7 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
 
           <div className="flex items-center gap-2">
             <span className="text-xs font-bold text-[#687380] flex items-center gap-1.5">
-              <span>🩺</span> Filtrar por doctor:
+              <DoctorIcon size={14} color="#D4AF37" /> Filtrar por doctor:
             </span>
             <div className="relative">
               <input
@@ -392,7 +427,7 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
                 className="w-56 rounded-xl border border-[#E2E6EA] bg-[#F8F9FA] pl-3 pr-8 py-1.5 text-xs text-[#1E242B] placeholder-[#8F99A3] focus:border-[#D4AF37] focus:bg-white focus:outline-none"
               />
               <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-[#8F99A3]">
-                🔍
+                <SearchIcon size={13} className="text-[#8F99A3]" />
               </span>
             </div>
           </div>
@@ -436,7 +471,7 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
               <div className="rounded-3xl border border-[#E2E6EA] bg-white p-5 shadow-xs space-y-4">
                 <div className="flex items-center justify-between pb-3 border-b border-[#E2E6EA]">
                   <div className="flex items-center gap-2 text-sm font-extrabold text-[#1E242B]">
-                    <span className="text-base text-[#D4AF37]">📅</span>
+                    <CalendarIcon size={16} color="#D4AF37" />
                     <span className="capitalize">{currentMonthTitle}</span>
                   </div>
                   <div className="flex items-center gap-1 text-[#687380]">
@@ -556,7 +591,7 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
               </button>
 
               <div className="px-4 py-1.5 rounded-xl bg-[#F8F9FA] border border-[#E2E6EA] text-xs font-extrabold text-[#1E242B] flex items-center gap-2">
-                <span className="text-[#D4AF37]">📅</span>
+                <CalendarIcon size={14} color="#D4AF37" />
                 <span>{formatHeaderDate(selectedDate)}</span>
               </div>
 
@@ -572,10 +607,16 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
             {/* Botón Crear Bloques (ERS RF-AGE-001) */}
             <button
               type="button"
+              disabled={isPastDate}
               onClick={handleGenerateDaySlots}
-              className="px-3.5 py-1.5 rounded-xl bg-[#111827] text-white hover:bg-black text-xs font-bold inline-flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
+              title={isPastDate ? 'No es posible crear bloques en fechas pasadas' : 'Crear bloques para este día'}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 shadow-2xs transition-colors ${
+                isPastDate
+                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200'
+                  : 'bg-[#111827] text-white hover:bg-black cursor-pointer'
+              }`}
             >
-              <span className="text-[#D4AF37]">➕</span> Crear bloques
+              <span className={isPastDate ? 'opacity-40' : 'text-[#D4AF37]'}>➕</span> Crear bloques
             </button>
           </div>
 
@@ -583,10 +624,21 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
           <WeeklyCalendarGrid
             slots={slots}
             filterMode={filterMode}
+            isPastDate={isPastDate}
             onSelectSlot={handleSelectConfirmedSlot}
             onSelectPendingRequest={handleSelectPendingSlot}
-            onToggleSlotStatus={toggleSlotStatus}
-            onScheduleSlot={(_slot) => setIsQuickScheduleOpen(true)}
+            onToggleSlotStatus={(slot) => {
+              if (isPastDate) {
+                showAlert({
+                  title: 'Fecha en el Pasado',
+                  message: 'No es posible modificar bloques de horario en fechas pasadas.',
+                  type: 'warning',
+                });
+                return;
+              }
+              toggleSlotStatus(slot);
+            }}
+            onScheduleSlot={handleScheduleSlot}
             onCreateBlocks={handleGenerateDaySlots}
           />
         </div>
