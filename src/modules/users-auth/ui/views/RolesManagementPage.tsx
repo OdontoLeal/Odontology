@@ -315,7 +315,7 @@ export const RolesManagementPage: React.FC<RolesManagementPageProps> = ({
           setRoles((prev) => [...prev, newEntry]);
           setSuccessMessage(result.message || 'Rol creado exitosamente.');
         } else {
-          const res = await fetch('/api/v1/auth/roles', {
+          const res = await fetch('/api/v1/roles', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -363,6 +363,19 @@ export const RolesManagementPage: React.FC<RolesManagementPageProps> = ({
           );
           setSuccessMessage(result.message || 'Rol actualizado exitosamente.');
         } else {
+          const res = await fetch(`/api/v1/roles/${editingRole.id_rol}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              idRol: editingRole.id_rol,
+              nombreRol: cleanName,
+              descripcion: cleanDesc,
+              permisos,
+            }),
+          });
+          const body = await res.json();
+          if (!res.ok) throw new Error(body.message);
+
           setRoles((prev) =>
             prev.map((r) =>
               r.id_rol === editingRole.id_rol
@@ -375,7 +388,7 @@ export const RolesManagementPage: React.FC<RolesManagementPageProps> = ({
                 : r
             )
           );
-          setSuccessMessage('Rol actualizado exitosamente.');
+          setSuccessMessage(body.message || 'Rol actualizado exitosamente.');
         }
         setIsModalOpen(false);
       }
@@ -414,7 +427,7 @@ export const RolesManagementPage: React.FC<RolesManagementPageProps> = ({
         const res = await onDeleteRole(roleToDelete.id_rol);
         setSuccessMessage(res.message);
       } else {
-        const res = await fetch(`/api/v1/auth/roles/${roleToDelete.id_rol}`, {
+        const res = await fetch(`/api/v1/roles/${roleToDelete.id_rol}`, {
           method: 'DELETE',
         });
         const body = await res.json();

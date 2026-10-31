@@ -51,6 +51,12 @@ router.get('/roles', usersController.getRoles);
 router.put('/roles/:id', usersController.updateRole);
 router.delete('/roles/:id', usersController.deleteRole);
 
+// Alias de compatibilidad hacia atrás para contratos de roles (I1-005, I1-006)
+router.post('/auth/roles', usersController.createRole);
+router.get('/auth/roles', usersController.getRoles);
+router.put('/auth/roles/:id', usersController.updateRole);
+router.delete('/auth/roles/:id', usersController.deleteRole);
+
 router.post('/users', usersController.createUser);
 router.get('/users', usersController.searchUsers);
 router.put('/users/:id', usersController.updateUser);

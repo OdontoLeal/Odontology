@@ -16,6 +16,12 @@ app.use(express.json({ limit: '5mb' }));
 // Rutas API v1
 app.use('/api/v1', apiRoutes);
 
+// Alias de compatibilidad hacia atrás para contratos de autenticación legados (I1-004)
+app.use('/api/users-auth', (req, res, next) => {
+  req.url = `/auth${req.url}`;
+  apiRoutes(req, res, next);
+});
+
 // Servir el frontend SPA compilado en modo producción (Monolito modular)
 const clientDistPath = path.resolve(process.cwd(), 'dist/public');
 if (fs.existsSync(clientDistPath)) {

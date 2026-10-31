@@ -74,8 +74,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({
           }
         }
       } else {
-        // Fallback HTTP hacia el endpoint del módulo users-auth
-        const response = await fetch('/api/users-auth/login', {
+        // Fallback HTTP hacia el endpoint estándar de autenticación (RF-USR-005)
+        const response = await fetch('/api/v1/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(params),
