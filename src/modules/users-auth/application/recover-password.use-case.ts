@@ -128,11 +128,12 @@ export class RecoverPasswordUseCase {
 
     tokenVo.assertIsValid(now);
 
+    // Validar formato de contraseña ANTES de consumir o modificar el token (I8-006)
+    UserEntity.validatePlainPassword(command.nuevaContrasena);
+
     if (command.nuevaContrasena !== command.confirmacionContrasena) {
       throw new Error('Las contraseñas ingresadas no coinciden.');
     }
-
-    UserEntity.validatePlainPassword(command.nuevaContrasena);
 
     const newHash = this.passwordHasher
       ? await this.passwordHasher.hash(command.nuevaContrasena)

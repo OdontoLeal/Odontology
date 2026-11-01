@@ -286,9 +286,9 @@ export class AppointmentRepository {
       if (solRes.rows.length === 0) throw new Error('Solicitud no encontrada.');
       const solicitud = solRes.rows[0];
 
-      // Regla de estados: Si la solicitud ya fue revisada (aprobada o rechazada), impedir cambios
+      // Regla de estados: Si la solicitud ya fue revisada (aprobada o rechazada), impedir cambios (D-09 / RF-AGE-005)
       if (solicitud.estado === false) {
-        throw new Error('Esta solicitud ya ha sido gestionada previamente y no puede ser modificada de nuevo.');
+        throw new Error('Esta solicitud ya ha sido gestionada previamente y no puede ser modificada de nuevo (D-09).');
       }
 
       // Actualizar estado de la solicitud
