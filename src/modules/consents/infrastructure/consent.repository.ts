@@ -180,6 +180,8 @@ export class ConsentRepository implements IConsentRepository {
         cf.version_plantilla AS "versionPlantilla",
         pc.version AS "versionActualPlantilla",
         cf.id_paciente AS "idPaciente",
+        p.nombre_completo AS "pacienteNombre",
+        p.documento_identidad AS "pacienteDocumento",
         cf.fecha,
         cf.texto_firmado AS "textoFirmado",
         cf.firma_base64 AS "firmaBase64",
@@ -189,6 +191,7 @@ export class ConsentRepository implements IConsentRepository {
         u.nombre_completo AS "usuarioDiligencioNombre"
       FROM public.consentimiento_firmado cf
       INNER JOIN public.plantilla_consentimiento pc ON cf.id_consentimiento = pc.id_consentimiento
+      LEFT JOIN public.paciente p ON cf.id_paciente = p.id_paciente
       LEFT JOIN public.usuario u ON cf.id_usuario_diligencio = u.id_usuario
       WHERE cf.id_paciente = $1
       ORDER BY cf.fecha DESC;
@@ -219,6 +222,8 @@ export class ConsentRepository implements IConsentRepository {
         cf.version_plantilla AS "versionPlantilla",
         pc.version AS "versionActualPlantilla",
         cf.id_paciente AS "idPaciente",
+        p.nombre_completo AS "pacienteNombre",
+        p.documento_identidad AS "pacienteDocumento",
         cf.fecha,
         cf.texto_firmado AS "textoFirmado",
         cf.firma_base64 AS "firmaBase64",
@@ -228,6 +233,7 @@ export class ConsentRepository implements IConsentRepository {
         u.nombre_completo AS "usuarioDiligencioNombre"
       FROM public.consentimiento_firmado cf
       INNER JOIN public.plantilla_consentimiento pc ON cf.id_consentimiento = pc.id_consentimiento
+      LEFT JOIN public.paciente p ON cf.id_paciente = p.id_paciente
       LEFT JOIN public.usuario u ON cf.id_usuario_diligencio = u.id_usuario
       WHERE cf.id_consentimiento_firmado = $1;
     `;

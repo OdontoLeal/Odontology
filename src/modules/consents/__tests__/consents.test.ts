@@ -13,6 +13,7 @@ import {
   InactiveConsentTemplateError,
 } from '../domain/consent.errors';
 import { IConsentRepository } from '../domain/consent.repository.port';
+import { interpolateConsentTemplate } from '../domain/consent-template-interpolator';
 import { ConsentService } from '../application/consent.service';
 import {
   CreateConsentTemplateDTO,
@@ -389,5 +390,56 @@ describe('MÓDULO D: Consentimientos Informados (RF-CON-001 a RF-CON-008 - ERS v
     assert.strictEqual(patientConsents.length, 2);
     assert.ok(patientConsents[0].fecha.getTime() >= patientConsents[1].fecha.getTime());
     assert.strictEqual(patientConsents[0].idPaciente, 203);
+  });
+
+  it('RF-CON-003: Generar PDF en memoria con cabecera estándar y estructura binaria válida (%PDF-1.7)', async () => {
+    const template = await service.createTemplate({
+      nombre: 'Blanqueamiento Dental',
+      textoPlantilla: 'Consentimiento para blanqueamiento dental.',
+    });
+
+    const signed = await service.signConsent({
+      idConsentimiento: template.idConsentimiento,
+      idPaciente: 204,
+      textoFirmado:
+        'Yo, Juan Perez, autorizo el blanqueamiento dental informado.',
+      firmaBase64: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+    });
+
+    const pdfBase64 = await service.generateConsentPdf(signed.idConsentimientoFirmado || 1);
+    assert.ok(pdfBase64 && pdfBase64.length > 100);
+
+    // Verificar que los bytes binarios inicien con el número mágico '%PDF-'
+    const decodedHeader = Buffer.from(pdfBase64.slice(0, 16), 'base64').toString('ascii');
+    assert.ok(decodedHeader.startsWith('%PDF-'), `El PDF generado debe iniciar con %PDF-, recibido: ${decodedHeader}`);
+  });
+
+  it('RF-CON-001 & RF-CON-004: Interpolar variables y corchetes dinámicos ({{nombre_paciente}}, etc.)', () => {
+    const templateWithBrackets =
+      'Yo, {{nombre_paciente}}, con documento {{documento_paciente}}, autorizo. Firmante: {{leyenda_firmante}}{{datos_acudiente}}';
+
+    // 1. Paciente adulto titular
+    const adultResult = interpolateConsentTemplate(templateWithBrackets, {
+      nombrePaciente: 'Maria Rodriguez',
+      documentoPaciente: '1098123456',
+      firmaPorAcudiente: false,
+    });
+
+    assert.ok(adultResult.includes('Maria Rodriguez'));
+    assert.ok(adultResult.includes('1098123456'));
+    assert.ok(adultResult.includes('Firma del paciente titular: Maria Rodriguez'));
+    assert.strictEqual(adultResult.includes('{{nombre_paciente}}'), false);
+
+    // 2. Paciente menor con acudiente
+    const minorResult = interpolateConsentTemplate(templateWithBrackets, {
+      nombrePaciente: 'Santiago Rodriguez',
+      documentoPaciente: '1198765432',
+      firmaPorAcudiente: true,
+      nombreDocumentoAcudiente: 'Maria Rodriguez - C.C. 1098123456',
+    });
+
+    assert.ok(minorResult.includes('Santiago Rodriguez'));
+    assert.ok(minorResult.includes('Maria Rodriguez - C.C. 1098123456'));
+    assert.ok(minorResult.includes('Firma del acudiente / representante legal'));
   });
 });

@@ -13,6 +13,7 @@ export interface ClinicalEvolutionEntry {
     nombreCompleto: string;
     rol: string;
     tarjetaProfesional?: string;
+    firmaBase64?: string | null;
   };
   motivoConsulta: string;
   enfermedadActual?: string;
@@ -89,10 +90,11 @@ export function useClinicalRecord(idPaciente: number, apiBaseUrl = '/api/v1') {
                 idCita: Number(ev.idCita ?? ev.id_cita),
                 fechaRegistro: String(ev.fechaRegistro ?? ev.fecha ?? '').replace('T', ' ').slice(0, 16),
                 profesional: {
-                  idUsuario: Number(ev.profesional?.idUsuario ?? 1),
-                  nombreCompleto: ev.profesional?.nombreCompleto || 'Dr. Eduar Leal Álvarez',
+                  idUsuario: Number(ev.profesional?.idUsuario ?? ev.idUsuario ?? 1),
+                  nombreCompleto: ev.profesionalResponsable || ev.profesional?.nombreCompleto || 'Dr. Eduar Leal Álvarez',
                   rol: ev.profesional?.rol || 'Odontólogo General',
                   tarjetaProfesional: ev.profesional?.tarjetaProfesional,
+                  firmaBase64: ev.profesionalFirma || ev.evolucion?.diligenciadoPor?.firmaBase64 || null,
                 },
                 motivoConsulta: ev.motivoConsulta || ev.evolucion?.motivoConsulta || 'Consulta odontológica',
                 enfermedadActual: ev.enfermedadActual || ev.evolucion?.enfermedadActual,

@@ -23,6 +23,7 @@ export interface AppointmentDetailPageData {
   titulo: string;
   descripcion?: string;
   doctorNombre: string;
+  doctorFirma?: string | null;
   idDoctor: number;
   fecha: string;
   horaInicio: string;

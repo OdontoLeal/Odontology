@@ -10,6 +10,18 @@ import {
 } from '../domain/clinical-record.entity';
 import { IClinicalRecordRepository } from '../domain/clinical-record.repository.interface';
 import { OdontogramDataDTO } from './clinical-record.model';
+import {
+  createDefaultAntecedentesClinicos,
+  createDefaultHabitosHigiene,
+  createDefaultExamenEstomatognatico,
+  createInitialOdontograma,
+  createDefaultPlanManejo,
+  AntecedentesClinicosSchema,
+  HabitosHigieneSchema,
+  ExamenEstomatognaticoSchema,
+  OdontogramaSchema,
+  PlanManejoSchema,
+} from '../../../schemas';
 
 export class ClinicalRecordsController {
   private readonly repo?: IClinicalRecordRepository;
@@ -141,19 +153,111 @@ export class ClinicalRecordsController {
           body.motivoConsulta ?? payload.motivoConsulta ?? 'Consulta Odontológica';
         const enfermedadActual =
           body.enfermedadActual ?? payload.enfermedadActual ?? 'N/A';
-        const antecedentesClinicos =
+
+        // 1. Antecedentes Clínicos
+        let antecedentesClinicos =
           body.antecedentesClinicos ??
           payload.antecedentesClinicos ??
-          payload.antecedentes ??
-          {};
-        const habitosHigiene =
-          body.habitosHigiene ?? payload.habitosHigiene ?? {};
-        const examenEstomatognatico =
-          body.examenEstomatognatico ?? payload.examenEstomatognatico ?? {};
+          payload.antecedentes;
+        if (
+          !antecedentesClinicos ||
+          (typeof antecedentesClinicos === 'object' &&
+            Object.keys(antecedentesClinicos).length === 0)
+        ) {
+          antecedentesClinicos = createDefaultAntecedentesClinicos();
+        } else if (
+          typeof antecedentesClinicos === 'object' &&
+          'accidentes_traumas' in antecedentesClinicos
+        ) {
+          const parsed = AntecedentesClinicosSchema.safeParse(antecedentesClinicos);
+          if (!parsed.success) {
+            res.status(400).json({
+              message:
+                parsed.error.issues[0]?.message ||
+                'Estructura inválida de antecedentes clínicos.',
+              errors: parsed.error.issues,
+            });
+            return;
+          }
+          antecedentesClinicos = parsed.data;
+        }
+
+        // 2. Hábitos de Higiene
+        let habitosHigiene = body.habitosHigiene ?? payload.habitosHigiene;
+        if (
+          !habitosHigiene ||
+          (typeof habitosHigiene === 'object' &&
+            Object.keys(habitosHigiene).length === 0)
+        ) {
+          habitosHigiene = createDefaultHabitosHigiene();
+        } else if (
+          typeof habitosHigiene === 'object' &&
+          'cepillado_dental' in habitosHigiene
+        ) {
+          const parsed = HabitosHigieneSchema.safeParse(habitosHigiene);
+          if (!parsed.success) {
+            res.status(400).json({
+              message:
+                parsed.error.issues[0]?.message ||
+                'Estructura inválida de hábitos de higiene.',
+              errors: parsed.error.issues,
+            });
+            return;
+          }
+          habitosHigiene = parsed.data;
+        }
+
+        // 3. Examen Estomatognático
+        let examenEstomatognatico =
+          body.examenEstomatognatico ?? payload.examenEstomatognatico;
+        if (
+          !examenEstomatognatico ||
+          (typeof examenEstomatognatico === 'object' &&
+            Object.keys(examenEstomatognatico).length === 0)
+        ) {
+          examenEstomatognatico = createDefaultExamenEstomatognatico();
+        } else if (
+          typeof examenEstomatognatico === 'object' &&
+          'labios' in examenEstomatognatico
+        ) {
+          const parsed = ExamenEstomatognaticoSchema.safeParse(examenEstomatognatico);
+          if (!parsed.success) {
+            res.status(400).json({
+              message:
+                parsed.error.issues[0]?.message ||
+                'Estructura inválida de examen estomatognático.',
+              errors: parsed.error.issues,
+            });
+            return;
+          }
+          examenEstomatognatico = parsed.data;
+        }
+
         const examenFisicoObservaciones =
           body.examenFisicoObservaciones ?? payload.examenFisicoObservaciones ?? null;
-        const odontograma =
-          body.odontograma ?? payload.odontograma ?? {};
+
+        // 4. Odontograma
+        let odontograma = body.odontograma ?? payload.odontograma;
+        if (
+          !odontograma ||
+          (typeof odontograma === 'object' &&
+            Object.keys(odontograma).length === 0)
+        ) {
+          odontograma = createInitialOdontograma(Boolean(esMenorDe18Anios));
+        } else if (this.isOdontogramObject(odontograma)) {
+          const parsed = OdontogramaSchema.safeParse(odontograma);
+          if (!parsed.success) {
+            res.status(400).json({
+              message:
+                parsed.error.issues[0]?.message ||
+                'Estructura inválida de odontograma.',
+              errors: parsed.error.issues,
+            });
+            return;
+          }
+          odontograma = parsed.data;
+        }
+
         const procedimientoRealizado =
           body.procedimientoRealizado ??
           payload.procedimientoRealizado ??
@@ -171,8 +275,33 @@ export class ClinicalRecordsController {
           payload.hallazgosObservaciones ??
           payload.observaciones ??
           null;
-        const planManejo =
-          body.planManejo ?? payload.planManejo ?? {};
+
+        // 5. Plan de Manejo
+        let planManejo = body.planManejo ?? payload.planManejo;
+        if (
+          !planManejo ||
+          (typeof planManejo === 'object' &&
+            Object.keys(planManejo).length === 0)
+        ) {
+          planManejo = createDefaultPlanManejo();
+        } else if (
+          typeof planManejo === 'object' &&
+          ('prescripcion_farmacologica' in planManejo ||
+            'incapacidad_medica' in planManejo ||
+            'remision_medica' in planManejo)
+        ) {
+          const parsed = PlanManejoSchema.safeParse(planManejo);
+          if (!parsed.success) {
+            res.status(400).json({
+              message:
+                parsed.error.issues[0]?.message ||
+                'Estructura inválida de plan de manejo.',
+              errors: parsed.error.issues,
+            });
+            return;
+          }
+          planManejo = parsed.data;
+        }
 
         entry = await this.repo.createEvolutionEntry({
           idPaciente: Number(idPaciente),
@@ -286,17 +415,108 @@ export class ClinicalRecordsController {
           odontograma: payload.odontograma,
         });
       } else if (this.repo) {
+        // Validación Zod con safeParse en actualización (Capa 2)
+        const rawAntecedentes =
+          body.antecedentesClinicos ??
+          payload.antecedentesClinicos ??
+          payload.antecedentes;
+        if (
+          rawAntecedentes &&
+          typeof rawAntecedentes === 'object' &&
+          'accidentes_traumas' in rawAntecedentes
+        ) {
+          const parsed = AntecedentesClinicosSchema.safeParse(rawAntecedentes);
+          if (!parsed.success) {
+            res.status(400).json({
+              message:
+                parsed.error.issues[0]?.message ||
+                'Estructura inválida de antecedentes clínicos.',
+              errors: parsed.error.issues,
+            });
+            return;
+          }
+        }
+
+        const rawHabitos = body.habitosHigiene ?? payload.habitosHigiene;
+        if (
+          rawHabitos &&
+          typeof rawHabitos === 'object' &&
+          'cepillado_dental' in rawHabitos
+        ) {
+          const parsed = HabitosHigieneSchema.safeParse(rawHabitos);
+          if (!parsed.success) {
+            res.status(400).json({
+              message:
+                parsed.error.issues[0]?.message ||
+                'Estructura inválida de hábitos de higiene.',
+              errors: parsed.error.issues,
+            });
+            return;
+          }
+        }
+
+        const rawExamen =
+          body.examenEstomatognatico ?? payload.examenEstomatognatico;
+        if (
+          rawExamen &&
+          typeof rawExamen === 'object' &&
+          'labios' in rawExamen
+        ) {
+          const parsed = ExamenEstomatognaticoSchema.safeParse(rawExamen);
+          if (!parsed.success) {
+            res.status(400).json({
+              message:
+                parsed.error.issues[0]?.message ||
+                'Estructura inválida de examen estomatognático.',
+              errors: parsed.error.issues,
+            });
+            return;
+          }
+        }
+
+        const rawOdontograma = body.odontograma ?? payload.odontograma;
+        if (this.isOdontogramObject(rawOdontograma)) {
+          const parsed = OdontogramaSchema.safeParse(rawOdontograma);
+          if (!parsed.success) {
+            res.status(400).json({
+              message:
+                parsed.error.issues[0]?.message ||
+                'Estructura inválida de odontograma.',
+              errors: parsed.error.issues,
+            });
+            return;
+          }
+        }
+
+        const rawPlan = body.planManejo ?? payload.planManejo;
+        if (
+          rawPlan &&
+          typeof rawPlan === 'object' &&
+          ('prescripcion_farmacologica' in rawPlan ||
+            'incapacidad_medica' in rawPlan ||
+            'remision_medica' in rawPlan)
+        ) {
+          const parsed = PlanManejoSchema.safeParse(rawPlan);
+          if (!parsed.success) {
+            res.status(400).json({
+              message:
+                parsed.error.issues[0]?.message ||
+                'Estructura inválida de plan de manejo.',
+              errors: parsed.error.issues,
+            });
+            return;
+          }
+        }
+
         updated = await this.repo.updateEvolutionEntrySameDay(idEvolucion, {
           motivoConsulta: body.motivoConsulta ?? payload.motivoConsulta,
           enfermedadActual: body.enfermedadActual ?? payload.enfermedadActual,
-          antecedentesClinicos:
-            body.antecedentesClinicos ?? payload.antecedentesClinicos ?? payload.antecedentes,
-          habitosHigiene: body.habitosHigiene ?? payload.habitosHigiene,
-          examenEstomatognatico:
-            body.examenEstomatognatico ?? payload.examenEstomatognatico,
+          antecedentesClinicos: rawAntecedentes,
+          habitosHigiene: rawHabitos,
+          examenEstomatognatico: rawExamen,
           examenFisicoObservaciones:
             body.examenFisicoObservaciones ?? payload.examenFisicoObservaciones,
-          odontograma: body.odontograma ?? payload.odontograma,
+          odontograma: rawOdontograma,
           procedimientoRealizado:
             body.procedimientoRealizado ?? payload.procedimientoRealizado ?? payload.notaEvolucion,
           diagnosticoGenerado:
@@ -304,7 +524,7 @@ export class ClinicalRecordsController {
           accionesARealizar: body.accionesARealizar ?? payload.accionesARealizar,
           hallazgosObservaciones:
             body.hallazgosObservaciones ?? payload.hallazgosObservaciones ?? payload.observaciones,
-          planManejo: body.planManejo ?? payload.planManejo,
+          planManejo: rawPlan,
           evolucion: payload,
         });
       } else {

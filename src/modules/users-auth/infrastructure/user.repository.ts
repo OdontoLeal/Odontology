@@ -176,10 +176,14 @@ export class UserRepository implements IUserRepository {
       for (const [name, meta] of UserRepository.roleMetadataStore.entries()) {
         await db.query(
           `UPDATE public.rol
-           SET permisos = $1::jsonb
-           WHERE LOWER(nombre_rol) = $2
-             AND (permisos IS NULL OR permisos = '[]'::jsonb);`,
-          [JSON.stringify(meta.permisos), name]
+           SET permisos = CASE
+                 WHEN permisos IS NULL OR permisos = '[]'::jsonb THEN $1::jsonb
+                 ELSE permisos
+               END,
+               codigo_rol = COALESCE(codigo_rol, $2),
+               descripcion = COALESCE(descripcion, $3)
+           WHERE LOWER(nombre_rol) = $4;`,
+          [JSON.stringify(meta.permisos), meta.codigo, meta.descripcion, name]
         );
       }
       UserRepository.rolesTableSynced = true;
@@ -225,16 +229,24 @@ export class UserRepository implements IUserRepository {
         ? Boolean(row.es_inicial)
         : (meta?.codigo && INITIAL_ROLE_CODES.includes(meta.codigo as any)) || isInitialName;
 
+    const codigoFinal =
+      row.codigo_rol ??
+      meta?.codigo ??
+      `ROL-${row.nombre_rol
+        .replace(/[^a-zA-Z0-9]/g, '')
+        .substring(0, 4)
+        .toUpperCase()}`;
+
+    const descripcionFinal =
+      row.descripcion ??
+      meta?.descripcion ??
+      'Rol configurable del sistema OdontoLeal.';
+
     return {
       id_rol: row.id_rol,
-      codigo:
-        meta?.codigo ??
-        `ROL-${row.nombre_rol
-          .replace(/[^a-zA-Z0-9]/g, '')
-          .substring(0, 4)
-          .toUpperCase()}`,
+      codigo: codigoFinal,
       nombre_rol: row.nombre_rol,
-      descripcion: meta?.descripcion ?? 'Rol configurable del sistema OdontoLeal.',
+      descripcion: descripcionFinal,
       permisos: permisosFinal,
       es_inicial: esInicialFinal,
     };
@@ -248,11 +260,16 @@ export class UserRepository implements IUserRepository {
     await this.ensureRolesTableSync();
     const permisosJson = JSON.stringify(metadata?.permisos ?? ['RF-AGE-008']);
     const sql = `
-      INSERT INTO public.rol (nombre_rol, permisos, es_inicial)
-      VALUES ($1, $2::jsonb, FALSE)
-      RETURNING id_rol, nombre_rol, permisos, es_inicial;
+      INSERT INTO public.rol (nombre_rol, permisos, es_inicial, codigo_rol, descripcion)
+      VALUES ($1, $2::jsonb, FALSE, $3, $4)
+      RETURNING id_rol, nombre_rol, permisos, es_inicial, codigo_rol, descripcion;
     `;
-    const { rows } = await db.query<RoleRow>(sql, [nombreRol, permisosJson]);
+    const { rows } = await db.query<RoleRow>(sql, [
+      nombreRol,
+      permisosJson,
+      metadata?.codigo ?? null,
+      metadata?.descripcion ?? null,
+    ]);
     const created = rows[0];
 
     if (metadata) {
@@ -276,11 +293,11 @@ export class UserRepository implements IUserRepository {
     const permisosJson = JSON.stringify(data.permisos);
     const sql = `
       UPDATE public.rol
-      SET nombre_rol = $1, permisos = $2::jsonb
-      WHERE id_rol = $3
-      RETURNING id_rol, nombre_rol, permisos, es_inicial;
+      SET nombre_rol = $1, permisos = $2::jsonb, descripcion = $3
+      WHERE id_rol = $4
+      RETURNING id_rol, nombre_rol, permisos, es_inicial, codigo_rol, descripcion;
     `;
-    const { rows } = await db.query<RoleRow>(sql, [data.nombreRol, permisosJson, idRol]);
+    const { rows } = await db.query<RoleRow>(sql, [data.nombreRol, permisosJson, data.descripcion, idRol]);
     if (rows.length === 0) {
       throw new Error(`El rol con ID ${idRol} no existe.`);
     }
@@ -301,7 +318,7 @@ export class UserRepository implements IUserRepository {
   async findAllRoles(): Promise<RoleDTO[]> {
     await this.ensureRolesTableSync();
     const { rows } = await db.query<RoleRow>(
-      'SELECT id_rol, nombre_rol, permisos, es_inicial FROM public.rol ORDER BY id_rol ASC;'
+      'SELECT id_rol, nombre_rol, permisos, es_inicial, codigo_rol, descripcion FROM public.rol ORDER BY id_rol ASC;'
     );
     return rows.map((r) => this.enrichRoleRow(r));
   }
@@ -309,7 +326,7 @@ export class UserRepository implements IUserRepository {
   async findRoleById(idRol: number): Promise<RoleDTO | null> {
     await this.ensureRolesTableSync();
     const { rows } = await db.query<RoleRow>(
-      'SELECT id_rol, nombre_rol, permisos, es_inicial FROM public.rol WHERE id_rol = $1;',
+      'SELECT id_rol, nombre_rol, permisos, es_inicial, codigo_rol, descripcion FROM public.rol WHERE id_rol = $1;',
       [idRol]
     );
     return rows[0] ? this.enrichRoleRow(rows[0]) : null;
@@ -488,6 +505,8 @@ export class UserRepository implements IUserRepository {
             json_build_object(
               'idRol', r.id_rol,
               'nombreRol', r.nombre_rol,
+              'codigoRol', r.codigo_rol,
+              'descripcion', r.descripcion,
               'estadoAsignacion', ur.estado,
               'permisos', r.permisos,
               'esInicial', r.es_inicial
@@ -525,6 +544,8 @@ export class UserRepository implements IUserRepository {
             json_build_object(
               'idRol', r.id_rol,
               'nombreRol', r.nombre_rol,
+              'codigoRol', r.codigo_rol,
+              'descripcion', r.descripcion,
               'estadoAsignacion', ur.estado,
               'permisos', r.permisos,
               'esInicial', r.es_inicial
@@ -573,6 +594,8 @@ export class UserRepository implements IUserRepository {
             json_build_object(
               'idRol', r.id_rol,
               'nombreRol', r.nombre_rol,
+              'codigoRol', r.codigo_rol,
+              'descripcion', r.descripcion,
               'estadoAsignacion', ur.estado,
               'permisos', r.permisos,
               'esInicial', r.es_inicial
@@ -690,8 +713,8 @@ export class UserRepository implements IUserRepository {
 
       return {
         ...r,
-        codigo: roleMeta?.codigo,
-        descripcion: roleMeta?.descripcion,
+        codigo: (r as any).codigoRol ?? r.codigo ?? roleMeta?.codigo,
+        descripcion: (r as any).descripcion ?? r.descripcion ?? roleMeta?.descripcion,
         permisos: permisosFinal,
         es_inicial: esInicialFinal,
       };

@@ -10,6 +10,7 @@ import {
   InactiveConsentTemplateError,
 } from '../domain/consent.errors';
 import { IConsentRepository } from '../domain/consent.repository.port';
+import { ConsentPdfGeneratorService } from './consent-pdf-generator.service';
 import {
   CreateConsentTemplateDTO,
   SignConsentDTO,
@@ -164,24 +165,7 @@ export class ConsentService {
       );
     }
 
-    const docContent = [
-      'CONSULTORIO ODONTOLOGICO DR. EDUAR LEAL ALVAREZ - ODONTOLEAL',
-      `CONSENTIMIENTO INFORMADO: ${record.nombrePlantilla.toUpperCase()} (v${record.versionPlantilla}.0)`,
-      `Fecha de suscripción: ${record.fecha.toLocaleString('es-CO')}`,
-      `Paciente ID: ${record.idPaciente}`,
-      `Diligenciado por: ${record.usuarioDiligencioNombre ?? 'Personal asistencial'}`,
-      record.firmaPorAcudiente
-        ? `Suscrito por acudiente/representante: ${record.nombreDocumentoAcudiente}`
-        : 'Suscrito directamente por el paciente titular',
-      '--------------------------------------------------------------------------------',
-      'TEXTO FIRMADO Y ACEPTADO:',
-      record.textoFirmado,
-      '--------------------------------------------------------------------------------',
-      '[FIRMA DIGITAL MANUSCRITA VALIDADA (FLATTEN)]',
-      `Firma (Base64): ${record.firmaBase64.slice(0, 100)}...`,
-    ].join('\n\n');
-
-    return Buffer.from(docContent, 'utf-8').toString('base64');
+    return ConsentPdfGeneratorService.generate(record);
   }
 
   private validatePositiveId(id: number, fieldName: string): void {

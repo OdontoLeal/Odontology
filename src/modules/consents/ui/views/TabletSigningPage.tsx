@@ -1,10 +1,11 @@
 // src/modules/consents/ui/views/TabletSigningPage.tsx
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { SignaturePadCanvas } from '../components/SignaturePadCanvas';
 import { Button } from '../../../../shared/ui/components/Button';
 import { Badge } from '../../../../shared/ui/components/Badge';
 import { Input } from '../../../../shared/ui/components/Input';
 import { useAlertModal } from '../../../../shared/ui/hooks/useAlertModal';
+import { interpolateConsentTemplate } from '../../domain/consent-template-interpolator';
 
 export interface ConsentSignPayload {
   firmaBase64: string;
@@ -45,6 +46,15 @@ export const TabletSigningPage: React.FC<TabletSigningPageProps> = ({
   const [isSuccess, setIsSuccess] = useState(false);
   const { showAlert, AlertModalComponent } = useAlertModal();
 
+  const interpolatedText = useMemo(() => {
+    return interpolateConsentTemplate(cuerpoTexto, {
+      nombrePaciente,
+      documentoPaciente,
+      firmaPorAcudiente: isGuardianSigning,
+      nombreDocumentoAcudiente: isGuardianSigning ? guardianNameAndDoc : null,
+    });
+  }, [cuerpoTexto, nombrePaciente, documentoPaciente, isGuardianSigning, guardianNameAndDoc]);
+
   const handleFinishSigning = () => {
     if (!signatureData) {
       showAlert({
@@ -71,18 +81,11 @@ export const TabletSigningPage: React.FC<TabletSigningPageProps> = ({
       return;
     }
 
-    const consolidatedText = [
-      cuerpoTexto,
-      isGuardianSigning
-        ? `\nSuscrito en calidad de acudiente / representante legal: ${guardianNameAndDoc.trim()} en representación del paciente ${nombrePaciente} (Doc: ${documentoPaciente}).`
-        : `\nSuscrito directamente por el paciente: ${nombrePaciente} (Doc: ${documentoPaciente}).`,
-    ].join('\n');
-
     onConsentSigned?.({
       firmaBase64: signatureData,
       firmaPorAcudiente: isGuardianSigning,
       nombreDocumentoAcudiente: isGuardianSigning ? guardianNameAndDoc.trim() : null,
-      textoFirmado: consolidatedText,
+      textoFirmado: interpolatedText,
     });
     setIsSuccess(true);
   };
@@ -170,9 +173,9 @@ export const TabletSigningPage: React.FC<TabletSigningPageProps> = ({
           <h2 className="text-base font-extrabold text-[#1E242B]">
             {tituloConsentimiento}
           </h2>
-          <div className="max-h-48 overflow-y-auto rounded-2xl bg-[#F8F9FA] border border-[#E2E6EA] p-4 text-xs leading-relaxed text-[#4B5563] space-y-2">
-            <p>{cuerpoTexto}</p>
-            <p className="text-[11px] text-[#8F99A3] italic">
+          <div className="max-h-60 overflow-y-auto rounded-2xl bg-[#F8F9FA] border border-[#E2E6EA] p-4 text-xs leading-relaxed text-[#1E242B] space-y-3">
+            <div className="whitespace-pre-line">{interpolatedText}</div>
+            <p className="text-[11px] text-[#8F99A3] italic pt-2 border-t border-[#E2E6EA]">
               Conforme a la Ley 23 de 1981, Resolución 1995 de 1999 y Ley 1581 de 2012. Este documento certifica el consentimiento libre, previo y expreso.
             </p>
           </div>

@@ -106,6 +106,8 @@ export interface PatientSignedConsentDetail {
   versionPlantilla: number;
   versionActualPlantilla: number;
   idPaciente: number;
+  pacienteNombre?: string;
+  pacienteDocumento?: string;
   fecha: Date;
   textoFirmado: string;
   firmaBase64: string;

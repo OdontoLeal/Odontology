@@ -30,6 +30,12 @@ coverage
 # nyc test coverage
 .nyc_output
 
+AI_CONTEXT_JSON_SCHEMAS.md
+CLAUDE.md
+.cursorrules
+copilot-instructions.md
+
+
 # Grunt intermediate storage (https://gruntjs.com/creating-plugins#storing-task-files)
 .grunt
 

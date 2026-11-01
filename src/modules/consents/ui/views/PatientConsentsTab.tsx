@@ -266,8 +266,14 @@ export const PatientConsentsTab: React.FC<PatientConsentsTabProps> = ({
             })}
 
           {templates.filter((t) => t.activo).length === 0 && (
-            <div className="text-center py-4 text-xs text-[#8F99A3]">
-              No hay plantillas activas registradas en el sistema.
+            <div className="text-center py-6 px-4 space-y-2 bg-[#F8F9FA] rounded-2xl border border-[#E2E6EA]">
+              <div className="text-2xl" aria-hidden="true">📋</div>
+              <p className="text-xs font-bold text-[#1E242B]">
+                No hay plantillas de consentimientos activas en la base de datos
+              </p>
+              <p className="text-[11px] text-[#687380] leading-relaxed">
+                Un usuario con rol Administrador debe registrar o activar plantillas en el módulo de Consentimientos Informados para poder suscribirlas con el paciente (RF-CON-001).
+              </p>
             </div>
           )}
         </div>

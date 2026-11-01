@@ -849,6 +849,7 @@ export class AppointmentRepository {
         CASE WHEN p.id_paciente IS NULL OR p.documento_identidad != sc.documento_solicitante THEN true ELSE false END AS "esPacienteNuevo",
         u.id_usuario AS "idProfesional",
         u.nombre_completo AS "nombreProfesional",
+        u.firma_base64 AS "firmaProfesional",
         COALESCE(json_agg(DISTINCT to_char(bc.id_bloque, 'YYYY-MM-DD HH24:MI:SS')) FILTER (WHERE bc.id_bloque IS NOT NULL), '[]') AS bloques,
         COALESCE(
           json_agg(
@@ -868,7 +869,7 @@ export class AppointmentRepository {
       LEFT JOIN public.solicitud_cita sc ON (sc.bloque_solicitado = bc.id_bloque AND sc.estado = true)
       LEFT JOIN public.historial_cita hc ON c.id_cita = hc.id_cita
       ${where}
-      GROUP BY c.id_cita, p.id_paciente, u.id_usuario, sc.id_solicitud, sc.nombre_solicitante,
+      GROUP BY c.id_cita, p.id_paciente, u.id_usuario, u.firma_base64, sc.id_solicitud, sc.nombre_solicitante,
                sc.documento_solicitante, sc.telefono_solicitante, sc.correo_solicitante,
                sc.fecha_solicitud, sc.fecha_nacimiento, sc.sexo
       ORDER BY c.id_cita DESC;

@@ -8,22 +8,41 @@ import {
   ClinicalEvolutionPayload,
   CreateEvolutionEntryDTO,
 } from './clinical-record.model';
+import {
+  createDefaultAntecedentesClinicos,
+  createDefaultHabitosHigiene,
+  createDefaultExamenEstomatognatico,
+  createInitialOdontograma,
+  createDefaultPlanManejo,
+} from '../../../schemas';
+
+function isNonEmptyObject(val: unknown): boolean {
+  return Boolean(val && typeof val === 'object' && Object.keys(val).length > 0);
+}
 
 function mapEvolucionRowToEntity(row: any): EvolutionRecordRow {
   const motivoConsulta =
     row.motivo_consulta ?? row.motivoConsulta ?? 'Consulta Odontológica';
   const enfermedadActual =
     row.enfermedad_actual ?? row.enfermedadActual ?? null;
-  const antecedentesClinicos =
-    row.antecedentes_clinicos ?? row.antecedentesClinicos ?? {};
-  const habitosHigiene =
-    row.habitos_higiene ?? row.habitosHigiene ?? {};
-  const examenEstomatognatico =
-    row.examen_estomatognatico ?? row.examenEstomatognatico ?? {};
+  const rawAntecedentes = row.antecedentes_clinicos ?? row.antecedentesClinicos;
+  const antecedentesClinicos = isNonEmptyObject(rawAntecedentes)
+    ? rawAntecedentes
+    : createDefaultAntecedentesClinicos();
+  const rawHabitos = row.habitos_higiene ?? row.habitosHigiene;
+  const habitosHigiene = isNonEmptyObject(rawHabitos)
+    ? rawHabitos
+    : createDefaultHabitosHigiene();
+  const rawExamen = row.examen_estomatognatico ?? row.examenEstomatognatico;
+  const examenEstomatognatico = isNonEmptyObject(rawExamen)
+    ? rawExamen
+    : createDefaultExamenEstomatognatico();
   const examenFisicoObservaciones =
     row.examen_fisico_observaciones ?? row.examenFisicoObservaciones ?? null;
-  const odontograma =
-    row.odontograma ?? {};
+  const rawOdontograma = row.odontograma;
+  const odontograma = isNonEmptyObject(rawOdontograma)
+    ? rawOdontograma
+    : createInitialOdontograma();
   const procedimientoRealizado =
     row.procedimiento_realizado ?? row.procedimientoRealizado ?? null;
   const diagnosticoGenerado =
@@ -32,8 +51,10 @@ function mapEvolucionRowToEntity(row: any): EvolutionRecordRow {
     row.acciones_a_realizar ?? row.accionesARealizar ?? null;
   const hallazgosObservaciones =
     row.hallazgos_observaciones ?? row.hallazgosObservaciones ?? null;
-  const planManejo =
-    row.plan_manejo ?? row.planManejo ?? {};
+  const rawPlan = row.plan_manejo ?? row.planManejo;
+  const planManejo = isNonEmptyObject(rawPlan)
+    ? rawPlan
+    : createDefaultPlanManejo();
 
   const sintetizadaEvolucion: ClinicalEvolutionPayload = {
     tipoRegistro: 'EVOLUCION_ODONTOGRAMA',
@@ -59,6 +80,7 @@ function mapEvolucionRowToEntity(row: any): EvolutionRecordRow {
         row.profesionalResponsable ?? row.profesional_responsable ?? 'Dr. Eduar Leal Álvarez'
       ),
       idProfesionalResponsable: Number(row.id_usuario ?? row.idUsuario ?? 1),
+      firmaBase64: row.profesionalFirma ?? row.firma_base64 ?? null,
       fechaHoraISO: row.fecha ? new Date(row.fecha).toISOString() : new Date().toISOString(),
     },
   };
@@ -114,31 +136,36 @@ export class ClinicalRecordRepository implements IClinicalRecordRepository {
       dto.payload?.enfermedadActual ??
       'N/A';
 
-    const antecedentesClinicos =
+    const rawAntecedentes =
       dto.antecedentesClinicos ??
       dto.payload?.antecedentesClinicos ??
-      dto.payload?.antecedentes ??
-      {};
+      dto.payload?.antecedentes;
+    const antecedentesClinicos = isNonEmptyObject(rawAntecedentes)
+      ? rawAntecedentes
+      : createDefaultAntecedentesClinicos();
 
-    const habitosHigiene =
-      dto.habitosHigiene ??
-      dto.payload?.habitosHigiene ??
-      {};
+    const rawHabitos =
+      dto.habitosHigiene ?? dto.payload?.habitosHigiene;
+    const habitosHigiene = isNonEmptyObject(rawHabitos)
+      ? rawHabitos
+      : createDefaultHabitosHigiene();
 
-    const examenEstomatognatico =
-      dto.examenEstomatognatico ??
-      dto.payload?.examenEstomatognatico ??
-      {};
+    const rawExamen =
+      dto.examenEstomatognatico ?? dto.payload?.examenEstomatognatico;
+    const examenEstomatognatico = isNonEmptyObject(rawExamen)
+      ? rawExamen
+      : createDefaultExamenEstomatognatico();
 
     const examenFisicoObservaciones =
       dto.examenFisicoObservaciones ??
       dto.payload?.examenFisicoObservaciones ??
       null;
 
-    const odontograma =
-      dto.odontograma ??
-      dto.payload?.odontograma ??
-      {};
+    const rawOdontograma =
+      dto.odontograma ?? dto.payload?.odontograma;
+    const odontograma = isNonEmptyObject(rawOdontograma)
+      ? rawOdontograma
+      : createInitialOdontograma();
 
     const procedimientoRealizado =
       dto.procedimientoRealizado ??
@@ -163,10 +190,11 @@ export class ClinicalRecordRepository implements IClinicalRecordRepository {
       dto.payload?.observaciones ??
       null;
 
-    const planManejo =
-      dto.planManejo ??
-      dto.payload?.planManejo ??
-      {};
+    const rawPlan =
+      dto.planManejo ?? dto.payload?.planManejo;
+    const planManejo = isNonEmptyObject(rawPlan)
+      ? rawPlan
+      : createDefaultPlanManejo();
 
     const sql = `
       INSERT INTO public.evolucion (
@@ -321,6 +349,8 @@ export class ClinicalRecordRepository implements IClinicalRecordRepository {
         c.estado AS "estadoCita",
         u.nombre_completo AS "profesionalResponsable",
         u.id_usuario AS "idUsuario",
+        u.firma_base64 AS "profesionalFirma",
+        u.firma_base64 AS "profesionalFirma",
         e.motivo_consulta AS "motivoConsulta",
         e.enfermedad_actual AS "enfermedadActual",
         e.antecedentes_clinicos AS "antecedentesClinicos",
@@ -352,6 +382,7 @@ export class ClinicalRecordRepository implements IClinicalRecordRepository {
         idCita: r.idCita ? Number(r.idCita) : null,
         estadoCita: r.estadoCita,
         profesionalResponsable: r.profesionalResponsable,
+        profesionalFirma: r.profesionalFirma,
         motivoConsulta: r.motivoConsulta,
         enfermedadActual: r.enfermedadActual,
         antecedentesClinicos: r.antecedentesClinicos,
@@ -391,7 +422,8 @@ export class ClinicalRecordRepository implements IClinicalRecordRepository {
         e.plan_manejo AS "planManejo",
         c.estado AS "estadoCita",
         u.nombre_completo AS "profesionalResponsable",
-        u.id_usuario AS "idUsuario"
+        u.id_usuario AS "idUsuario",
+        u.firma_base64 AS "profesionalFirma"
       FROM public.evolucion e
       LEFT JOIN public.cita c ON e.id_cita = c.id_cita
       LEFT JOIN public.usuario u ON c.id_usuario = u.id_usuario

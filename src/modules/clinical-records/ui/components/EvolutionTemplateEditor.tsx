@@ -17,6 +17,7 @@ import {
   DEFAULT_PLAN_MANEJO,
 } from '../../infrastructure/clinical-record.model';
 import { useAlertModal } from '../../../../shared/ui/hooks/useAlertModal';
+import { printClinicalDocument } from '../../../clinical-documents/application/print-clinical-document.service';
 import {
   UserIcon,
   CalendarIcon,
@@ -63,6 +64,8 @@ export interface EvolutionTemplateEditorProps {
   patientSex?: string;
   patientDoc?: string;
   doctorName?: string;
+  doctorSignature?: string | null;
+  doctorRole?: string;
   displayDate?: string;
   readOnly?: boolean;
   odontogram?: OdontogramDataDTO;
@@ -121,6 +124,8 @@ export const EvolutionTemplateEditor: React.FC<EvolutionTemplateEditorProps> = (
   patientSex,
   patientDoc = '',
   doctorName = 'Dr. Eduar Leal Álvarez',
+  doctorSignature,
+  doctorRole,
   displayDate,
   readOnly = false,
   odontogram: propOdontogram,
@@ -374,18 +379,103 @@ export const EvolutionTemplateEditor: React.FC<EvolutionTemplateEditorProps> = (
     });
   };
 
-  // Helper para simular o disparar impresión de documentos
+  // Helper para disparar impresión oficial de documentos clínicos (RF-DOC-001 a RF-DOC-004)
   const handlePrintDocument = (tipo: 'RECETA' | 'INCAPACIDAD' | 'REMISION') => {
-    const titles = {
-      RECETA: 'Fórmula Médica / Recetario Oficial',
-      INCAPACIDAD: 'Certificado de Incapacidad Médica',
-      REMISION: 'Orden de Remisión / Interconsulta',
-    };
-    showAlert({
-      title: titles[tipo],
-      message: `Generando documento oficial en PDF con firma médica digital para el paciente ${patientName}. Enviando al servicio de impresión local.`,
-      type: 'info',
-    });
+    if (tipo === 'RECETA') {
+      const meds = planManejo.prescripcion_farmacologica || [];
+      if (meds.length === 0) {
+        showAlert({
+          title: 'Prescripción vacía',
+          message: 'Debe agregar al menos un medicamento a la prescripción farmacológica antes de imprimir la receta.',
+          type: 'warning',
+        });
+        return;
+      }
+      printClinicalDocument({
+        tipo: 'RECETA',
+        patientName,
+        patientDoc,
+        patientAge,
+        patientSex,
+        doctorName,
+        doctorSignature,
+        doctorRole,
+        displayDate: formattedDate,
+        diagnostico,
+        procedimiento: procedimientoRealizado,
+        medications: meds,
+      });
+      return;
+    }
+
+    if (tipo === 'INCAPACIDAD') {
+      if (!planManejo.incapacidad_medica?.requiere_incapacidad) {
+        showAlert({
+          title: 'Incapacidad no requerida',
+          message: 'Marque "¿Requiere Incapacidad?" como Sí y diligencie las fechas antes de imprimir el certificado.',
+          type: 'warning',
+        });
+        return;
+      }
+      let dias = 1;
+      if (planManejo.incapacidad_medica.fecha_inicio && planManejo.incapacidad_medica.fecha_culminacion) {
+        const start = new Date(planManejo.incapacidad_medica.fecha_inicio).getTime();
+        const end = new Date(planManejo.incapacidad_medica.fecha_culminacion).getTime();
+        const diff = Math.round((end - start) / (1000 * 60 * 60 * 24)) + 1;
+        if (diff > 0) dias = diff;
+      }
+      printClinicalDocument({
+        tipo: 'INCAPACIDAD',
+        patientName,
+        patientDoc,
+        patientAge,
+        patientSex,
+        doctorName,
+        doctorSignature,
+        doctorRole,
+        displayDate: formattedDate,
+        diagnostico,
+        procedimiento: procedimientoRealizado,
+        incapacidad: {
+          dias_incapacidad: dias,
+          fecha_inicio: planManejo.incapacidad_medica.fecha_inicio,
+          fecha_fin: planManejo.incapacidad_medica.fecha_culminacion,
+          diagnostico_cie10: diagnostico || planManejo.incapacidad_medica.diagnostico_justificacion,
+          observaciones: planManejo.incapacidad_medica.diagnostico_justificacion,
+        },
+      });
+      return;
+    }
+
+    if (tipo === 'REMISION') {
+      if (!planManejo.remision_medica?.requiere_remision) {
+        showAlert({
+          title: 'Remisión no requerida',
+          message: 'Marque "¿Requiere Remisión?" como Sí y seleccione la especialidad destino antes de imprimir la orden.',
+          type: 'warning',
+        });
+        return;
+      }
+      printClinicalDocument({
+        tipo: 'REMISION',
+        patientName,
+        patientDoc,
+        patientAge,
+        patientSex,
+        doctorName,
+        doctorSignature,
+        doctorRole,
+        displayDate: formattedDate,
+        diagnostico,
+        procedimiento: procedimientoRealizado,
+        remision: {
+          especialidad_destino: planManejo.remision_medica.especialidad_destino || 'Especialista Odontológico',
+          motivo_remision: planManejo.remision_medica.motivo_resumen_clinico || '',
+          resumen_clinico: `Prioridad: ${planManejo.remision_medica.prioridad_atencion || 'Programada / Ordinaria'}. ${procedimientoRealizado ? `Procedimiento: ${procedimientoRealizado}.` : ''}`,
+        },
+      });
+      return;
+    }
   };
 
   const formattedDate = useMemo(() => {

@@ -59,6 +59,8 @@ export const App: React.FC = () => {
   const [activeConsultationContext, setActiveConsultationContext] = useState<{
     idPaciente: number;
     idCita: number;
+    doctorName?: string;
+    doctorSignature?: string | null;
   } | null>(null);
 
   const calculatedPatientAge = useMemo(() => {
@@ -265,7 +267,8 @@ export const App: React.FC = () => {
             patientEmail={selectedPatient?.correo || ''}
             patientAge={calculatedPatientAge}
             patientSex={selectedPatient?.sexo}
-            doctorName={auth.session.usuario.nombreCompleto}
+            doctorName={activeConsultationContext.doctorName || auth.session.usuario.nombreCompleto}
+            doctorSignature={activeConsultationContext.doctorSignature || (auth.session.usuario as any).firmaUrl}
             onBackToAgenda={() => setActiveConsultationContext(null)}
             onFinishConsultation={async (idCita) => {
               try {
@@ -286,15 +289,25 @@ export const App: React.FC = () => {
           />
         ) : (
           <InternalAgendaPage
-            onStartAttention={(idCita, idPaciente) => {
+            onStartAttention={(idCita, idPaciente, doctorInfo) => {
               const matched = patients.find((p) => p.idPaciente === idPaciente);
               if (matched) setSelectedPatient(matched);
-              setActiveConsultationContext({ idPaciente, idCita });
+              setActiveConsultationContext({
+                idPaciente,
+                idCita,
+                doctorName: doctorInfo?.doctorName,
+                doctorSignature: doctorInfo?.doctorSignature,
+              });
             }}
-            onOpenConsultationWorkspace={(idPaciente, idCita) => {
+            onOpenConsultationWorkspace={(idPaciente, idCita, doctorInfo) => {
               const matched = patients.find((p) => p.idPaciente === idPaciente);
               if (matched) setSelectedPatient(matched);
-              setActiveConsultationContext({ idPaciente, idCita });
+              setActiveConsultationContext({
+                idPaciente,
+                idCita,
+                doctorName: doctorInfo?.doctorName,
+                doctorSignature: doctorInfo?.doctorSignature,
+              });
             }}
             onNavigateToPatientProfile={(idPaciente) => {
               const matched = patients.find((p) => p.idPaciente === idPaciente);

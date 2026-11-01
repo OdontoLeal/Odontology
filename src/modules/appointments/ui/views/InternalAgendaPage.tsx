@@ -15,8 +15,8 @@ import {
 } from '../../../../shared/ui/components/Icons';
 
 export interface InternalAgendaPageProps {
-  onStartAttention?: (idCita: number, idPaciente: number) => void;
-  onOpenConsultationWorkspace?: (patientId: number, idCita: number) => void;
+  onStartAttention?: (idCita: number, idPaciente: number, doctorInfo?: { doctorName?: string; doctorSignature?: string | null }) => void;
+  onOpenConsultationWorkspace?: (patientId: number, idCita: number, doctorInfo?: { doctorName?: string; doctorSignature?: string | null }) => void;
   onNavigateToPatientProfile?: (idPaciente: number) => void;
 }
 
@@ -179,8 +179,9 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
       descripcion:
         realAppt?.descripcion ||
         'Evaluación de densidad ósea mediante tomografía CBCT, toma de impresiones digitales 3D y diseño de la guía quirúrgica para osteointegración.',
-      doctorNombre: realAppt?.nombreProfesional || slot.doctorNombre || 'Dr. Mateo Gómez',
-      idDoctor: realAppt?.idProfesional || 101,
+      doctorNombre: realAppt?.nombreProfesional || slot.doctorNombre || 'Dr. Eduar Leal Álvarez',
+      doctorFirma: realAppt?.firmaProfesional ?? null,
+      idDoctor: realAppt?.idProfesional || 1,
       fecha: selectedDate,
       horaInicio: slot.horaInicio,
       horaFin: slot.horaFin,
@@ -359,7 +360,10 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
         }}
         onStartAttention={(idCita, idPaciente) => {
           startAttention(idCita);
-          onStartAttention?.(idCita, idPaciente);
+          onStartAttention?.(idCita, idPaciente, {
+            doctorName: activeAppointmentDetail.doctorNombre,
+            doctorSignature: activeAppointmentDetail.doctorFirma,
+          });
           setViewMode('AGENDA');
         }}
         onCancelAppointment={async (idCita, motivo) => {
