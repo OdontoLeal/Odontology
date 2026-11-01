@@ -1,0 +1,529 @@
+{
+"cuadrantes": {
+      "cuadrante_1": {
+        "id_cuadrante": 1,
+        "descripcion": "Maxilar Superior Derecho",
+        "piezas": {
+          "18": {
+            "codigo_fdi": 18,
+            "nombre_anatomico": "Tercer molar superior derecho",
+            "caras": {
+              "vestibular":      { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "palatina":        { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "mesial":          { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "distal":          { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "oclusal_incisal": { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false }
+            },
+            "simbolos_tecnicos": {
+              "diente_extraido": false, "extraccion_requerida": false, "corona": false, "implante": false, "protesis_fija": false, "endodoncia": false, "puente": false
+            },
+            "nota_clinica": null
+          },
+          "17": {
+            "codigo_fdi": 17,
+            "nombre_anatomico": "Segundo molar superior derecho",
+            "caras": {
+              "vestibular":      { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "palatina":        { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "mesial":          { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "distal":          { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "oclusal_incisal": { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false }
+            },
+            "simbolos_tecnicos": {
+              "diente_extraido": false, "extraccion_requerida": false, "corona": false, "implante": false, "protesis_fija": false, "endodoncia": false, "puente": false
+            },
+            "nota_clinica": null
+          },
+          "16": {
+            "codigo_fdi": 16,
+            "nombre_anatomico": "Primer molar superior derecho",
+            "caras": {
+              "vestibular":      { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "palatina":        { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "mesial":          { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "distal":          { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "oclusal_incisal": { "caries_activa": true,  "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false }
+            },
+            "simbolos_tecnicos": {
+              "diente_extraido": false, "extraccion_requerida": false, "corona": false, "implante": false, "protesis_fija": false, "endodoncia": false, "puente": false
+            },
+            "nota_clinica": {
+              "zona_afectada": "Cara Oclusal",
+              "descripcion": "Caries oclusal activa profunda cavitada con compromiso..."
+            }
+          },
+          "15": {
+            "codigo_fdi": 15,
+            "nombre_anatomico": "Segundo premolar superior derecho",
+            "caras": {
+              "vestibular":      { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "palatina":        { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "mesial":          { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "distal":          { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "oclusal_incisal": { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false }
+            },
+            "simbolos_tecnicos": {
+              "diente_extraido": false, "extraccion_requerida": false, "corona": false, "implante": false, "protesis_fija": false, "endodoncia": false, "puente": false
+            },
+            "nota_clinica": null
+          },
+          "14": {
+            "codigo_fdi": 14,
+            "nombre_anatomico": "Primer premolar superior derecho",
+            "caras": {
+              "vestibular":      { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "palatina":        { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "mesial":          { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "distal":          { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "oclusal_incisal": { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false }
+            },
+            "simbolos_tecnicos": {
+              "diente_extraido": false, "extraccion_requerida": false, "corona": false, "implante": false, "protesis_fija": false, "endodoncia": false, "puente": false
+            },
+            "nota_clinica": null
+          },
+          "13": {
+            "codigo_fdi": 13,
+            "nombre_anatomico": "Canino superior derecho",
+            "caras": {
+              "vestibular":      { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "palatina":        { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "mesial":          { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "distal":          { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "oclusal_incisal": { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false }
+            },
+            "simbolos_tecnicos": {
+              "diente_extraido": false, "extraccion_requerida": false, "corona": false, "implante": false, "protesis_fija": false, "endodoncia": false, "puente": false
+            },
+            "nota_clinica": null
+          },
+          "12": {
+            "codigo_fdi": 12,
+            "nombre_anatomico": "Incisivo lateral superior derecho",
+            "caras": {
+              "vestibular":      { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "palatina":        { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "mesial":          { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "distal":          { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "oclusal_incisal": { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false }
+            },
+            "simbolos_tecnicos": {
+              "diente_extraido": false, "extraccion_requerida": false, "corona": false, "implante": false, "protesis_fija": false, "endodoncia": false, "puente": false
+            },
+            "nota_clinica": null
+          },
+          "11": {
+            "codigo_fdi": 11,
+            "nombre_anatomico": "Incisivo central superior derecho",
+            "caras": {
+              "vestibular":      { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "palatina":        { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "mesial":          { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "distal":          { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "oclusal_incisal": { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": true,  "desgaste_faceta": false }
+            },
+            "simbolos_tecnicos": {
+              "diente_extraido": false, "extraccion_requerida": false, "corona": false, "implante": false, "protesis_fija": false, "endodoncia": false, "puente": false
+            },
+            "nota_clinica": null
+          }
+        }
+      },
+      "cuadrante_2": {
+        "id_cuadrante": 2,
+        "descripcion": "Maxilar Superior Izquierdo",
+        "piezas": {
+          "21": {
+            "codigo_fdi": 21,
+            "nombre_anatomico": "Incisivo central superior izquierdo",
+            "caras": {
+              "vestibular":      { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "palatina":        { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "mesial":          { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "distal":          { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "oclusal_incisal": { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false }
+            },
+            "simbolos_tecnicos": {
+              "diente_extraido": false, "extraccion_requerida": false, "corona": false, "implante": false, "protesis_fija": false, "endodoncia": false, "puente": false
+            },
+            "nota_clinica": null
+          },
+          "22": {
+            "codigo_fdi": 22,
+            "nombre_anatomico": "Incisivo lateral superior izquierdo",
+            "caras": {
+              "vestibular":      { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "palatina":        { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "mesial":          { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "distal":          { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "oclusal_incisal": { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false }
+            },
+            "simbolos_tecnicos": {
+              "diente_extraido": false, "extraccion_requerida": false, "corona": false, "implante": false, "protesis_fija": false, "endodoncia": false, "puente": false
+            },
+            "nota_clinica": null
+          },
+          "23": {
+            "codigo_fdi": 23,
+            "nombre_anatomico": "Canino superior izquierdo",
+            "caras": {
+              "vestibular":      { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "palatina":        { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "mesial":          { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "distal":          { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "oclusal_incisal": { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false }
+            },
+            "simbolos_tecnicos": {
+              "diente_extraido": false, "extraccion_requerida": false, "corona": false, "implante": false, "protesis_fija": false, "endodoncia": false, "puente": false
+            },
+            "nota_clinica": null
+          },
+          "24": {
+            "codigo_fdi": 24,
+            "nombre_anatomico": "Primer premolar superior izquierdo",
+            "caras": {
+              "vestibular":      { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "palatina":        { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "mesial":          { "caries_activa": false, "restauracion_resina": true,  "sellante_fosas": false, "desgaste_faceta": false },
+              "distal":          { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "oclusal_incisal": { "caries_activa": false, "restauracion_resina": true,  "sellante_fosas": false, "desgaste_faceta": false }
+            },
+            "simbolos_tecnicos": {
+              "diente_extraido": false, "extraccion_requerida": false, "corona": false, "implante": false, "protesis_fija": false, "endodoncia": false, "puente": false
+            },
+            "nota_clinica": {
+              "zona_afectada": "Mesio-Oclusal",
+              "descripcion": "Presencia de microfiltración marginal en resina antigua con..."
+            }
+          },
+          "25": {
+            "codigo_fdi": 25,
+            "nombre_anatomico": "Segundo premolar superior izquierdo",
+            "caras": {
+              "vestibular":      { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "palatina":        { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "mesial":          { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "distal":          { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "oclusal_incisal": { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false }
+            },
+            "simbolos_tecnicos": {
+              "diente_extraido": false, "extraccion_requerida": false, "corona": false, "implante": false, "protesis_fija": false, "endodoncia": false, "puente": false
+            },
+            "nota_clinica": null
+          },
+          "26": {
+            "codigo_fdi": 26,
+            "nombre_anatomico": "Primer molar superior izquierdo",
+            "caras": {
+              "vestibular":      { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "palatina":        { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "mesial":          { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "distal":          { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "oclusal_incisal": { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false }
+            },
+            "simbolos_tecnicos": {
+              "diente_extraido": false, "extraccion_requerida": false, "corona": false, "implante": false, "protesis_fija": false, "endodoncia": false, "puente": false
+            },
+            "nota_clinica": null
+          },
+          "27": {
+            "codigo_fdi": 27,
+            "nombre_anatomico": "Segundo molar superior izquierdo",
+            "caras": {
+              "vestibular":      { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "palatina":        { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "mesial":          { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "distal":          { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "oclusal_incisal": { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false }
+            },
+            "simbolos_tecnicos": {
+              "diente_extraido": false, "extraccion_requerida": false, "corona": false, "implante": false, "protesis_fija": false, "endodoncia": false, "puente": false
+            },
+            "nota_clinica": null
+          },
+          "28": {
+            "codigo_fdi": 28,
+            "nombre_anatomico": "Tercer molar superior izquierdo",
+            "caras": {
+              "vestibular":      { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "palatina":        { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "mesial":          { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "distal":          { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "oclusal_incisal": { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false }
+            },
+            "simbolos_tecnicos": {
+              "diente_extraido": false, "extraccion_requerida": false, "corona": false, "implante": false, "protesis_fija": false, "endodoncia": false, "puente": false
+            },
+            "nota_clinica": null
+          }
+        }
+      },
+      "cuadrante_4": {
+        "id_cuadrante": 4,
+        "descripcion": "Mandíbula Inferior Derecha",
+        "piezas": {
+          "48": {
+            "codigo_fdi": 48,
+            "nombre_anatomico": "Tercer molar inferior derecho",
+            "caras": {
+              "vestibular":      { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "lingual":         { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "mesial":          { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "distal":          { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "oclusal_incisal": { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false }
+            },
+            "simbolos_tecnicos": {
+              "diente_extraido": false, "extraccion_requerida": false, "corona": false, "implante": false, "protesis_fija": false, "endodoncia": false, "puente": false
+            },
+            "nota_clinica": null
+          },
+          "47": {
+            "codigo_fdi": 47,
+            "nombre_anatomico": "Segundo molar inferior derecho",
+            "caras": {
+              "vestibular":      { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "lingual":         { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "mesial":          { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "distal":          { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "oclusal_incisal": { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false }
+            },
+            "simbolos_tecnicos": {
+              "diente_extraido": false, "extraccion_requerida": false, "corona": false, "implante": false, "protesis_fija": false, "endodoncia": false, "puente": true
+            },
+            "relacion_puente": {
+              "piezas_conectadas": [47, 46, 45],
+              "rol_estimado": "pilar_distal"
+            },
+            "nota_clinica": null
+          },
+          "46": {
+            "codigo_fdi": 46,
+            "nombre_anatomico": "Primer molar inferior derecho",
+            "caras": {
+              "vestibular":      { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "lingual":         { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "mesial":          { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "distal":          { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "oclusal_incisal": { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false }
+            },
+            "simbolos_tecnicos": {
+              "diente_extraido": false, "extraccion_requerida": false, "corona": false, "implante": false, "protesis_fija": false, "endodoncia": false, "puente": true
+            },
+            "relacion_puente": {
+              "piezas_conectadas": [47, 46, 45],
+              "rol_estimado": "pontico_intermedio"
+            },
+            "nota_clinica": null
+          },
+          "45": {
+            "codigo_fdi": 45,
+            "nombre_anatomico": "Segundo premolar inferior derecho",
+            "caras": {
+              "vestibular":      { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "lingual":         { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "mesial":          { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "distal":          { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "oclusal_incisal": { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false }
+            },
+            "simbolos_tecnicos": {
+              "diente_extraido": false, "extraccion_requerida": false, "corona": false, "implante": false, "protesis_fija": false, "endodoncia": false, "puente": true
+            },
+            "relacion_puente": {
+              "piezas_conectadas": [47, 46, 45],
+              "rol_estimado": "pilar_mesial"
+            },
+            "nota_clinica": null
+          },
+          "44": {
+            "codigo_fdi": 44,
+            "nombre_anatomico": "Primer premolar inferior derecho",
+            "caras": {
+              "vestibular":      { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "lingual":         { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "mesial":          { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "distal":          { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "oclusal_incisal": { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false }
+            },
+            "simbolos_tecnicos": {
+              "diente_extraido": false, "extraccion_requerida": false, "corona": false, "implante": false, "protesis_fija": false, "endodoncia": false, "puente": false
+            },
+            "nota_clinica": null
+          },
+          "43": {
+            "codigo_fdi": 43,
+            "nombre_anatomico": "Canino inferior derecho",
+            "caras": {
+              "vestibular":      { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "lingual":         { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "mesial":          { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "distal":          { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "oclusal_incisal": { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false }
+            },
+            "simbolos_tecnicos": {
+              "diente_extraido": false, "extraccion_requerida": false, "corona": false, "implante": false, "protesis_fija": false, "endodoncia": false, "puente": false
+            },
+            "nota_clinica": null
+          },
+          "42": {
+            "codigo_fdi": 42,
+            "nombre_anatomico": "Incisivo lateral inferior derecho",
+            "caras": {
+              "vestibular":      { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "lingual":         { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "mesial":          { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "distal":          { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "oclusal_incisal": { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false }
+            },
+            "simbolos_tecnicos": {
+              "diente_extraido": false, "extraccion_requerida": false, "corona": false, "implante": false, "protesis_fija": false, "endodoncia": false, "puente": false
+            },
+            "nota_clinica": null
+          },
+          "41": {
+            "codigo_fdi": 41,
+            "nombre_anatomico": "Incisivo central inferior derecho",
+            "caras": {
+              "vestibular":      { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "lingual":         { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "mesial":          { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "distal":          { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "oclusal_incisal": { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false }
+            },
+            "simbolos_tecnicos": {
+              "diente_extraido": false, "extraccion_requerida": false, "corona": false, "implante": false, "protesis_fija": false, "endodoncia": false, "puente": false
+            },
+            "nota_clinica": null
+          }
+        }
+      },
+      "cuadrante_3": {
+        "id_cuadrante": 3,
+        "descripcion": "Mandíbula Inferior Izquierda",
+        "piezas": {
+          "31": {
+            "codigo_fdi": 31,
+            "nombre_anatomico": "Incisivo central inferior izquierdo",
+            "caras": {
+              "vestibular":      { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "lingual":         { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "mesial":          { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "distal":          { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "oclusal_incisal": { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false }
+            },
+            "simbolos_tecnicos": {
+              "diente_extraido": false, "extraccion_requerida": false, "corona": false, "implante": false, "protesis_fija": false, "endodoncia": false, "puente": false
+            },
+            "nota_clinica": null
+          },
+          "32": {
+            "codigo_fdi": 32,
+            "nombre_anatomico": "Incisivo lateral inferior izquierdo",
+            "caras": {
+              "vestibular":      { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "lingual":         { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "mesial":          { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "distal":          { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "oclusal_incisal": { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false }
+            },
+            "simbolos_tecnicos": {
+              "diente_extraido": false, "extraccion_requerida": false, "corona": false, "implante": false, "protesis_fija": false, "endodoncia": false, "puente": false
+            },
+            "nota_clinica": null
+          },
+          "33": {
+            "codigo_fdi": 33,
+            "nombre_anatomico": "Canino inferior izquierdo",
+            "caras": {
+              "vestibular":      { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "lingual":         { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "mesial":          { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "distal":          { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "oclusal_incisal": { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false }
+            },
+            "simbolos_tecnicos": {
+              "diente_extraido": false, "extraccion_requerida": false, "corona": false, "implante": false, "protesis_fija": false, "endodoncia": false, "puente": false
+            },
+            "nota_clinica": null
+          },
+          "34": {
+            "codigo_fdi": 34,
+            "nombre_anatomico": "Primer premolar inferior izquierdo",
+            "caras": {
+              "vestibular":      { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "lingual":         { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "mesial":          { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "distal":          { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "oclusal_incisal": { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false }
+            },
+            "simbolos_tecnicos": {
+              "diente_extraido": false, "extraccion_requerida": false, "corona": false, "implante": false, "protesis_fija": false, "endodoncia": false, "puente": false
+            },
+            "nota_clinica": null
+          },
+          "35": {
+            "codigo_fdi": 35,
+            "nombre_anatomico": "Segundo premolar inferior izquierdo",
+            "caras": {
+              "vestibular":      { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "lingual":         { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "mesial":          { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "distal":          { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "oclusal_incisal": { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false }
+            },
+            "simbolos_tecnicos": {
+              "diente_extraido": false, "extraccion_requerida": false, "corona": true, "implante": false, "protesis_fija": false, "endodoncia": false, "puente": false
+            },
+            "nota_clinica": {
+              "zona_afectada": "Cúspide / Corona",
+              "descripcion": "Corona protésica metal-cerámica en buen estado..."
+            }
+          },
+          "36": {
+            "codigo_fdi": 36,
+            "nombre_anatomico": "Primer molar inferior izquierdo",
+            "caras": {
+              "vestibular":      { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "lingual":         { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "mesial":          { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "distal":          { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "oclusal_incisal": { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false }
+            },
+            "simbolos_tecnicos": {
+              "diente_extraido": false, "extraccion_requerida": false, "corona": false, "implante": false, "protesis_fija": false, "endodoncia": false, "puente": false
+            },
+            "nota_clinica": null
+          },
+          "37": {
+            "codigo_fdi": 37,
+            "nombre_anatomico": "Segundo molar inferior izquierdo",
+            "caras": {
+              "vestibular":      { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "lingual":         { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "mesial":          { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "distal":          { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "oclusal_incisal": { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false }
+            },
+            "simbolos_tecnicos": {
+              "diente_extraido": false, "extraccion_requerida": false, "corona": false, "implante": false, "protesis_fija": false, "endodoncia": false, "puente": false
+            },
+            "nota_clinica": null
+          },
+          "38": {
+            "codigo_fdi": 38,
+            "nombre_anatomico": "Tercer molar inferior izquierdo",
+            "caras": {
+              "vestibular":      { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "lingual":         { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "mesial":          { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "distal":          { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false },
+              "oclusal_incisal": { "caries_activa": false, "restauracion_resina": false, "sellante_fosas": false, "desgaste_faceta": false }
+            },
+            "simbolos_tecnicos": {
+              "diente_extraido": true, "extraccion_requerida": false, "corona": false, "implante": false, "protesis_fija": false, "endodoncia": false, "puente": false
+            },
+            "nota_clinica": null
+          }
+        }
+      }
+    }
+}

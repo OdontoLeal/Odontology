@@ -1,0 +1,34 @@
+{
+  "labios": {
+    "presenta_anormalidades": false,
+    "observaciones": "N/A - Hidratados, normocoloreados y sin lesiones ni queilitis comisural."
+  },
+  "lengua": {
+    "presenta_anormalidades": false,
+    "observaciones": "N/A - Lengua normoglosa, papilas íntegras, movilidad conservada sin alteraciones."
+  },
+  "carrillos_mucosa_yugal": {
+    "presenta_anormalidades": false,
+    "observaciones": "N/A - Mucosa yugal rosada, húmeda y flexible, sin mordeduras ni queratosis."
+  },
+  "amigdalas": {
+    "presenta_anormalidades": false,
+    "observaciones": "N/A - Grado I simétricas, sin exudado, hiperemia ni compromiso infeccioso."
+  },
+  "paladar_duro": {
+    "presenta_anormalidades": false,
+    "observaciones": "N/A - Bóveda palatina normal, mucosa queratinizada sana, sin torus ni fisuras."
+  },
+  "frenillos": {
+    "presenta_anormalidades": false,
+    "observaciones": "N/A - Inserciones normoposicionadas sin tracción gingival ni limitación lingual."
+  },
+  "mucosa_masticadora": {
+    "presenta_anormalidades": false,
+    "observaciones": "N/A - Rebordes íntegros, espesor de queratinización adecuado sin zonas dolorosas."
+  },
+  "encia": {
+    "presenta_anormalidades": false,
+    "observaciones": "N/A - Encía rosa coral, consistencia firme, textura en cáscara de naranja, sin sangrado espontáneo."
+  }
+}

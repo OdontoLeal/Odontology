@@ -1,0 +1,32 @@
+{
+  "bebe_alcohol": {
+    "aplica": true,
+    "frecuencia_cantidad": "Ocasional (social)",
+    "observaciones": "Consumo social esporádico"
+  },
+  "fuma_tabaco_vapeo": {
+    "aplica": false,
+    "frecuencia_cantidad": "No fuma",
+    "observaciones": "No refiere tabaquismo ni cigarrillo electrónico"
+  },
+  "mastica_chicle_golosinas": {
+    "aplica": true,
+    "frecuencia_cantidad": "Ocasional",
+    "observaciones": "Goma de mascar sin azúcar (xilitol)"
+  },
+  "cepillado_dental": {
+    "aplica": true,
+    "frecuencia_cantidad": "3 veces o más al día",
+    "observaciones": "Cepillo cerdas suaves manual. Técnica correcta"
+  },
+  "uso_seda_dental": {
+    "aplica": true,
+    "frecuencia_cantidad": "1 vez al día (nocturno)",
+    "observaciones": "Seda encerada en la noche sin sangrado habitual"
+  },
+  "chequeos_odontologicos_periodicos": {
+    "aplica": true,
+    "frecuencia_cantidad": "Cada 6 meses",
+    "observaciones": "Última profilaxis hace 7 meses con buena respuesta"
+  }
+}

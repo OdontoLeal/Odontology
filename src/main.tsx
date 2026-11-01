@@ -1,7 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
-// @ts-expect-error CSS files are handled by the bundler and have no TypeScript declarations.
 import './index.css';
 
 // Interceptor global para adjuntar token Bearer a peticiones autenticadas si está disponible

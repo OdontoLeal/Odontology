@@ -20,6 +20,17 @@ import {
 } from '../index';
 
 describe('CONTRATOS JSONB Y ESQUEMAS ZOD (Single Source of Truth - Capa 2 y Capa 3)', () => {
+  function loadSchemaAsset(filename: string): any {
+    const localPath = path.resolve(__dirname, '../assets', filename);
+    if (fs.existsSync(localPath)) {
+      return JSON.parse(fs.readFileSync(localPath, 'utf-8'));
+    }
+    const fallbackPath = path.resolve('d:/Descargas', filename);
+    if (fs.existsSync(fallbackPath)) {
+      return JSON.parse(fs.readFileSync(fallbackPath, 'utf-8'));
+    }
+    throw new Error(`Asset file ${filename} not found at ${localPath} nor ${fallbackPath}`);
+  }
   describe('2.1. rol.permisos (Módulo A - RF-USR-007, RF-USR-010)', () => {
     it('Permite un listado válido de permisos funcionales', () => {
       const valid = ['RF-AGE-001', 'RF-AGE-002', 'RF-HCL-001', 'RF-HCL-010'];
@@ -59,8 +70,7 @@ describe('CONTRATOS JSONB Y ESQUEMAS ZOD (Single Source of Truth - Capa 2 y Capa
 
   describe('2.2. antecedentes_clinicos (Módulo C - RF-HCL-005)', () => {
     it('Valida exitosamente el archivo oficial antecendentes_clinicos.json', () => {
-      const raw = fs.readFileSync('d:/Descargas/antecendentes_clinicos.json', 'utf-8');
-      const json = JSON.parse(raw);
+      const json = loadSchemaAsset('antecendentes_clinicos.json');
       const res = AntecedentesClinicosSchema.safeParse(json);
       assert.strictEqual(res.success, true);
     });
@@ -94,8 +104,7 @@ describe('CONTRATOS JSONB Y ESQUEMAS ZOD (Single Source of Truth - Capa 2 y Capa
 
   describe('2.3. habitos_higiene (Módulo C - RF-HCL-005)', () => {
     it('Valida exitosamente el archivo oficial habitos_higiene.json', () => {
-      const raw = fs.readFileSync('d:/Descargas/habitos_higiene.json', 'utf-8');
-      const json = JSON.parse(raw);
+      const json = loadSchemaAsset('habitos_higiene.json');
       const res = HabitosHigieneSchema.safeParse(json);
       assert.strictEqual(res.success, true);
     });
@@ -122,8 +131,7 @@ describe('CONTRATOS JSONB Y ESQUEMAS ZOD (Single Source of Truth - Capa 2 y Capa
 
   describe('2.4. examen_estomatognatico (Módulo C - RF-HCL-005)', () => {
     it('Valida exitosamente el archivo oficial examen_estomatognatico.json', () => {
-      const raw = fs.readFileSync('d:/Descargas/examen_estomatognatico.json', 'utf-8');
-      const json = JSON.parse(raw);
+      const json = loadSchemaAsset('examen_estomatognatico.json');
       const res = ExamenEstomatognaticoSchema.safeParse(json);
       assert.strictEqual(res.success, true);
     });
@@ -149,8 +157,7 @@ describe('CONTRATOS JSONB Y ESQUEMAS ZOD (Single Source of Truth - Capa 2 y Capa
 
   describe('2.5. odontograma (Módulo C - RF-HCL-007, RQNF-USA-001)', () => {
     it('Valida exitosamente el archivo oficial odontograma.json', () => {
-      const raw = fs.readFileSync('d:/Descargas/odontograma.json', 'utf-8');
-      const json = JSON.parse(raw);
+      const json = loadSchemaAsset('odontograma.json');
       const res = OdontogramaSchema.safeParse(json);
       assert.strictEqual(res.success, true);
     });
@@ -203,8 +210,7 @@ describe('CONTRATOS JSONB Y ESQUEMAS ZOD (Single Source of Truth - Capa 2 y Capa
 
   describe('2.6. plan_manejo (Módulos C y E - RF-DOC-001 a RF-DOC-004)', () => {
     it('Valida exitosamente el archivo oficial plan_manejo.json', () => {
-      const raw = fs.readFileSync('d:/Descargas/plan_manejo.json', 'utf-8');
-      const json = JSON.parse(raw);
+      const json = loadSchemaAsset('plan_manejo.json');
       const res = PlanManejoSchema.safeParse(json);
       assert.strictEqual(res.success, true);
     });

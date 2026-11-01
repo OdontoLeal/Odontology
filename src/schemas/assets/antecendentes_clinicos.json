@@ -1,0 +1,30 @@
+{
+  "accidentes_traumas": {
+    "presenta": false,
+    "observaciones": "N/A - Niega traumas faciales o dentales previos"
+  },
+  "cirugias": {
+    "presenta": true,
+    "observaciones": "Apendicectomía laparoscópica en 2019 sin complicaciones anestésicas"
+  },
+  "patologicos": {
+    "presenta": false,
+    "observaciones": "N/A - Niega enfermedades crónicas o sistémicas"
+  },
+  "farmacologicos": {
+    "presenta": true,
+    "observaciones": "Anticonceptivos orales combinados diarios. Sin alergias farmacológicas conocidas"
+  },
+  "inmunologicos": {
+    "presenta": false,
+    "observaciones": "N/A - Tolerancia comprobada a látex y resinas"
+  },
+  "familiares": {
+    "presenta": true,
+    "observaciones": "Madre con antecedente de hipertensión arterial controlada"
+  },
+  "otros_habitos_practicas": {
+    "presenta": false,
+    "observaciones": "Sin registro de hábitos orales parafuncionales o perjudiciales reportados"
+  }
+}

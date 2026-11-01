@@ -6,14 +6,24 @@ import {
   MonthlyDaySummary,
   TimeSlotRow,
 } from './appointment.model';
+import {
+  validatePastDateBooking,
+  validatePublicBookingWindow,
+  validateStateChangeRules,
+  getTodayColombiaDate,
+} from './helpers/appointment-state.validator';
+import {
+  computeTimeRangeFromBlocks,
+  generateStandardDayIntervals,
+} from './helpers/appointment-query.helpers';
 
 export class AppointmentRepository {
-  // RF-AGE-001: Crear / Habilitar bloque de horario asignado a un profesional (DEF-03)
+  // RF-AGE-001: Crear / Habilitar bloque de horario asignado a un profesional
   async upsertTimeSlot(
     inicio: string,
     final: string,
     estado = true,
-    idProfesional = 1
+    _idProfesional = 1
   ): Promise<TimeSlotRow> {
     const sql = `
       INSERT INTO public.bloques_horario (inicio, final, estado, ocupacion)
@@ -32,7 +42,7 @@ export class AppointmentRepository {
   async getTimeSlots(
     desde?: string,
     hasta?: string,
-    idProfesional?: number
+    _idProfesional?: number
   ): Promise<TimeSlotRow[]> {
     const params: any[] = [];
     const conditions: string[] = [];
@@ -55,41 +65,19 @@ export class AppointmentRepository {
   // Generar bloques estándar de 30 min desde las 06:00 hasta las 20:00 (RF-AGE-001)
   async generateDaySlots(
     fecha: string,
-    idProfesional = 1
+    _idProfesional = 1
   ): Promise<{ totalGenerados: number; fecha: string }> {
     const cleanFecha = fecha.trim().split('T')[0].split(' ')[0];
     if (!/^\d{4}-\d{2}-\d{2}$/.test(cleanFecha)) {
       throw new Error('La fecha debe tener formato YYYY-MM-DD');
     }
 
-    const todayColombia = new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'America/Bogota',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    }).format(new Date());
-
+    const todayColombia = getTodayColombiaDate();
     if (cleanFecha < todayColombia) {
       throw new Error(`No se pueden generar bloques de horario para fechas pasadas (${cleanFecha}).`);
     }
 
-    const slots: { inicio: string; final: string }[] = [];
-    for (let hour = 6; hour < 20; hour++) {
-      for (const minute of [0, 30]) {
-        const startH = hour.toString().padStart(2, '0');
-        const startM = minute.toString().padStart(2, '0');
-
-        const endHour = minute === 30 ? hour + 1 : hour;
-        const endMinute = minute === 30 ? 0 : 30;
-        const endH = endHour.toString().padStart(2, '0');
-        const endM = endMinute.toString().padStart(2, '0');
-
-        const inicio = `${cleanFecha} ${startH}:${startM}:00`;
-        const final = `${cleanFecha} ${endH}:${endM}:00`;
-        slots.push({ inicio, final });
-      }
-    }
-
+    const slots = generateStandardDayIntervals(cleanFecha);
     for (const s of slots) {
       await db.query(
         `INSERT INTO public.bloques_horario (inicio, final, estado, ocupacion)
@@ -102,8 +90,8 @@ export class AppointmentRepository {
     return { totalGenerados: slots.length, fecha: cleanFecha };
   }
 
-  // Obtener bloques disponibles para agendamiento público, filtrando opcionalmente por profesional
-  async getAvailableSlots(fecha: string, idProfesional?: number): Promise<TimeSlotRow[]> {
+  // Obtener bloques disponibles para agendamiento público
+  async getAvailableSlots(fecha: string, _idProfesional?: number): Promise<TimeSlotRow[]> {
     const cleanFecha = fecha.trim().split('T')[0].split(' ')[0];
     const params: any[] = [`${cleanFecha} 00:00:00`, `${cleanFecha} 23:59:59`];
     const { rows } = await db.query<TimeSlotRow>(
@@ -118,19 +106,13 @@ export class AppointmentRepository {
   }
 
   // Habilitar o deshabilitar un bloque horario
-  async toggleSlotStatus(inicio: string, idProfesional = 1): Promise<TimeSlotRow> {
+  async toggleSlotStatus(inicio: string, _idProfesional = 1): Promise<TimeSlotRow> {
     let cleanInicio = String(inicio).trim();
     if (cleanInicio.includes('T')) {
       cleanInicio = cleanInicio.replace('T', ' ').split('.')[0];
     }
 
-    const todayColombia = new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'America/Bogota',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    }).format(new Date());
-
+    const todayColombia = getTodayColombiaDate();
     const slotDate = cleanInicio.split(' ')[0];
     if (slotDate < todayColombia) {
       throw new Error(`No se pueden modificar bloques de horario de fechas pasadas (${slotDate}).`);
@@ -153,36 +135,9 @@ export class AppointmentRepository {
     return updateRes.rows[0];
   }
 
-  // RF-AGE-003: Solicitar cita desde sección pública y reservar bloque (DEF-06, DEF-07, DEF-08, DEF-12)
+  // RF-AGE-003: Solicitar cita desde sección pública y reservar bloque
   async createPublicRequest(dto: CreateSolicitudCitaDTO) {
-    // 1. Validar autorización de datos personales Ley 1581 (DEF-07 / CPS-AGE-003-03)
-    if (!dto.autorizacionDatos) {
-      throw new Error('Debe aceptar la autorización de tratamiento de datos personales (Ley 1581 de 2012) para solicitar la cita.');
-    }
-
-    // 2. Validar ventana de 5 a 60 días calendario (DEF-06 / CPS-AGE-003-02)
-    const todayColombiaStr = new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'America/Bogota',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    }).format(new Date());
-
-    const reqDateStr = String(dto.bloqueSolicitado).trim().split('T')[0].split(' ')[0];
-    const d1 = new Date(`${todayColombiaStr}T00:00:00Z`);
-    const d2 = new Date(`${reqDateStr}T00:00:00Z`);
-    const diffDays = Math.round((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24));
-
-    if (diffDays < 5 || diffDays > 60) {
-      throw new Error('Las citas solo se pueden solicitar con una anticipación de entre 5 y 60 días calendario.');
-    }
-
-    // 3. Validar que no sea horario pasado del día de hoy (DEF-12 / CPS-AGE-002-04)
-    if (new Date(dto.bloqueSolicitado).getTime() < Date.now()) {
-      throw new Error('No se pueden solicitar citas en un horario que ya pasó.');
-    }
-
-    const idDoctor = dto.idProfesional || 1;
+    validatePublicBookingWindow(dto.bloqueSolicitado, Boolean(dto.autorizacionDatos));
 
     return db.withTransaction(async (client) => {
       const startDate = new Date(dto.bloqueSolicitado);
@@ -205,7 +160,6 @@ export class AppointmentRepository {
         throw new Error('El horario seleccionado no se encuentra disponible o ya está ocupado.');
       }
 
-      // Registrar en public.solicitud_cita
       const insertSolSql = `
         INSERT INTO public.solicitud_cita 
           (nombre_solicitante, documento_solicitante, correo_solicitante, telefono_solicitante, fecha_nacimiento, sexo, bloque_solicitado, descripcion, estado)
@@ -224,29 +178,26 @@ export class AppointmentRepository {
       ]);
       const solicitud = solRes.rows[0];
 
-      // Bloquear preventivamente el bloque en bloques_horario para reservar el cupo mientras la coordinación lo revisa
       await client.query(
         `UPDATE public.bloques_horario SET ocupacion = TRUE WHERE inicio = $1;`,
         [startStr]
       );
 
-      // Verificar si ya es paciente registrado
       const existingPatientRes = await client.query(
         `SELECT id_paciente FROM public.paciente WHERE documento_identidad = $1;`,
         [dto.documentoSolicitante.trim()]
       );
-      const esPacienteNuevo = existingPatientRes.rows.length === 0;
 
       return {
         solicitud,
         idSolicitud: solicitud.id_solicitud,
         bloqueSolicitado: startStr,
-        esPacienteNuevo,
+        esPacienteNuevo: existingPatientRes.rows.length === 0,
       };
     });
   }
 
-  // RF-AGE-005: Gestionar solicitud (Aprobar o Rechazar y guardar en historial_solicitud)
+  // RF-AGE-005: Gestionar solicitud (Aprobar o Rechazar)
   async reviewRequest(params: {
     idSolicitud: number;
     idUsuarioGestor: number;
@@ -256,10 +207,8 @@ export class AppointmentRepository {
     idProfesional?: number;
     selectedBlocks?: string[];
   }) {
-    if (!params.aprobar) {
-      if (!params.motivo || !params.motivo.trim()) {
-        throw new Error('El motivo de rechazo de la solicitud es obligatorio.');
-      }
+    if (!params.aprobar && (!params.motivo || !params.motivo.trim())) {
+      throw new Error('El motivo de rechazo de la solicitud es obligatorio.');
     }
 
     return db.withTransaction(async (client) => {
@@ -304,174 +253,159 @@ export class AppointmentRepository {
         };
       }
 
-      // Alta automática o verificación de paciente existente
-      const patientCheck = await client.query(
-        `SELECT id_paciente, nombre_completo, correo, telefono FROM public.paciente WHERE documento_identidad = $1;`,
-        [solicitud.documento_solicitante.trim()]
-      );
-
-      let finalPatientId: number;
-      let esNuevo = false;
-
-      if (patientCheck.rows.length > 0) {
-        finalPatientId = patientCheck.rows[0].id_paciente;
-      } else {
-        esNuevo = true;
-        const insertPacRes = await client.query(
-          `INSERT INTO public.paciente 
-            (nombre_completo, documento_identidad, correo, telefono, fecha_nacimiento, sexo)
-           VALUES ($1, $2, $3, $4, $5, $6)
-           RETURNING id_paciente;`,
-          [
-            solicitud.nombre_solicitante.trim(),
-            solicitud.documento_solicitante.trim(),
-            solicitud.correo_solicitante.trim(),
-            solicitud.telefono_solicitante?.trim() || null,
-            solicitud.fecha_nacimiento || null,
-            solicitud.sexo || null,
-          ]
-        );
-        finalPatientId = insertPacRes.rows[0].id_paciente;
-
-        await client.query(
-          `INSERT INTO public.historia_clinica (id_paciente) VALUES ($1) ON CONFLICT (id_paciente) DO NOTHING;`,
-          [finalPatientId]
-        );
-      }
-
-      const existingCitaRes = await client.query(
-        `SELECT c.* FROM public.cita c
-         JOIN public.bloques_citas bc ON c.id_cita = bc.id_cita
-         WHERE bc.id_bloque = $1;`,
-        [solicitud.bloque_solicitado]
-      );
-
-      let cita;
-      const targetDoctorId = params.idProfesional || 1;
-
-      if (existingCitaRes.rows.length > 0) {
-        const updateCitaRes = await client.query(
-          `UPDATE public.cita 
-           SET estado = 'Confirmada', id_paciente = $2, id_usuario = COALESCE($3, id_usuario)
-           WHERE id_cita = $1
-           RETURNING *;`,
-          [existingCitaRes.rows[0].id_cita, finalPatientId, targetDoctorId]
-        );
-        cita = updateCitaRes.rows[0];
-      } else {
-        const insertCitaRes = await client.query(
-          `INSERT INTO public.cita (titulo, descripcion, id_paciente, id_usuario, estado)
-           VALUES ($1, $2, $3, $4, 'Confirmada') RETURNING *;`,
-          [
-            'Valoración Odontológica',
-            solicitud.descripcion || 'Valoración odontológica confirmada',
-            finalPatientId,
-            targetDoctorId,
-          ]
-        );
-        cita = insertCitaRes.rows[0];
-        await client.query(
-          `INSERT INTO public.bloques_citas (id_bloque, id_cita) VALUES ($1, $2) ON CONFLICT DO NOTHING;`,
-          [solicitud.bloque_solicitado, cita.id_cita]
-        );
-      }
-
-      // Bloques a ocupar y asociar
-      const rawBlocks =
-        params.selectedBlocks && params.selectedBlocks.length > 0
-          ? params.selectedBlocks
-          : [solicitud.bloque_solicitado];
-      const blocksToOccupy = rawBlocks.map((b) => String(b).replace('T', ' ').slice(0, 19));
-
-      const originalBlockClean = String(solicitud.bloque_solicitado).replace('T', ' ').slice(0, 19);
-      if (!blocksToOccupy.includes(originalBlockClean)) {
-        await client.query(
-          `UPDATE public.bloques_horario SET ocupacion = FALSE WHERE inicio = $1;`,
-          [solicitud.bloque_solicitado]
-        );
-      }
-
-      await client.query(`DELETE FROM public.bloques_citas WHERE id_cita = $1;`, [cita.id_cita]);
-
-      for (const bInicio of blocksToOccupy) {
-        const bStartDate = new Date(bInicio);
-        const bEndDate = new Date(bStartDate.getTime() + 30 * 60 * 1000);
-        const bEndStr = `${bEndDate.getFullYear()}-${(bEndDate.getMonth() + 1).toString().padStart(2, '0')}-${bEndDate.getDate().toString().padStart(2, '0')} ${bEndDate.getHours().toString().padStart(2, '0')}:${bEndDate.getMinutes().toString().padStart(2, '0')}:00`;
-
-        await client.query(
-          `INSERT INTO public.bloques_horario (inicio, final, estado, ocupacion)
-           VALUES ($1, $2, TRUE, TRUE)
-           ON CONFLICT (inicio) DO UPDATE SET ocupacion = TRUE, estado = TRUE;`,
-          [bInicio, bEndStr]
-        );
-
-        await client.query(
-          `INSERT INTO public.bloques_citas (id_bloque, id_cita)
-           VALUES ($1, $2)
-           ON CONFLICT DO NOTHING;`,
-          [bInicio, cita.id_cita]
-        );
-      }
-
-      const sortedBlocks = [...blocksToOccupy].sort();
-      const firstBlockStr = sortedBlocks[0];
-      const lastBlockStr = sortedBlocks[sortedBlocks.length - 1];
-      const lastDate = new Date(lastBlockStr);
-      const endDate = new Date(lastDate.getTime() + 30 * 60 * 1000);
-      const endHHmm = `${endDate.getHours().toString().padStart(2, '0')}:${endDate.getMinutes().toString().padStart(2, '0')}`;
-      const firstParts = firstBlockStr.split(' ');
-      const fechaCita = firstParts[0];
-      const startHHmm = (firstParts[1] || '').slice(0, 5);
-      const horaRango = `${startHHmm} - ${endHHmm}`;
-
-      const docRes = await client.query(
-        `SELECT nombre_completo, correo FROM public.usuario WHERE id_usuario = $1;`,
-        [cita.id_usuario]
-      );
-      const doctorNombre = docRes.rows[0]?.nombre_completo || 'Dr. Eduar Leal Álvarez';
-      const doctorCorreo = docRes.rows[0]?.correo || 'eduard.leal@gmail.com';
-
-      // Registro de trazabilidad en historial_cita: solo params.idUsuarioGestor (DEF-08)
-      await client.query(
-        `INSERT INTO public.historial_cita (id_cita, id_usuario_gestor, reporte, motivo)
-         VALUES ($1, $2, 'Cita Confirmada por gestión de solicitud web (Alta automática)', $3);`,
-        [cita.id_cita, params.idUsuarioGestor, params.motivo]
-      );
-
-      return {
-        ...cita,
-        idCita: cita.id_cita,
-        correoPaciente: solicitud.correo_solicitante,
-        nombrePaciente: solicitud.nombre_solicitante,
-        fechaHora: `${fechaCita} ${horaRango}`,
-        fecha: fechaCita,
-        hora: horaRango,
-        nombreDoctor: doctorNombre,
-        correoDoctor: doctorCorreo,
-        telefonoPaciente: solicitud.telefono_solicitante,
-        esPacienteNuevo: esNuevo,
-      };
+      return this.confirmApprovedRequest(client, solicitud, params);
     });
   }
 
-  // RF-AGE-002: Agendar cita directamente (Confirmada) ocupando bloques con validación de profesional (DEF-03, DEF-12)
-  async scheduleAppointment(dto: CreateCitaDTO) {
-    const todayColombia = new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'America/Bogota',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    }).format(new Date());
-
-    for (const bloque of dto.bloques) {
-      const blockDate = String(bloque).trim().split('T')[0].split(' ')[0];
-      if (blockDate < todayColombia) {
-        throw new Error(`No se pueden agendar citas para fechas pasadas (${blockDate}).`);
-      }
-      if (new Date(bloque).getTime() < Date.now()) {
-        throw new Error(`No se pueden agendar citas en un horario que ya pasó (${bloque}).`);
-      }
+  // Helper interno de confirmación de solicitud aprobada
+  private async confirmApprovedRequest(
+    client: any,
+    solicitud: any,
+    params: {
+      idSolicitud: number;
+      idUsuarioGestor: number;
+      motivo: string;
+      idProfesional?: number;
+      selectedBlocks?: string[];
     }
+  ) {
+    const patientCheck = await client.query(
+      `SELECT id_paciente FROM public.paciente WHERE documento_identidad = $1;`,
+      [solicitud.documento_solicitante.trim()]
+    );
+
+    let finalPatientId: number;
+    let esNuevo = false;
+
+    if (patientCheck.rows.length > 0) {
+      finalPatientId = patientCheck.rows[0].id_paciente;
+    } else {
+      esNuevo = true;
+      const insertPacRes = await client.query(
+        `INSERT INTO public.paciente 
+          (nombre_completo, documento_identidad, correo, telefono, fecha_nacimiento, sexo)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         RETURNING id_paciente;`,
+        [
+          solicitud.nombre_solicitante.trim(),
+          solicitud.documento_solicitante.trim(),
+          solicitud.correo_solicitante.trim(),
+          solicitud.telefono_solicitante?.trim() || null,
+          solicitud.fecha_nacimiento || null,
+          solicitud.sexo || null,
+        ]
+      );
+      finalPatientId = insertPacRes.rows[0].id_paciente;
+      await client.query(
+        `INSERT INTO public.historia_clinica (id_paciente) VALUES ($1) ON CONFLICT (id_paciente) DO NOTHING;`,
+        [finalPatientId]
+      );
+    }
+
+    const existingCitaRes = await client.query(
+      `SELECT c.* FROM public.cita c
+       JOIN public.bloques_citas bc ON c.id_cita = bc.id_cita
+       WHERE bc.id_bloque = $1;`,
+      [solicitud.bloque_solicitado]
+    );
+
+    let cita;
+    const targetDoctorId = params.idProfesional || 1;
+
+    if (existingCitaRes.rows.length > 0) {
+      const updateCitaRes = await client.query(
+        `UPDATE public.cita 
+         SET estado = 'Confirmada', id_paciente = $2, id_usuario = COALESCE($3, id_usuario)
+         WHERE id_cita = $1
+         RETURNING *;`,
+        [existingCitaRes.rows[0].id_cita, finalPatientId, targetDoctorId]
+      );
+      cita = updateCitaRes.rows[0];
+    } else {
+      const insertCitaRes = await client.query(
+        `INSERT INTO public.cita (titulo, descripcion, id_paciente, id_usuario, estado)
+         VALUES ($1, $2, $3, $4, 'Confirmada') RETURNING *;`,
+        [
+          'Valoración Odontológica',
+          solicitud.descripcion || 'Valoración odontológica confirmada',
+          finalPatientId,
+          targetDoctorId,
+        ]
+      );
+      cita = insertCitaRes.rows[0];
+      await client.query(
+        `INSERT INTO public.bloques_citas (id_bloque, id_cita) VALUES ($1, $2) ON CONFLICT DO NOTHING;`,
+        [solicitud.bloque_solicitado, cita.id_cita]
+      );
+    }
+
+    const rawBlocks =
+      params.selectedBlocks && params.selectedBlocks.length > 0
+        ? params.selectedBlocks
+        : [solicitud.bloque_solicitado];
+    const blocksToOccupy = rawBlocks.map((b) => String(b).replace('T', ' ').slice(0, 19));
+
+    const originalBlockClean = String(solicitud.bloque_solicitado).replace('T', ' ').slice(0, 19);
+    if (!blocksToOccupy.includes(originalBlockClean)) {
+      await client.query(
+        `UPDATE public.bloques_horario SET ocupacion = FALSE WHERE inicio = $1;`,
+        [solicitud.bloque_solicitado]
+      );
+    }
+
+    await client.query(`DELETE FROM public.bloques_citas WHERE id_cita = $1;`, [cita.id_cita]);
+
+    for (const bInicio of blocksToOccupy) {
+      const bStartDate = new Date(bInicio);
+      const bEndDate = new Date(bStartDate.getTime() + 30 * 60 * 1000);
+      const bEndStr = `${bEndDate.getFullYear()}-${(bEndDate.getMonth() + 1).toString().padStart(2, '0')}-${bEndDate.getDate().toString().padStart(2, '0')} ${bEndDate.getHours().toString().padStart(2, '0')}:${bEndDate.getMinutes().toString().padStart(2, '0')}:00`;
+
+      await client.query(
+        `INSERT INTO public.bloques_horario (inicio, final, estado, ocupacion)
+         VALUES ($1, $2, TRUE, TRUE)
+         ON CONFLICT (inicio) DO UPDATE SET ocupacion = TRUE, estado = TRUE;`,
+        [bInicio, bEndStr]
+      );
+
+      await client.query(
+        `INSERT INTO public.bloques_citas (id_bloque, id_cita)
+         VALUES ($1, $2)
+         ON CONFLICT DO NOTHING;`,
+        [bInicio, cita.id_cita]
+      );
+    }
+
+    const timeRange = computeTimeRangeFromBlocks(blocksToOccupy);
+
+    const docRes = await client.query(
+      `SELECT nombre_completo, correo FROM public.usuario WHERE id_usuario = $1;`,
+      [cita.id_usuario]
+    );
+
+    await client.query(
+      `INSERT INTO public.historial_cita (id_cita, id_usuario_gestor, reporte, motivo)
+       VALUES ($1, $2, 'Cita Confirmada por gestión de solicitud web (Alta automática)', $3);`,
+      [cita.id_cita, params.idUsuarioGestor, params.motivo]
+    );
+
+    return {
+      ...cita,
+      idCita: cita.id_cita,
+      correoPaciente: solicitud.correo_solicitante,
+      nombrePaciente: solicitud.nombre_solicitante,
+      fechaHora: `${timeRange.fecha} ${timeRange.hora}`,
+      fecha: timeRange.fecha,
+      hora: timeRange.hora,
+      nombreDoctor: docRes.rows[0]?.nombre_completo || 'Dr. Eduar Leal Álvarez',
+      correoDoctor: docRes.rows[0]?.correo || 'eduard.leal@gmail.com',
+      telefonoPaciente: solicitud.telefono_solicitante,
+      esPacienteNuevo: esNuevo,
+    };
+  }
+
+  // RF-AGE-002: Agendar cita directamente (Confirmada)
+  async scheduleAppointment(dto: CreateCitaDTO) {
+    validatePastDateBooking(dto.bloques);
 
     return db.withTransaction(async (client) => {
       for (const bloque of dto.bloques) {
@@ -503,7 +437,6 @@ export class AppointmentRepository {
         );
       }
 
-      // Regla de Negocio 10: Guardar "Agendado por" en historial_cita
       await client.query(
         `INSERT INTO public.historial_cita (id_cita, id_usuario_gestor, reporte, motivo)
          VALUES ($1, $2, 'Cita creada en estado Confirmada (Agendado por)', 'Agendamiento interno');`,
@@ -519,15 +452,7 @@ export class AppointmentRepository {
         [dto.idUsuarioProfesional]
       );
 
-      const sortedBlocks = [...dto.bloques].sort();
-      const firstBlockStr = String(sortedBlocks[0]).replace('T', ' ');
-      const lastBlockStr = String(sortedBlocks[sortedBlocks.length - 1]).replace('T', ' ');
-      const fechaCita = firstBlockStr.split(' ')[0];
-      const startHHmm = (firstBlockStr.split(' ')[1] || '').slice(0, 5);
-      const lastDate = new Date(lastBlockStr);
-      const endDate = new Date(lastDate.getTime() + 30 * 60 * 1000);
-      const endHHmm = `${endDate.getHours().toString().padStart(2, '0')}:${endDate.getMinutes().toString().padStart(2, '0')}`;
-      const horaRango = `${startHHmm} - ${endHHmm}`;
+      const timeRange = computeTimeRangeFromBlocks(dto.bloques);
 
       return {
         ...cita,
@@ -536,13 +461,13 @@ export class AppointmentRepository {
         telefonoPaciente: pacRes.rows[0]?.telefono || null,
         nombreDoctor: docRes.rows[0]?.nombre_completo || 'Doctor',
         correoDoctor: docRes.rows[0]?.correo || null,
-        fecha: fechaCita,
-        hora: horaRango,
+        fecha: timeRange.fecha,
+        hora: timeRange.hora,
       };
     });
   }
 
-  // RF-AGE-007, RF-AGE-009, RF-AGE-013: Cambiar estado de cita con validaciones estrictas (DEF-02, DEF-04, DEF-05, DEF-11)
+  // RF-AGE-007, RF-AGE-009, RF-AGE-013: Cambiar estado de cita
   async changeAppointmentState(params: {
     idCita: number;
     nuevoEstado: EstadoCita;
@@ -551,23 +476,6 @@ export class AppointmentRepository {
     liberarBloques?: boolean;
     isAdmin?: boolean;
   }) {
-    const allowedStates = [
-      'Solicitada',
-      'Confirmada',
-      'En consulta',
-      'Atendida',
-      'Completada',
-      'Cancelada',
-      'Inasistencia',
-      'No asistió',
-      'Rechazada',
-    ];
-    if (!allowedStates.includes(params.nuevoEstado)) {
-      const err: any = new Error(`Estado de cita '${params.nuevoEstado}' no es válido.`);
-      err.status = 400;
-      throw err;
-    }
-
     return db.withTransaction(async (client) => {
       const currentRes = await client.query(
         `SELECT * FROM public.cita WHERE id_cita = $1 FOR UPDATE;`,
@@ -576,43 +484,26 @@ export class AppointmentRepository {
       if (currentRes.rows.length === 0) throw new Error('La cita no existe.');
       const citaActual = currentRes.rows[0];
 
-      if (['Cancelada', 'No asistió', 'Completada', 'Rechazada'].includes(citaActual.estado)) {
-        throw new Error(
-          `La cita se encuentra en estado final '${citaActual.estado}' y no permite cambios de estado posteriores.`
-        );
-      }
+      validateStateChangeRules({
+        citaActual,
+        nuevoEstado: params.nuevoEstado,
+        motivo: params.motivo,
+        idUsuarioGestor: params.idUsuarioGestor,
+        isAdmin: params.isAdmin,
+      });
 
-      if (citaActual.estado === params.nuevoEstado) {
-        return citaActual;
-      }
+      if (citaActual.estado === params.nuevoEstado) return citaActual;
 
       if (params.nuevoEstado === 'No asistió' || params.nuevoEstado === 'Inasistencia') {
-        if (citaActual.estado !== 'Confirmada' && citaActual.estado !== 'En espera') {
-          throw new Error(`Solo se puede registrar inasistencia en citas en estado 'Confirmada' o 'En espera'.`);
-        }
-        // Validar que la hora programada ya haya llegado (DEF-05 / CPS-AGE-013-01)
         const bcCheck = await client.query(
           `SELECT id_bloque FROM public.bloques_citas WHERE id_cita = $1 ORDER BY id_bloque ASC LIMIT 1;`,
           [params.idCita]
         );
-        if (bcCheck.rows.length > 0) {
-          const startTime = new Date(bcCheck.rows[0].id_bloque);
-          if (startTime.getTime() > Date.now()) {
-            throw new Error('No se puede marcar inasistencia antes de la fecha y hora programada de la cita.');
-          }
+        if (bcCheck.rows.length > 0 && new Date(bcCheck.rows[0].id_bloque).getTime() > Date.now()) {
+          throw new Error('No se puede marcar inasistencia antes de la fecha y hora programada de la cita.');
         }
       }
 
-      if (params.nuevoEstado === 'Cancelada') {
-        if (!params.motivo || !params.motivo.trim()) {
-          throw new Error('El motivo de cancelación es obligatorio.');
-        }
-        if (citaActual.estado !== 'Confirmada' && citaActual.estado !== 'En espera' && citaActual.estado !== 'Solicitada') {
-          throw new Error(`Solo se pueden cancelar citas en estado 'Confirmada', 'En espera' o 'Solicitada'.`);
-        }
-      }
-
-      // Finalizar atención requiere motivo de consulta en historia clínica (DEF-04 / CPS-AGE-009-02)
       if (params.nuevoEstado === 'Completada' || params.nuevoEstado === 'Atendida') {
         const evoRes = await client.query(
           `SELECT motivo_consulta FROM public.evolucion WHERE id_cita = $1 AND TRIM(COALESCE(motivo_consulta, '')) != '' LIMIT 1;`,
@@ -623,18 +514,7 @@ export class AppointmentRepository {
         }
       }
 
-      // Solo el profesional responsable inicia la atención (DEF-02 / CPS-AGE-009-03)
       if (params.nuevoEstado === 'En consulta') {
-        if (
-          params.idUsuarioGestor &&
-          citaActual.id_usuario &&
-          citaActual.id_usuario !== params.idUsuarioGestor &&
-          !params.isAdmin
-        ) {
-          const err: any = new Error('Solo el profesional responsable asignado a la cita puede iniciar la atención.');
-          err.status = 403;
-          throw err;
-        }
         const doctorIdToCheck = citaActual.id_usuario || params.idUsuarioGestor;
         const activeRes = await client.query(
           `SELECT id_cita FROM public.cita WHERE id_usuario = $1 AND estado = 'En consulta' AND id_cita != $2;`,
@@ -674,7 +554,6 @@ export class AppointmentRepository {
         ]
       );
 
-      // Obtener datos del paciente y doctor para notificaciones
       const detailRes = await client.query(
         `SELECT p.nombre_completo AS "nombrePaciente", p.correo AS "correoPaciente",
                 u.nombre_completo AS "nombreDoctor", u.correo AS "correoDoctor"
@@ -689,9 +568,7 @@ export class AppointmentRepository {
         `SELECT to_char(id_bloque, 'YYYY-MM-DD HH24:MI:SS') AS id_bloque FROM public.bloques_citas WHERE id_cita = $1 ORDER BY id_bloque ASC;`,
         [params.idCita]
       );
-      const bList = bcRes.rows.map((r: any) => r.id_bloque);
-      const fecha = bList.length > 0 ? bList[0].split(' ')[0] : 'Por confirmar';
-      const hora = bList.length > 0 ? (bList[0].split(' ')[1] || '').slice(0, 5) : 'Por confirmar';
+      const timeRange = computeTimeRangeFromBlocks(bcRes.rows.map((r: any) => r.id_bloque));
 
       return {
         ...updateRes.rows[0],
@@ -699,8 +576,8 @@ export class AppointmentRepository {
         correoPaciente: detailRes.rows[0]?.correoPaciente || null,
         nombreDoctor: detailRes.rows[0]?.nombreDoctor || 'Doctor',
         correoDoctor: detailRes.rows[0]?.correoDoctor || null,
-        fecha,
-        hora,
+        fecha: timeRange.fecha,
+        hora: timeRange.hora,
       };
     });
   }
@@ -744,61 +621,7 @@ export class AppointmentRepository {
       );
 
       if (params.selectedBlocks && params.selectedBlocks.length > 0) {
-        const currentBcRes = await client.query(
-          `SELECT to_char(id_bloque, 'YYYY-MM-DD HH24:MI:SS') AS id_bloque FROM public.bloques_citas WHERE id_cita = $1;`,
-          [params.idCita]
-        );
-        const currentBlocks: string[] = currentBcRes.rows.map((r: any) => r.id_bloque);
-        const newBlocks: string[] = params.selectedBlocks.map((b) =>
-          String(b).replace('T', ' ').slice(0, 19)
-        );
-
-        const blocksToRelease = currentBlocks.filter((b) => !newBlocks.includes(b));
-        for (const b of blocksToRelease) {
-          await client.query(
-            `UPDATE public.bloques_horario SET ocupacion = FALSE WHERE inicio = $1;`,
-            [b]
-          );
-          await client.query(
-            `DELETE FROM public.bloques_citas WHERE id_cita = $1 AND id_bloque = $2;`,
-            [params.idCita, b]
-          );
-        }
-
-        const blocksToOccupy = newBlocks.filter((b) => !currentBlocks.includes(b));
-        for (const b of blocksToOccupy) {
-          const slotCheck = await client.query<TimeSlotRow>(
-            `SELECT inicio, final, estado, ocupacion FROM public.bloques_horario WHERE inicio = $1 FOR UPDATE;`,
-            [b]
-          );
-
-          if (slotCheck.rows.length === 0) {
-            const bDate = new Date(b);
-            const bEndDate = new Date(bDate.getTime() + 30 * 60 * 1000);
-            const bEndStr = `${bEndDate.getFullYear()}-${(bEndDate.getMonth() + 1).toString().padStart(2, '0')}-${bEndDate.getDate().toString().padStart(2, '0')} ${bEndDate.getHours().toString().padStart(2, '0')}:${bEndDate.getMinutes().toString().padStart(2, '0')}:00`;
-
-            await client.query(
-              `INSERT INTO public.bloques_horario (inicio, final, estado, ocupacion) VALUES ($1, $2, TRUE, TRUE);`,
-              [b, bEndStr]
-            );
-          } else {
-            if (!slotCheck.rows[0].estado) {
-              throw new Error(`El bloque ${b} se encuentra deshabilitado.`);
-            }
-            if (slotCheck.rows[0].ocupacion) {
-              throw new Error(`El bloque ${b} ya se encuentra ocupado por otra cita.`);
-            }
-            await client.query(
-              `UPDATE public.bloques_horario SET ocupacion = TRUE WHERE inicio = $1;`,
-              [b]
-            );
-          }
-
-          await client.query(
-            `INSERT INTO public.bloques_citas (id_bloque, id_cita) VALUES ($1, $2) ON CONFLICT DO NOTHING;`,
-            [b, params.idCita]
-          );
-        }
+        await this.syncAppointmentBlocks(client, params.idCita, params.selectedBlocks);
       }
 
       await client.query(
@@ -822,36 +645,66 @@ export class AppointmentRepository {
          ORDER BY id_bloque ASC;`,
         [params.idCita]
       );
-      const finalBlocks: string[] = finalBcRes.rows.map((r: any) => r.id_bloque);
-      let fechaCita = 'Fecha por confirmar';
-      let horaRango = 'Horario por confirmar';
-      if (finalBlocks.length > 0) {
-        const first = finalBlocks[0];
-        const last = finalBlocks[finalBlocks.length - 1];
-        fechaCita = first.split(' ')[0];
-        const startHHmm = (first.split(' ')[1] || '').slice(0, 5);
-        const lastDate = new Date(last);
-        const endDate = new Date(lastDate.getTime() + 30 * 60 * 1000);
-        const endHHmm = `${endDate.getHours().toString().padStart(2, '0')}:${endDate.getMinutes().toString().padStart(2, '0')}`;
-        horaRango = `${startHHmm} - ${endHHmm}`;
-      }
+      const timeRange = computeTimeRangeFromBlocks(finalBcRes.rows.map((r: any) => r.id_bloque));
 
       return {
         ...updatedRes.rows[0],
         correoPaciente: cita.correoPaciente,
         nombrePaciente: cita.nombrePaciente,
         telefonoPaciente: cita.telefonoPaciente,
-        fecha: fechaCita,
-        hora: horaRango,
+        fecha: timeRange.fecha,
+        hora: timeRange.hora,
       };
     });
   }
 
-  // RF-AGE-004: Obtener personal a notificar ante solicitudes externas con escalado COA -> AUX -> ADM (DEF-09 / CPS-AGE-004-02)
+  private async syncAppointmentBlocks(client: any, idCita: number, selectedBlocks: string[]) {
+    const currentBcRes = await client.query(
+      `SELECT to_char(id_bloque, 'YYYY-MM-DD HH24:MI:SS') AS id_bloque FROM public.bloques_citas WHERE id_cita = $1;`,
+      [idCita]
+    );
+    const currentBlocks: string[] = currentBcRes.rows.map((r: any) => r.id_bloque);
+    const newBlocks: string[] = selectedBlocks.map((b) => String(b).replace('T', ' ').slice(0, 19));
+
+    const blocksToRelease = currentBlocks.filter((b) => !newBlocks.includes(b));
+    for (const b of blocksToRelease) {
+      await client.query(`UPDATE public.bloques_horario SET ocupacion = FALSE WHERE inicio = $1;`, [b]);
+      await client.query(`DELETE FROM public.bloques_citas WHERE id_cita = $1 AND id_bloque = $2;`, [idCita, b]);
+    }
+
+    const blocksToOccupy = newBlocks.filter((b) => !currentBlocks.includes(b));
+    for (const b of blocksToOccupy) {
+      const slotCheck: any = await client.query(
+        `SELECT inicio, final, estado, ocupacion FROM public.bloques_horario WHERE inicio = $1 FOR UPDATE;`,
+        [b]
+      );
+
+      if (slotCheck.rows.length === 0) {
+        const bDate = new Date(b);
+        const bEndDate = new Date(bDate.getTime() + 30 * 60 * 1000);
+        const bEndStr = `${bEndDate.getFullYear()}-${(bEndDate.getMonth() + 1).toString().padStart(2, '0')}-${bEndDate.getDate().toString().padStart(2, '0')} ${bEndDate.getHours().toString().padStart(2, '0')}:${bEndDate.getMinutes().toString().padStart(2, '0')}:00`;
+
+        await client.query(
+          `INSERT INTO public.bloques_horario (inicio, final, estado, ocupacion) VALUES ($1, $2, TRUE, TRUE);`,
+          [b, bEndStr]
+        );
+      } else {
+        if (!slotCheck.rows[0].estado) throw new Error(`El bloque ${b} se encuentra deshabilitado.`);
+        if (slotCheck.rows[0].ocupacion) throw new Error(`El bloque ${b} ya se encuentra ocupado por otra cita.`);
+        await client.query(`UPDATE public.bloques_horario SET ocupacion = TRUE WHERE inicio = $1;`, [b]);
+      }
+
+      await client.query(
+        `INSERT INTO public.bloques_citas (id_bloque, id_cita) VALUES ($1, $2) ON CONFLICT DO NOTHING;`,
+        [b, idCita]
+      );
+    }
+  }
+
+  // RF-AGE-004: Obtener personal a notificar ante solicitudes externas con escalado COA -> AUX -> ADM
   async getStaffForNewRequestNotification(): Promise<
     Array<{ nombreCompleto: string; correo: string; rol: string }>
   > {
-    // 1. Coordinadores de agendamiento activos
     const coaRes = await db.query(
       `SELECT DISTINCT u.nombre_completo AS "nombreCompleto", u.correo, r.nombre_rol AS "rol"
        FROM public.usuario u
@@ -860,12 +713,8 @@ export class AppointmentRepository {
        WHERE (LOWER(r.nombre_rol) LIKE '%coordinad%' OR LOWER(r.nombre_rol) LIKE '%agend%' OR r.codigo_rol = 'ROL-COA')
          AND u.estado = true AND ur.estado = true;`
     );
+    if (coaRes.rows.length > 0) return coaRes.rows;
 
-    if (coaRes.rows.length > 0) {
-      return coaRes.rows;
-    }
-
-    // 2. Si la coordinadora está inactiva, recurrir a auxiliares (DEF-09 / CPS-AGE-004-02)
     const auxRes = await db.query(
       `SELECT DISTINCT u.nombre_completo AS "nombreCompleto", u.correo, r.nombre_rol AS "rol"
        FROM public.usuario u
@@ -874,12 +723,8 @@ export class AppointmentRepository {
        WHERE (LOWER(r.nombre_rol) LIKE '%auxiliar%' OR r.codigo_rol = 'ROL-AUX')
          AND u.estado = true AND ur.estado = true;`
     );
+    if (auxRes.rows.length > 0) return auxRes.rows;
 
-    if (auxRes.rows.length > 0) {
-      return auxRes.rows;
-    }
-
-    // 3. Administradores del sistema
     const admRes = await db.query(
       `SELECT DISTINCT u.nombre_completo AS "nombreCompleto", u.correo, r.nombre_rol AS "rol"
        FROM public.usuario u
@@ -888,7 +733,6 @@ export class AppointmentRepository {
        WHERE (LOWER(r.nombre_rol) LIKE '%administrad%' OR LOWER(r.nombre_rol) LIKE '%admin%' OR r.codigo_rol = 'ROL-ADM')
          AND u.estado = true AND ur.estado = true;`
     );
-
     return admRes.rows;
   }
 
@@ -958,7 +802,7 @@ export class AppointmentRepository {
     return rows;
   }
 
-  // Resumen mensual de citas y bloques para el calendario lateral izquierdo
+  // Resumen mensual de citas y bloques para el calendario
   async getMonthlySummary(year: number, month: number): Promise<MonthlyDaySummary[]> {
     const monthStr = month.toString().padStart(2, '0');
     const startDate = `${year}-${monthStr}-01`;

@@ -1,0 +1,28 @@
+{
+  "prescripcion_farmacologica": [
+    {
+      "medicamento_principio_activo": "Amoxicilina + Ácido Clavulánico",
+      "dosis_concentracion": "875/125 mg",
+      "frecuencia_via": "Cada 8 horas (Vía Oral)",
+      "duracion_tratamiento": "7 días consecutivos"
+    },
+    {
+      "medicamento_principio_activo": "Ibuprofeno",
+      "dosis_concentracion": "600 mg",
+      "frecuencia_via": "Cada 8 horas con alimentos",
+      "duracion_tratamiento": "3 a 5 días según dolor"
+    }
+  ],
+  "incapacidad_medica": {
+    "requiere_incapacidad": true,
+    "fecha_inicio": "2026-10-24",
+    "fecha_culminacion": "2026-10-25",
+    "diagnostico_justificacion": "Paciente sometida a intervención quirúrgica menor y desbridamiento endodóntico de urgencia en pieza dental 16. Requiere reposo relativo de 48 horas con limitación para esfuerzos físicos moderados y dieta blanda estricta para evitar complicaciones hemorrágicas o sobrecargas masticatorias."
+  },
+  "remision_medica": {
+    "requiere_remision": true,
+    "especialidad_destino": "Endodoncia Microscópica",
+    "prioridad_atencion": "Prioritaria / Urgencia",
+    "motivo_resumen_clinico": "Se remite paciente femenina de 29 años para evaluación y tratamiento endodóntico especializado en pieza 16 debido a sintomatología pulpar irreversible y conductometría compleja con curvatura apical pronunciada en raíz mesiovestibular. Se practicó apertura coronaria de urgencia y desinfección preventiva."
+  }
+}
