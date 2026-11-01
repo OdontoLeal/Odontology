@@ -40,6 +40,8 @@ export interface WeeklyCalendarGridProps {
   filterMode: 'all' | 'appointments_only' | 'requests_only';
   isPastDate?: boolean;
   isLoading?: boolean;
+  canManageSlots?: boolean;
+  canCreateAppointment?: boolean;
   onSelectSlot?: (slot: CalendarTimeSlot) => void;
   onSelectPendingRequest?: (slot: CalendarTimeSlot) => void;
   onToggleSlotStatus?: (slot: CalendarTimeSlot) => void;
@@ -52,6 +54,8 @@ export const WeeklyCalendarGrid: React.FC<WeeklyCalendarGridProps> = ({
   filterMode,
   isPastDate = false,
   isLoading = false,
+  canManageSlots = true,
+  canCreateAppointment = true,
   onSelectSlot,
   onSelectPendingRequest,
   onToggleSlotStatus,
@@ -179,7 +183,7 @@ export const WeeklyCalendarGrid: React.FC<WeeklyCalendarGridProps> = ({
             Para habilitar la programación de citas, genera los bloques de 30 minutos (06:00 a 20:00) establecidos en las especificaciones del sistema.
           </p>
         </div>
-        {onCreateBlocks && !isPastDate ? (
+        {onCreateBlocks && !isPastDate && canManageSlots ? (
           <button
             type="button"
             onClick={onCreateBlocks}
@@ -306,14 +310,16 @@ export const WeeklyCalendarGrid: React.FC<WeeklyCalendarGridProps> = ({
                   </span>
                 ) : isEnabled ? (
                   <>
-                    <button
-                      type="button"
-                      onClick={() => onToggleSlotStatus?.(slot)}
-                      className="text-xs font-semibold px-3 py-1.5 rounded-xl border border-[#E2E6EA] bg-white text-[#B45309] hover:bg-[#FFFBEB] transition-colors inline-flex items-center gap-1.5 shadow-2xs"
-                    >
-                      <UnlockIcon size={14} className="text-[#B45309]" /> Deshabilitar bloque
-                    </button>
-                    {onScheduleSlot && (
+                    {canManageSlots && onToggleSlotStatus && (
+                      <button
+                        type="button"
+                        onClick={() => onToggleSlotStatus(slot)}
+                        className="text-xs font-semibold px-3 py-1.5 rounded-xl border border-[#E2E6EA] bg-white text-[#B45309] hover:bg-[#FFFBEB] transition-colors inline-flex items-center gap-1.5 shadow-2xs"
+                      >
+                        <UnlockIcon size={14} className="text-[#B45309]" /> Deshabilitar bloque
+                      </button>
+                    )}
+                    {canCreateAppointment && onScheduleSlot && (
                       <button
                         type="button"
                         onClick={() => onScheduleSlot(slot)}
@@ -324,13 +330,15 @@ export const WeeklyCalendarGrid: React.FC<WeeklyCalendarGridProps> = ({
                     )}
                   </>
                 ) : (
-                  <button
-                    type="button"
-                    onClick={() => onToggleSlotStatus?.(slot)}
-                    className="text-xs font-semibold px-3 py-1.5 rounded-xl border border-[#E2E6EA] bg-white text-[#B45309] hover:bg-[#FFFBEB] transition-colors inline-flex items-center gap-1.5 shadow-2xs"
-                  >
-                    <LockIcon size={14} className="text-[#B45309]" /> Habilitar bloque
-                  </button>
+                  canManageSlots && onToggleSlotStatus && (
+                    <button
+                      type="button"
+                      onClick={() => onToggleSlotStatus(slot)}
+                      className="text-xs font-semibold px-3 py-1.5 rounded-xl border border-[#E2E6EA] bg-white text-[#B45309] hover:bg-[#FFFBEB] transition-colors inline-flex items-center gap-1.5 shadow-2xs"
+                    >
+                      <LockIcon size={14} className="text-[#B45309]" /> Habilitar bloque
+                    </button>
+                  )
                 )}
               </div>
             </div>

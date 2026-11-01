@@ -78,10 +78,17 @@ export const AlertModal: React.FC<AlertModalProps> = ({
     onClose();
   };
 
+  const handleBackdropOrClose = () => {
+    if (type !== 'confirm' && onConfirm) {
+      onConfirm();
+    }
+    onClose();
+  };
+
   return (
     <Modal
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={handleBackdropOrClose}
       maxWidth="md"
       footer={
         <div className="flex items-center justify-end gap-3 w-full">
@@ -93,7 +100,7 @@ export const AlertModal: React.FC<AlertModalProps> = ({
           <Button
             variant="primary"
             size="sm"
-            onClick={type === 'confirm' ? handleConfirm : onClose}
+            onClick={handleConfirm}
           >
             {confirmText}
           </Button>

@@ -216,7 +216,7 @@ export const OdontogramCanvas: React.FC<OdontogramCanvasProps> = ({
     const st = tooth.simbolos_tecnicos;
 
     return (
-      <div key={toothKey} className="flex flex-col items-center p-1 select-none">
+      <div key={toothKey} className="flex flex-col items-center p-1 select-none shrink-0">
         {/* Código FDI */}
         <span className="text-[10px] font-extrabold text-[#687380] mb-0.5">
           {toothKey}
@@ -501,23 +501,23 @@ export const OdontogramCanvas: React.FC<OdontogramCanvasProps> = ({
       {/* Matriz Oclusal FDI Universal (4 Cuadrantes según Page 19 y Page 21) */}
       <div className="rounded-3xl border border-[#CBD2D9] bg-white p-4 overflow-x-auto shadow-inner space-y-4">
         {/* Maxilar Superior (Cuadrante 1 y Cuadrante 2) */}
-        <div>
-          <div className="flex justify-between text-[11px] font-extrabold text-[#8F99A3] pb-1 px-4">
+        <div className="w-max min-w-full mx-auto px-2">
+          <div className="flex justify-between text-[11px] font-extrabold text-[#8F99A3] pb-1 px-2">
             <span>CUADRANTE 1 — MAXILAR SUPERIOR DERECHO</span>
             <span>CUADRANTE 2 — MAXILAR SUPERIOR IZQUIERDO</span>
           </div>
 
-          <div className="flex items-center justify-center gap-6 pb-2 border-b border-[#CBD2D9]">
+          <div className="flex items-center justify-start sm:justify-center gap-4 sm:gap-6 pb-2 border-b border-[#CBD2D9] px-2">
             {/* Cuadrante 1: 18 a 11 */}
-            <div className="flex gap-1">
+            <div className="flex gap-1 shrink-0">
               {q1Keys.map((k) => renderToothSVG('cuadrante_1', k, true))}
             </div>
 
             {/* Línea media vertical */}
-            <div className="w-0.5 h-14 bg-[#CBD2D9]" />
+            <div className="w-0.5 h-14 bg-[#CBD2D9] shrink-0" />
 
             {/* Cuadrante 2: 21 a 28 */}
-            <div className="flex gap-1">
+            <div className="flex gap-1 shrink-0">
               {q2Keys.map((k) => renderToothSVG('cuadrante_2', k, true))}
             </div>
           </div>
@@ -529,23 +529,23 @@ export const OdontogramCanvas: React.FC<OdontogramCanvasProps> = ({
         </div>
 
         {/* Mandíbula Inferior (Cuadrante 4 y Cuadrante 3) */}
-        <div>
-          <div className="flex items-center justify-center gap-6 pt-2">
+        <div className="w-max min-w-full mx-auto px-2">
+          <div className="flex items-center justify-start sm:justify-center gap-4 sm:gap-6 pt-2 px-2">
             {/* Cuadrante 4: 48 a 41 */}
-            <div className="flex gap-1">
+            <div className="flex gap-1 shrink-0">
               {q4Keys.map((k) => renderToothSVG('cuadrante_4', k, false))}
             </div>
 
             {/* Línea media vertical */}
-            <div className="w-0.5 h-14 bg-[#CBD2D9]" />
+            <div className="w-0.5 h-14 bg-[#CBD2D9] shrink-0" />
 
             {/* Cuadrante 3: 31 a 38 */}
-            <div className="flex gap-1">
+            <div className="flex gap-1 shrink-0">
               {q3Keys.map((k) => renderToothSVG('cuadrante_3', k, false))}
             </div>
           </div>
 
-          <div className="flex justify-between text-[11px] font-extrabold text-[#8F99A3] pt-2 px-4 border-t border-[#CBD2D9]">
+          <div className="flex justify-between text-[11px] font-extrabold text-[#8F99A3] pt-2 px-2 border-t border-[#CBD2D9]">
             <span>CUADRANTE 4 — MANDÍBULA INFERIOR DERECHA</span>
             <span>CUADRANTE 3 — MANDÍBULA INFERIOR IZQUIERDA</span>
           </div>

@@ -154,8 +154,8 @@ export function printClinicalDocument(params: PrintClinicalDocumentParams): void
       <title>${docTitle} - ${params.patientName}</title>
       <style>
         @page {
-          size: auto;
-          margin: 15mm 15mm;
+          size: portrait;
+          margin: 10mm 12mm 10mm 12mm;
         }
         * {
           box-sizing: border-box;
@@ -163,44 +163,50 @@ export function printClinicalDocument(params: PrintClinicalDocumentParams): void
           padding: 0;
           font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
         }
-        body {
+        html, body {
+          width: 100%;
           background: #ffffff;
           color: #111827;
-          padding: 10px;
+          margin: 0;
+          padding: 0;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
         }
         .sheet {
+          width: 100%;
           max-width: 100%;
-          margin: 0 auto;
+          margin: 0;
+          box-sizing: border-box;
         }
         .header {
           border-top: 4px solid #D4AF37;
-          padding-top: 12px;
-          padding-bottom: 10px;
+          padding-top: 8px;
+          padding-bottom: 8px;
           border-bottom: 2px solid #E2E6EA;
-          margin-bottom: 16px;
+          margin-bottom: 10px;
         }
         .clinic-name {
-          font-size: 15px;
+          font-size: 13pt;
           font-weight: 900;
           color: #111827;
           letter-spacing: 0.5px;
         }
         .clinic-sub {
-          font-size: 9.5px;
+          font-size: 8pt;
           color: #687380;
           margin-top: 2px;
           font-weight: 600;
           text-transform: uppercase;
         }
         .doc-title {
-          font-size: 14px;
+          font-size: 11pt;
           font-weight: 800;
           color: #111827;
-          margin-top: 12px;
+          margin-top: 8px;
           letter-spacing: 0.3px;
         }
         .legal-ref {
-          font-size: 8.5px;
+          font-size: 7.5pt;
           color: #687380;
           font-style: italic;
           margin-top: 2px;
@@ -209,84 +215,91 @@ export function printClinicalDocument(params: PrintClinicalDocumentParams): void
           background: #F8F9FA;
           border: 1px solid #E2E6EA;
           border-radius: 6px;
-          padding: 10px 14px;
-          margin-bottom: 20px;
-          font-size: 10.5px;
+          padding: 8px 12px;
+          margin-bottom: 12px;
+          font-size: 9pt;
           display: grid;
           grid-template-columns: 1fr 1fr;
           gap: 6px;
+          page-break-inside: avoid;
+          break-inside: avoid;
         }
         .patient-box strong {
           color: #111827;
         }
         .section-title {
-          font-size: 11px;
+          font-size: 9.5pt;
           font-weight: 800;
           color: #111827;
           text-transform: uppercase;
           letter-spacing: 0.5px;
-          margin-bottom: 10px;
-          padding-bottom: 4px;
+          margin-bottom: 8px;
+          padding-bottom: 3px;
           border-bottom: 1px solid #D4AF37;
         }
         .med-table {
           width: 100%;
+          table-layout: fixed;
           border-collapse: collapse;
-          font-size: 10.5px;
-          margin-bottom: 16px;
+          font-size: 9pt;
+          margin-bottom: 12px;
         }
         .med-table th {
           background: #F8F9FA;
           border: 1px solid #E2E6EA;
-          padding: 7px 9px;
+          padding: 6px 8px;
           text-align: left;
-          font-size: 9.5px;
+          font-size: 8.5pt;
           color: #4B5563;
         }
         .med-table td {
           border: 1px solid #E2E6EA;
-          padding: 7px 9px;
+          padding: 6px 8px;
           color: #1F2937;
+          word-break: break-word;
         }
         .recommendations {
           background: #FFFDF5;
           border: 1px solid #F5E6B3;
           border-radius: 6px;
-          padding: 10px 12px;
-          font-size: 10px;
+          padding: 8px 10px;
+          font-size: 8.5pt;
           color: #4B5563;
-          line-height: 1.45;
-          margin-bottom: 30px;
+          line-height: 1.4;
+          margin-bottom: 14px;
+          page-break-inside: avoid;
+          break-inside: avoid;
         }
         .recommendations ul {
           margin-left: 18px;
-          margin-top: 4px;
+          margin-top: 3px;
         }
         .signature-section {
-          margin-top: 35px;
+          margin-top: 16px;
           display: grid;
           grid-template-columns: 1fr 1fr;
-          gap: 30px;
+          gap: 24px;
           page-break-inside: avoid;
+          break-inside: avoid;
         }
         .sig-box {
-          font-size: 10.5px;
+          font-size: 9pt;
         }
         .sig-img-container {
-          height: 55px;
+          height: 48px;
           display: flex;
           align-items: flex-end;
           justify-content: flex-start;
           margin-bottom: 4px;
         }
         .sig-img {
-          max-height: 52px;
-          max-width: 170px;
+          max-height: 46px;
+          max-width: 160px;
           object-fit: contain;
         }
         .sig-line {
           border-top: 1.5px solid #111827;
-          margin-bottom: 6px;
+          margin-bottom: 4px;
         }
         .sig-box .name {
           font-weight: 800;
@@ -294,24 +307,25 @@ export function printClinicalDocument(params: PrintClinicalDocumentParams): void
         }
         .sig-box .role {
           color: #4B5563;
-          font-size: 9.5px;
-          margin-top: 2px;
+          font-size: 8pt;
+          margin-top: 1px;
         }
         .sig-box .reg {
           color: #6B7280;
-          font-size: 9px;
+          font-size: 7.5pt;
           font-style: italic;
-          margin-top: 2px;
+          margin-top: 1px;
         }
         .footer {
-          margin-top: 30px;
-          padding-top: 10px;
+          margin-top: 14px;
+          padding-top: 8px;
           border-top: 1px solid #E2E6EA;
-          font-size: 8px;
+          font-size: 7pt;
           color: #9CA3AF;
           display: flex;
           justify-content: space-between;
           page-break-inside: avoid;
+          break-inside: avoid;
         }
         .days-badge, .specialty-badge {
           display: inline-block;
@@ -320,25 +334,41 @@ export function printClinicalDocument(params: PrintClinicalDocumentParams): void
           padding: 3px 8px;
           border-radius: 4px;
           font-weight: 800;
-          font-size: 11px;
+          font-size: 9.5pt;
         }
         .inc-details {
           width: 100%;
           border-collapse: collapse;
         }
         .inc-details td {
-          padding: 5px 8px;
-          font-size: 10.5px;
+          padding: 4px 6px;
+          font-size: 9pt;
           vertical-align: top;
         }
         .reason-box, .summary-box {
           background: #F8F9FA;
           border: 1px solid #E2E6EA;
           border-radius: 6px;
-          padding: 8px;
-          font-size: 10.5px;
-          margin-top: 4px;
+          padding: 6px 8px;
+          font-size: 8.5pt;
+          margin-top: 3px;
           color: #1F2937;
+        }
+        @media print {
+          html, body {
+            width: 100%;
+            height: auto;
+            margin: 0;
+            padding: 0;
+          }
+          .sheet {
+            width: 100% !important;
+            max-width: 100% !important;
+          }
+          .signature-section, .patient-box, .recommendations, .footer {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+          }
         }
       </style>
     </head>

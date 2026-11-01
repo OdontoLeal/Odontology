@@ -1,15 +1,17 @@
 // src/modules/clinical-records/ui/views/ClinicalHistoryListPage.tsx
 import React, { useState } from 'react';
 import { useClinicalRecord, ClinicalEvolutionEntry } from '../hooks/useClinicalRecord';
-import { OdontogramCanvas } from '../components/OdontogramCanvas';
+import { EvolutionDetailModal } from '../components/EvolutionDetailModal';
+import { printCompleteClinicalHistory } from '../../application/print-clinical-history.service';
+import { PatientListItem } from '../../../patients/ui/hooks/usePatients';
 import { Button } from '../../../../shared/ui/components/Button';
 import { Badge } from '../../../../shared/ui/components/Badge';
-import { Modal } from '../../../../shared/ui/components/Modal';
 
 export interface ClinicalHistoryListPageProps {
   idPaciente: number;
   patientName: string;
   patientDoc: string;
+  patientData?: PatientListItem;
   onBack: () => void;
 }
 
@@ -17,19 +19,38 @@ export const ClinicalHistoryListPage: React.FC<ClinicalHistoryListPageProps> = (
   idPaciente,
   patientName,
   patientDoc,
+  patientData,
   onBack,
 }) => {
   const { history, isLoading } = useClinicalRecord(idPaciente);
   const [selectedEntry, setSelectedEntry] = useState<ClinicalEvolutionEntry | null>(null);
 
+  // Garantizar objeto PatientListItem completo
+  const fullPatient: PatientListItem = patientData || {
+    idPaciente,
+    nombreCompleto: patientName,
+    documentoIdentidad: patientDoc,
+    fechaNacimiento: '',
+    sexo: 'Indeterminado',
+    correo: '',
+    telefono: '',
+  };
+
+  const handleDirectPrint = () => {
+    printCompleteClinicalHistory({
+      patient: fullPatient,
+      history,
+    });
+  };
+
   return (
-    <div className="space-y-6 max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
-      {/* Botón Volver */}
+    <div className="space-y-6 max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 animate-fadeIn">
+      {/* Botón Volver e Imprimir */}
       <div className="flex items-center justify-between">
         <button
           type="button"
           onClick={onBack}
-          className="inline-flex items-center gap-2 text-xs font-bold text-[#687380] hover:text-[#1E242B]"
+          className="inline-flex items-center gap-2 text-xs font-bold text-[#687380] hover:text-[#1E242B] transition-colors"
         >
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -37,7 +58,12 @@ export const ClinicalHistoryListPage: React.FC<ClinicalHistoryListPageProps> = (
           Volver al Paciente
         </button>
 
-        <Button size="sm" variant="outline" onClick={() => window.print()} leftIcon={<span>🖨️</span>}>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={handleDirectPrint}
+          leftIcon={<span>🖨️</span>}
+        >
           Imprimir Historia Completa
         </Button>
       </div>
@@ -78,6 +104,7 @@ export const ClinicalHistoryListPage: React.FC<ClinicalHistoryListPageProps> = (
                   </span>
                   <p className="text-xs text-[#687380]">
                     Atendido por: <strong>{entry.profesional.nombreCompleto}</strong> ({entry.profesional.rol})
+                    {entry.profesional.tarjetaProfesional && ` • TP: ${entry.profesional.tarjetaProfesional}`}
                   </p>
                 </div>
                 <Badge label="Atención Finalizada • Inmutable" variant="neutral" size="sm" />
@@ -124,32 +151,12 @@ export const ClinicalHistoryListPage: React.FC<ClinicalHistoryListPageProps> = (
         )}
       </div>
 
-      {/* Modal Visor de Ficha Detallada */}
-      <Modal
+      {/* Modal Visor de Ficha Detallada de Evolución (Compartido con Ficha del Paciente) */}
+      <EvolutionDetailModal
+        evolution={selectedEntry}
         isOpen={Boolean(selectedEntry)}
         onClose={() => setSelectedEntry(null)}
-        title="Ficha Clínica de Atención"
-        subtitle={`Fecha: ${selectedEntry?.fechaRegistro} • Doctor: ${selectedEntry?.profesional.nombreCompleto}`}
-        maxWidth="4xl"
-      >
-        <div className="space-y-6">
-          {selectedEntry?.odontograma && (
-            <div className="space-y-2">
-              <span className="text-xs font-extrabold uppercase text-[#687380]">
-                Estado del Odontograma en esta consulta:
-              </span>
-              <OdontogramCanvas initialData={selectedEntry.odontograma} readOnly />
-            </div>
-          )}
-
-          <div className="space-y-2 text-xs">
-            <strong className="text-[#1E242B] block">Acciones y Recomendaciones:</strong>
-            <p className="text-[#687380] whitespace-pre-line">
-              {selectedEntry?.accionesARealizar || 'Sin acciones pendientes registradas.'}
-            </p>
-          </div>
-        </div>
-      </Modal>
+      />
     </div>
   );
 };

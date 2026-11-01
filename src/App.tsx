@@ -381,7 +381,6 @@ export const App: React.FC = () => {
             doctorSignature={activeConsultationContext.doctorSignature || (auth.session.usuario as any).firmaUrl}
             onBackToAgenda={() => setActiveConsultationContext(null)}
             onFinishConsultation={async (idCita) => {
-              const patientId = activeConsultationContext?.idPaciente;
               try {
                 await fetch(`/api/v1/appointments/${idCita}/state`, {
                   method: 'PATCH',
@@ -396,27 +395,8 @@ export const App: React.FC = () => {
                 console.error('Error finalizando cita:', err);
               }
 
-              if (patientId) {
-                const matched = patients.find((p) => p.idPaciente === patientId);
-                if (matched) {
-                  setSelectedPatient(matched);
-                } else {
-                  try {
-                    const res = await fetch(`/api/v1/patients/${patientId}`);
-                    if (res.ok) {
-                      const json = await res.json();
-                      if (json?.data) {
-                        setSelectedPatient(json.data);
-                      }
-                    }
-                  } catch (pErr) {
-                    console.error('Error fetching patient profile on finish consultation:', pErr);
-                  }
-                }
-              }
               setActiveConsultationContext(null);
-              setInternalView('PATIENTS');
-              setPatientSubView('PROFILE');
+              setInternalView('APPOINTMENTS');
             }}
           />
         ) : (
@@ -545,6 +525,7 @@ export const App: React.FC = () => {
             idPaciente={selectedPatient.idPaciente}
             patientName={selectedPatient.nombreCompleto}
             patientDoc={selectedPatient.documentoIdentidad}
+            patientData={selectedPatient}
             onBack={() => setPatientSubView('PROFILE')}
           />
         ) : (

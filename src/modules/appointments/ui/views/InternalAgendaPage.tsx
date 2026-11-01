@@ -656,20 +656,26 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
             isLoading={isLoading}
             filterMode={filterMode}
             isPastDate={isPastDate}
+            canManageSlots={canManageSlots}
+            canCreateAppointment={canCreateAppointment}
             onSelectSlot={handleSelectConfirmedSlot}
             onSelectPendingRequest={handleSelectPendingSlot}
-            onToggleSlotStatus={(slot) => {
-              if (isPastDate) {
-                showAlert({
-                  title: 'Fecha en el Pasado',
-                  message: 'No es posible modificar bloques de horario en fechas pasadas.',
-                  type: 'warning',
-                });
-                return;
-              }
-              toggleSlotStatus(slot);
-            }}
-            onScheduleSlot={handleScheduleSlot}
+            onToggleSlotStatus={
+              canManageSlots
+                ? (slot) => {
+                    if (isPastDate) {
+                      showAlert({
+                        title: 'Fecha en el Pasado',
+                        message: 'No es posible modificar bloques de horario en fechas pasadas.',
+                        type: 'warning',
+                      });
+                      return;
+                    }
+                    toggleSlotStatus(slot);
+                  }
+                : undefined
+            }
+            onScheduleSlot={canCreateAppointment ? handleScheduleSlot : undefined}
             onCreateBlocks={canManageSlots ? handleGenerateDaySlots : undefined}
           />
         </div>
