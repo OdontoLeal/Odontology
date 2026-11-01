@@ -88,8 +88,13 @@ router.get('/appointments/agenda', authMiddleware, appointmentsController.getAge
 
 // 3. Rutas Módulo C (Parte 1): Pacientes (RQNF-SEG-003)
 router.post('/patients', authMiddleware, patientsController.createPatient);
+router.get('/patients/holder-data/:documento', authMiddleware, patientsController.exportHolderData);
+router.get('/patients/holder-data', authMiddleware, patientsController.exportHolderData);
+
 router.put('/patients/:id', authMiddleware, patientsController.updatePatient);
 router.get('/patients', authMiddleware, patientsController.searchPatients);
+router.get('/clinical-records/odontogram/latest/:idPaciente', authMiddleware, clinicalRecordsController.getLatestOdontogram);
+
 router.get('/patients/holder-data/:documento', authMiddleware, patientsController.exportHolderData);
 router.get('/patients/holder-data', authMiddleware, patientsController.exportHolderData);
 router.get('/patients/:id', authMiddleware, patientsController.getPatientProfile);

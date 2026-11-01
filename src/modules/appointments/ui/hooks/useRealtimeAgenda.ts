@@ -12,10 +12,10 @@ export interface MonthlyDaySummaryItem {
 }
 
 export function useRealtimeAgenda(apiBaseUrl = '/api/v1') {
-  // Fecha seleccionada en formato YYYY-MM-DD (por defecto 2026-10-24 según las especificaciones)
-  const [selectedDate, setSelectedDate] = useState('2026-10-24');
-  const [calendarYear, setCalendarYear] = useState(2026);
-  const [calendarMonth, setCalendarMonth] = useState(10); // 1 = Enero ... 12 = Diciembre
+  // Fecha seleccionada en formato YYYY-MM-DD actual en lugar de fija
+  const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [calendarYear, setCalendarYear] = useState(() => new Date().getFullYear());
+  const [calendarMonth, setCalendarMonth] = useState(() => new Date().getMonth() + 1); // 1 = Enero ... 12 = Diciembre
   const [slots, setSlots] = useState<CalendarTimeSlot[]>([]);
   const [agendaItems, setAgendaItems] = useState<any[]>([]);
   const [requests, setRequests] = useState<RequestDetailData[]>([]);
