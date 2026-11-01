@@ -195,8 +195,15 @@ export const RolesManagementPage: React.FC<RolesManagementPageProps> = ({
   // Modal de confirmación de eliminación
   const [roleToDelete, setRoleToDelete] = useState<RoleExtendedViewDTO | null>(null);
 
-  const isInitialProtectedRole = (code: string): boolean =>
-    INITIAL_ROLE_CODES.includes(code.trim().toUpperCase() as any);
+  const isInitialProtectedRole = (roleOrCode: string | RoleExtendedViewDTO): boolean => {
+    if (typeof roleOrCode === 'string') {
+      return INITIAL_ROLE_CODES.includes(roleOrCode.trim().toUpperCase() as any);
+    }
+    return (
+      Boolean(roleOrCode.es_inicial) ||
+      INITIAL_ROLE_CODES.includes(roleOrCode.codigo?.trim().toUpperCase() as any)
+    );
+  };
 
   // Reset de página al cambiar filtros
   useEffect(() => {
@@ -216,7 +223,7 @@ export const RolesManagementPage: React.FC<RolesManagementPageProps> = ({
 
     return roles.filter((role) => {
       // Filtro por tipo
-      const isProtected = isInitialProtectedRole(role.codigo);
+      const isProtected = isInitialProtectedRole(role);
       if (tipoFilter === 'SYSTEM' && !isProtected) return false;
       if (tipoFilter === 'CUSTOM' && isProtected) return false;
 
@@ -405,7 +412,7 @@ export const RolesManagementPage: React.FC<RolesManagementPageProps> = ({
     setErrorMessage(null);
     setSuccessMessage(null);
 
-    if (isInitialProtectedRole(roleToDelete.codigo)) {
+    if (isInitialProtectedRole(roleToDelete)) {
       setErrorMessage(
         `El rol ${roleToDelete.codigo} (${roleToDelete.nombre_rol}) pertenece a la configuración inicial y no puede eliminarse.`
       );
@@ -593,7 +600,7 @@ export const RolesManagementPage: React.FC<RolesManagementPageProps> = ({
             </div>
           ) : (
             paginatedRoles.map((role) => {
-              const isProtected = isInitialProtectedRole(role.codigo);
+              const isProtected = isInitialProtectedRole(role);
 
               return (
                 <article

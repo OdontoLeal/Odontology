@@ -15,6 +15,7 @@ import { HybridPasswordHasherService } from './password-hasher.service';
 import { MailerService } from '../../../shared/infrastructure/mail/mailer.service';
 import { envConfig } from '../../../app/config/env.config';
 import { UserRepository } from './user.repository';
+import { JwtTokenService } from '../../../shared/infrastructure/security/token.service';
 
 export class UsersAuthController {
   private readonly createRoleUseCase: CreateRoleUseCase;
@@ -231,6 +232,31 @@ export class UsersAuthController {
         nuevaContrasena,
         confirmacionNuevaContrasena,
       });
+
+      if (result.usuario) {
+        const token = JwtTokenService.generateToken({
+          idUsuario: result.usuario.idUsuario,
+          correo: result.usuario.correo,
+          nombreCompleto: result.usuario.nombreCompleto,
+          roles: (result.usuario.roles ?? []).map((r: any) => r.codigo || r.nombreRol),
+          permisos: result.permisos,
+        });
+
+        res.cookie('session_token', token, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          maxAge: 8 * 60 * 60 * 1000,
+          path: '/',
+        });
+
+        res.json({
+          ...result,
+          token,
+        });
+        return;
+      }
+
       res.json(result);
     } catch (error: any) {
       res.status(401).json({ message: error.message });
@@ -254,20 +280,20 @@ export class UsersAuthController {
         confirmadoPorUsuario,
         borrador,
       });
+      res.clearCookie('session_token', { path: '/' });
       res.json(result);
     } catch (error: any) {
       res.status(400).json({ message: error.message });
     }
   };
 
-  // Solicitar enlace de recuperación
+  // RF-USR-009: Solicitar enlace de recuperación (I8-008: enlace apunta siempre a envConfig.frontendUrl)
   requestPasswordRecovery = async (req: Request, res: Response): Promise<void> => {
     try {
-      const { correo, baseRecoveryUrl } = req.body;
-      const origin = req.protocol + "://" + req.get("host");
+      const { correo } = req.body;
       const result = await this.recoverPasswordUseCase.requestRecoveryLink({
         correo,
-        baseRecoveryUrl: baseRecoveryUrl || envConfig.frontendUrl || origin,
+        baseRecoveryUrl: envConfig.frontendUrl,
       });
       res.json(result);
     } catch (error: any) {

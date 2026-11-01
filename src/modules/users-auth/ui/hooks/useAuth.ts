@@ -23,6 +23,7 @@ const WARNING_TIME_MS = 29 * 60 * 1000; // Minuto 29 (RF-USR-008)
 export interface ActiveSessionState {
   usuario: UserWithRolesDomainDTO;
   permisos: string[];
+  token?: string;
   authenticatedAt: string;
 }
 
@@ -115,15 +116,19 @@ export function useAuth(options?: {
   }, []);
 
   const setActiveSession = useCallback(
-    (newSession: { usuario: UserWithRolesDomainDTO; permisos: string[] }) => {
+    (newSession: { usuario: UserWithRolesDomainDTO; permisos: string[]; token?: string }) => {
       const state: ActiveSessionState = {
         usuario: newSession.usuario,
         permisos: newSession.permisos,
+        token: newSession.token,
         authenticatedAt: new Date().toISOString(),
       };
       setSession(state);
       if (typeof window !== 'undefined') {
         window.sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(state));
+        if (newSession.token) {
+          window.sessionStorage.setItem('odontoleal_jwt_token', newSession.token);
+        }
       }
     },
     []
@@ -203,6 +208,7 @@ export function useAuth(options?: {
 
       if (typeof window !== 'undefined') {
         window.sessionStorage.removeItem(SESSION_STORAGE_KEY);
+        window.sessionStorage.removeItem('odontoleal_jwt_token');
         window.history.pushState(null, '', '/login');
       }
 

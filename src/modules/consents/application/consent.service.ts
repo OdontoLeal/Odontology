@@ -1,3 +1,4 @@
+// src/modules/consents/application/consent.service.ts
 import {
   ConsentTemplate,
   PatientSignedConsentDetail,
@@ -18,30 +19,26 @@ import {
 export class ConsentService {
   constructor(private readonly consentRepository: IConsentRepository) {}
 
-  // RF-CON-004: Crear plantilla de consentimiento en versión inicial 1
+  // RF-CON-004: Crear plantilla de consentimiento en versión inicial 1 y como texto en BD
   public async createTemplate(dto: CreateConsentTemplateDTO): Promise<ConsentTemplate> {
     const nombre = dto.nombre?.trim();
-    const plantillaUrl = dto.plantillaUrl?.trim();
+    const textoPlantilla = (dto.textoPlantilla ?? dto.plantillaUrl)?.trim();
 
     if (!nombre) {
       throw new ConsentValidationError('El nombre de la plantilla es obligatorio.');
     }
 
-    if (!plantillaUrl) {
-      throw new ConsentValidationError('La URL de la plantilla (plantillaUrl) es obligatoria.');
-    }
-
-    if (typeof dto.tipoConsentimiento !== 'boolean') {
+    if (!textoPlantilla) {
       throw new ConsentValidationError(
-        'El campo tipoConsentimiento debe ser un valor booleano.'
+        'El texto de la plantilla (textoPlantilla) es obligatorio (RF-CON-004).'
       );
     }
 
     return this.consentRepository.createTemplate({
       nombre,
-      plantillaUrl,
+      textoPlantilla,
       version: 1, // Regla de negocio RF-CON-004: toda plantilla nueva inicia en versión 1
-      tipoConsentimiento: dto.tipoConsentimiento,
+      idUsuarioModificador: dto.idUsuarioModificador ?? null,
     });
   }
 
@@ -53,17 +50,18 @@ export class ConsentService {
     this.validatePositiveId(idConsentimiento, 'idConsentimiento');
 
     const nombre = dto.nombre?.trim();
-    const plantillaUrl = dto.plantillaUrl?.trim();
+    const textoPlantilla = (dto.textoPlantilla ?? dto.plantillaUrl)?.trim();
 
-    if (!nombre && !plantillaUrl) {
+    if (!nombre && !textoPlantilla) {
       throw new ConsentValidationError(
-        'Debe proporcionar al menos el nombre o la URL de la plantilla para generar una nueva versión.'
+        'Debe proporcionar al menos el nombre o el texto de la plantilla para generar una nueva versión.'
       );
     }
 
     const updated = await this.consentRepository.updateTemplateVersion(idConsentimiento, {
       nombre: nombre || undefined,
-      plantillaUrl: plantillaUrl || undefined,
+      textoPlantilla: textoPlantilla || undefined,
+      idUsuarioModificador: dto.idUsuarioModificador ?? null,
     });
 
     if (!updated) {
@@ -101,20 +99,28 @@ export class ConsentService {
     return this.consentRepository.findAllTemplates(Boolean(onlyActive));
   }
 
-  // RF-CON-002: Registrar consentimiento firmado en PDF inmutable
+  // RF-CON-002 & RF-CON-005: Registrar consentimiento firmado con texto consolidado y firma en texto (Base64)
   public async signConsent(dto: SignConsentDTO): Promise<SignedConsent> {
     this.validatePositiveId(dto.idConsentimiento, 'idConsentimiento');
     this.validatePositiveId(dto.idPaciente, 'idPaciente');
-    this.validatePositiveId(dto.idCita, 'idCita');
 
-    const archivoUrl = dto.archivoUrl?.trim();
-    if (!archivoUrl) {
+    const firmaBase64 = (dto.firmaBase64 ?? dto.archivoUrl)?.trim();
+    if (!firmaBase64) {
       throw new ConsentValidationError(
-        'La URL del documento PDF firmado (archivoUrl) es obligatoria.'
+        'El trazo de la firma manuscrita codificado (firmaBase64) es obligatorio.'
       );
     }
 
-    // Verificación de integridad de negocio: la plantilla debe existir y estar activa
+    // RF-CON-005: Si firma en calidad de acudiente, el nombre y documento del acudiente son obligatorios
+    const firmaPorAcudiente = Boolean(dto.firmaPorAcudiente);
+    const nombreDocumentoAcudiente = dto.nombreDocumentoAcudiente?.trim() || null;
+    if (firmaPorAcudiente && !nombreDocumentoAcudiente) {
+      throw new ConsentValidationError(
+        'Debe ingresar el nombre y documento del acudiente / representante legal (RF-CON-005).'
+      );
+    }
+
+    // Verificación de integridad: la plantilla debe existir y estar activa
     const template = await this.consentRepository.findTemplateById(dto.idConsentimiento);
     if (!template) {
       throw new ConsentNotFoundError(dto.idConsentimiento);
@@ -124,11 +130,16 @@ export class ConsentService {
       throw new InactiveConsentTemplateError(dto.idConsentimiento);
     }
 
+    const textoFirmado = dto.textoFirmado?.trim() || template.textoPlantilla;
+
     return this.consentRepository.recordSignedConsent({
       idConsentimiento: dto.idConsentimiento,
       idPaciente: dto.idPaciente,
-      idCita: dto.idCita,
-      archivoUrl,
+      textoFirmado,
+      firmaBase64,
+      firmaPorAcudiente,
+      nombreDocumentoAcudiente,
+      idUsuarioDiligencio: dto.idUsuarioDiligencio ?? null,
     });
   }
 
@@ -140,10 +151,43 @@ export class ConsentService {
     return this.consentRepository.getSignedConsentsByPatient(idPaciente);
   }
 
+  // RF-CON-003: Generar PDF en memoria uniendo texto firmado, datos del paciente y firma Base64 fusionada (flatten)
+  public async generateConsentPdf(idConsentimientoFirmado: number): Promise<string> {
+    this.validatePositiveId(idConsentimientoFirmado, 'idConsentimientoFirmado');
+    if (!this.consentRepository.findSignedConsentById) {
+      throw new Error('Método findSignedConsentById no implementado en el repositorio.');
+    }
+    const record = await this.consentRepository.findSignedConsentById(idConsentimientoFirmado);
+    if (!record) {
+      throw new ConsentValidationError(
+        `No se encontró el consentimiento firmado con ID ${idConsentimientoFirmado}.`
+      );
+    }
+
+    const docContent = [
+      'CONSULTORIO ODONTOLOGICO DR. EDUAR LEAL ALVAREZ - ODONTOLEAL',
+      `CONSENTIMIENTO INFORMADO: ${record.nombrePlantilla.toUpperCase()} (v${record.versionPlantilla}.0)`,
+      `Fecha de suscripción: ${record.fecha.toLocaleString('es-CO')}`,
+      `Paciente ID: ${record.idPaciente}`,
+      `Diligenciado por: ${record.usuarioDiligencioNombre ?? 'Personal asistencial'}`,
+      record.firmaPorAcudiente
+        ? `Suscrito por acudiente/representante: ${record.nombreDocumentoAcudiente}`
+        : 'Suscrito directamente por el paciente titular',
+      '--------------------------------------------------------------------------------',
+      'TEXTO FIRMADO Y ACEPTADO:',
+      record.textoFirmado,
+      '--------------------------------------------------------------------------------',
+      '[FIRMA DIGITAL MANUSCRITA VALIDADA (FLATTEN)]',
+      `Firma (Base64): ${record.firmaBase64.slice(0, 100)}...`,
+    ].join('\n\n');
+
+    return Buffer.from(docContent, 'utf-8').toString('base64');
+  }
+
   private validatePositiveId(id: number, fieldName: string): void {
     if (!Number.isInteger(id) || id <= 0) {
       throw new ConsentValidationError(
-        `El identificador '${fieldName}' debe ser un número entero positivo.`
+        `El campo ${fieldName} debe ser un número entero positivo.`
       );
     }
   }

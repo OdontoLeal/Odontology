@@ -85,6 +85,7 @@ export interface RoleProps {
   descripcion: string;
   permisos: string[];
   estadoAsignacion?: boolean;
+  esInicial?: boolean;
 }
 
 export class RoleEntity {
@@ -94,6 +95,7 @@ export class RoleEntity {
   private _descripcion: string;
   private _permisos: string[];
   public readonly estadoAsignacion: boolean;
+  public readonly esInicial: boolean;
 
   private constructor(props: RoleProps) {
     this.idRol = props.idRol;
@@ -102,6 +104,7 @@ export class RoleEntity {
     this._descripcion = props.descripcion.trim();
     this._permisos = Array.from(new Set(props.permisos));
     this.estadoAsignacion = props.estadoAsignacion ?? true;
+    this.esInicial = props.esInicial ?? INITIAL_ROLE_CODES.includes(this.codigo as InitialRoleCode);
   }
 
   public get nombreRol(): string {
@@ -226,7 +229,7 @@ export class RoleEntity {
   }
 
   public isInitialRole(): boolean {
-    return INITIAL_ROLE_CODES.includes(this.codigo as InitialRoleCode);
+    return Boolean(this.esInicial) || INITIAL_ROLE_CODES.includes(this.codigo as InitialRoleCode);
   }
 
   public ensureCanBeDeleted(assignedUsersCount: number): void {
@@ -250,6 +253,7 @@ export class RoleEntity {
       descripcion: this._descripcion,
       permisos: [...this._permisos],
       estadoAsignacion: this.estadoAsignacion,
+      esInicial: this.isInitialRole(),
     };
   }
 }

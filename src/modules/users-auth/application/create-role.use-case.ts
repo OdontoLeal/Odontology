@@ -70,6 +70,7 @@ export class CreateRoleUseCase {
       nombre_rol: createdRole.nombre_rol,
       descripcion: createdRole.descripcion ?? roleEntity.descripcion,
       permisos: createdRole.permisos ?? [...roleEntity.permisos],
+      es_inicial: createdRole.es_inicial ?? false,
     };
 
     if (this.auditLogger) {

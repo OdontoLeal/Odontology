@@ -1,0 +1,13 @@
+# Reglas de Arquitectura y Calidad - Proyecto OdontoLeal
+
+1. Stack: Monolito modular en Node.js + Express + TypeScript (backend en `src/`), React + Vite (frontend) y PostgreSQL con `pg` (sin ORM, consultas parametrizadas `$1, $2`).
+2. Arquitectura por módulo (`users-auth`, `appointments`, `patients`, `clinical-records`, `consents`, `clinical-documents`):
+   - Respeta siempre el flujo: `controller -> application (use-case) -> infrastructure (repository)`. NUNCA llames al repositorio directo desde el controlador saltándote los casos de uso.
+3. Estados únicos válidos de cita (ERS v1.1): `'Solicitada'`, `'Confirmada'`, `'Rechazada'`, `'En consulta'`, `'Atendida'`, `'Cancelada'`, `'Inasistencia'`. Prohibido usar `'Completada'` o `'No asistió'`.
+4. Seguridad y Errores (RQNF-SEG-003, D-03, D-07):
+   - Valida siempre que `req.body` exista antes de desestructurar.
+   - Si no hay permiso por rol, responde HTTP 403 con `{"message": "No tiene permiso para realizar esta acción"}`.
+   - Nunca expongas errores crudos de PostgreSQL (`duplicate key`, `ENOTFOUND`, `character varying`) al cliente; devuelve mensajes de validación claros en español o HTTP 500 genérico para fallos internos.
+5. Eficiencia de tokens:
+   - Antes de leer un archivo de más de 400 líneas, usa búsqueda por texto/símbolo para ubicar la función exacta.
+   - No guardes NADA en mapas en memoria (`Map`, `metadataStore`). Todo estado debe persistir en PostgreSQL.

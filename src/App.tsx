@@ -21,6 +21,7 @@ import {
 import {
   PatientsDirectoryPage,
   PatientProfilePage,
+  HolderDataQueryPage,
 } from './modules/patients/ui/views';
 import { PatientListItem, usePatients } from './modules/patients/ui/hooks/usePatients';
 import {
@@ -47,7 +48,12 @@ export const App: React.FC = () => {
 
   // Estados de navegación contextual de Pacientes e Historias
   const [selectedPatient, setSelectedPatient] = useState<PatientListItem | null>(null);
-  const [patientSubView, setPatientSubView] = useState<'DIRECTORY' | 'PROFILE' | 'CLINICAL_HISTORY'>('DIRECTORY');
+  const [selectedConsentTemplate, setSelectedConsentTemplate] = useState<{
+    idPlantilla: number;
+    titulo: string;
+    cuerpoTexto: string;
+  } | null>(null);
+  const [patientSubView, setPatientSubView] = useState<'DIRECTORY' | 'PROFILE' | 'CLINICAL_HISTORY' | 'HOLDER_DATA'>('DIRECTORY');
 
   // Estado de Consulta Activa
   const [activeConsultationContext, setActiveConsultationContext] = useState<{
@@ -77,7 +83,7 @@ export const App: React.FC = () => {
   });
 
   const userDraftHook = useSessionDraft(auth.session?.usuario.idUsuario);
-  const { patients, updatePatient } = usePatients();
+  const { patients, updatePatient, getHolderData } = usePatients();
   const { showAlert, showConfirm, AlertModalComponent } = useAlertModal();
 
   useEffect(() => {
@@ -123,25 +129,42 @@ export const App: React.FC = () => {
     );
   }
 
-  // Ruta 2: Terminal Táctil para Tablet de Paciente (Página 21 / RF-CON-002)
+  // Ruta 2: Terminal Táctil para Tablet de Paciente (RF-CON-001, RF-CON-002, RF-CON-005)
   if (currentRoute === 'TABLET_SIGNING') {
+    const isMinor = calculatedPatientAge !== undefined ? calculatedPatientAge < 18 : false;
+
     return (
       <TabletSigningPage
+        tituloConsentimiento={selectedConsentTemplate?.titulo}
+        cuerpoTexto={selectedConsentTemplate?.cuerpoTexto}
         nombrePaciente={selectedPatient?.nombreCompleto}
         documentoPaciente={selectedPatient?.documentoIdentidad}
-        onConsentSigned={async (sig) => {
+        isMinor={isMinor}
+        onConsentSigned={async (payload) => {
           if (selectedPatient) {
             try {
+              const body =
+                typeof payload === 'string'
+                  ? {
+                      idConsentimiento: selectedConsentTemplate?.idPlantilla || 1,
+                      idPaciente: selectedPatient.idPaciente,
+                      firmaBase64: payload,
+                      firmaPorAcudiente: isMinor,
+                      nombreDocumentoAcudiente: isMinor ? 'Acudiente Autorizado' : null,
+                    }
+                  : {
+                      idConsentimiento: selectedConsentTemplate?.idPlantilla || 1,
+                      idPaciente: selectedPatient.idPaciente,
+                      firmaBase64: payload.firmaBase64,
+                      firmaPorAcudiente: payload.firmaPorAcudiente,
+                      nombreDocumentoAcudiente: payload.nombreDocumentoAcudiente,
+                      textoFirmado: payload.textoFirmado,
+                    };
+
               await fetch('/api/v1/consents/sign', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  idConsentimiento: 1,
-                  idPaciente: selectedPatient.idPaciente,
-                  firmaBase64: sig,
-                  nombreFirmante: selectedPatient.nombreCompleto,
-                  rolFirmante: 'Paciente',
-                }),
+                body: JSON.stringify(body),
               });
             } catch (err) {
               console.error('Error signing consent on tablet:', err);
@@ -300,7 +323,12 @@ export const App: React.FC = () => {
 
       {/* VISTA 2: MÓDULO C (PARTE 1) - PACIENTES & HISTORIAL CLÍNICO */}
       {internalView === 'PATIENTS' && (
-        patientSubView === 'PROFILE' && selectedPatient ? (
+        patientSubView === 'HOLDER_DATA' ? (
+          <HolderDataQueryPage
+            onBack={() => setPatientSubView('DIRECTORY')}
+            onQueryHolderData={getHolderData}
+          />
+        ) : patientSubView === 'PROFILE' && selectedPatient ? (
           <PatientProfilePage
             patient={selectedPatient}
             onBack={() => setPatientSubView('DIRECTORY')}
@@ -315,7 +343,20 @@ export const App: React.FC = () => {
             onViewClinicalHistoryDetail={() => {
               setPatientSubView('CLINICAL_HISTORY');
             }}
-            onSignConsent={() => {
+            onSignConsent={(tplOrId) => {
+              if (tplOrId && typeof tplOrId === 'object') {
+                setSelectedConsentTemplate({
+                  idPlantilla: tplOrId.idPlantilla,
+                  titulo: tplOrId.titulo,
+                  cuerpoTexto: tplOrId.cuerpoTexto,
+                });
+              } else {
+                setSelectedConsentTemplate({
+                  idPlantilla: Number(tplOrId || 1),
+                  titulo: 'Consentimiento Informado',
+                  cuerpoTexto: '',
+                });
+              }
               setCurrentRoute('TABLET_SIGNING');
             }}
             onUpdatePatient={async (id, data) => {
@@ -332,6 +373,7 @@ export const App: React.FC = () => {
           />
         ) : (
           <PatientsDirectoryPage
+            onOpenHolderDataQuery={() => setPatientSubView('HOLDER_DATA')}
             onSelectPatient={(patient, tab) => {
               setSelectedPatient(patient);
               if (tab === 'CLINICAL') {

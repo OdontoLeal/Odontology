@@ -3,29 +3,43 @@ import React, { useState } from 'react';
 import { SignaturePadCanvas } from '../components/SignaturePadCanvas';
 import { Button } from '../../../../shared/ui/components/Button';
 import { Badge } from '../../../../shared/ui/components/Badge';
+import { Input } from '../../../../shared/ui/components/Input';
 import { useAlertModal } from '../../../../shared/ui/hooks/useAlertModal';
 
+export interface ConsentSignPayload {
+  firmaBase64: string;
+  firmaPorAcudiente: boolean;
+  nombreDocumentoAcudiente: string | null;
+  textoFirmado: string;
+}
+
 export interface TabletSigningPageProps {
+  idConsentimiento?: number;
+  idPaciente?: number;
   tituloConsentimiento?: string;
   cuerpoTexto?: string;
   nombrePaciente?: string;
   documentoPaciente?: string;
-  onConsentSigned?: (signatureBase64: string) => void;
+  isMinor?: boolean;
+  onConsentSigned?: (result: string | ConsentSignPayload) => void;
   onConsentRejected?: (motivo: string) => void;
   onExit?: () => void;
 }
 
 export const TabletSigningPage: React.FC<TabletSigningPageProps> = ({
-  tituloConsentimiento = 'Consentimiento Informado para Procedimiento Quirúrgico Odontológico',
-  cuerpoTexto = 'Por medio del presente documento, manifiesto libre y voluntariamente que he sido ampliamente informado(a) por el profesional tratante sobre el diagnóstico clínico, los objetivos del procedimiento, los riesgos inherentes y las posibles complicaciones. Declaro haber tenido la oportunidad de formular preguntas y que todas mis dudas han sido resueltas a satisfacción. Autorizo al equipo médico de OdontoLeal para la realización del tratamiento acordado.',
+  tituloConsentimiento = 'Consentimiento Informado para Procedimiento Odontológico',
+  cuerpoTexto = 'Por medio del presente documento, manifiesto libre y voluntariamente que he sido informado(a) por el profesional tratante sobre el diagnóstico clínico, los objetivos del procedimiento, los riesgos inherentes y las posibles complicaciones. Declaro haber tenido la oportunidad de formular preguntas y resuelto todas mis dudas. Autorizo la realización del tratamiento acordado en las instalaciones de OdontoLeal.',
   nombrePaciente = 'Paciente Titular',
   documentoPaciente = '',
+  isMinor = false,
   onConsentSigned,
   onConsentRejected,
   onExit,
 }) => {
   const [signatureData, setSignatureData] = useState<string | null>(null);
   const [hasAcceptedTerms, setHasAcceptedTerms] = useState(false);
+  const [isGuardianSigning, setIsGuardianSigning] = useState<boolean>(Boolean(isMinor));
+  const [guardianNameAndDoc, setGuardianNameAndDoc] = useState<string>('');
   const [isRejecting, setIsRejecting] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
@@ -35,7 +49,7 @@ export const TabletSigningPage: React.FC<TabletSigningPageProps> = ({
     if (!signatureData) {
       showAlert({
         title: 'Firma Requerida',
-        message: 'Por favor capture su firma manuscrita en el recuadro inferior antes de continuar.',
+        message: 'Por favor capture su firma manuscrita en el recuadro inferior antes de continuar (RF-CON-002).',
         type: 'warning',
       });
       return;
@@ -43,12 +57,33 @@ export const TabletSigningPage: React.FC<TabletSigningPageProps> = ({
     if (!hasAcceptedTerms) {
       showAlert({
         title: 'Aceptación Requerida',
-        message: 'Debe marcar la casilla de confirmación y aceptación de los términos leídos.',
+        message: 'Debe marcar la casilla de confirmación y aceptación de los términos leídos (RF-CON-002).',
         type: 'warning',
       });
       return;
     }
-    onConsentSigned?.(signatureData);
+    if (isGuardianSigning && !guardianNameAndDoc.trim()) {
+      showAlert({
+        title: 'Datos de Acudiente Obligatorios',
+        message: 'Debe ingresar el nombre y documento de identidad del acudiente o representante legal (RF-CON-005).',
+        type: 'warning',
+      });
+      return;
+    }
+
+    const consolidatedText = [
+      cuerpoTexto,
+      isGuardianSigning
+        ? `\nSuscrito en calidad de acudiente / representante legal: ${guardianNameAndDoc.trim()} en representación del paciente ${nombrePaciente} (Doc: ${documentoPaciente}).`
+        : `\nSuscrito directamente por el paciente: ${nombrePaciente} (Doc: ${documentoPaciente}).`,
+    ].join('\n');
+
+    onConsentSigned?.({
+      firmaBase64: signatureData,
+      firmaPorAcudiente: isGuardianSigning,
+      nombreDocumentoAcudiente: isGuardianSigning ? guardianNameAndDoc.trim() : null,
+      textoFirmado: consolidatedText,
+    });
     setIsSuccess(true);
   };
 
@@ -73,14 +108,14 @@ export const TabletSigningPage: React.FC<TabletSigningPageProps> = ({
             ✓
           </div>
           <h2 className="text-2xl font-extrabold text-[#1E242B]">
-            ¡Documento Procesado con Éxito!
+            ¡Consentimiento Firmado con Éxito!
           </h2>
           <p className="text-xs text-[#687380] leading-relaxed">
-            El consentimiento se ha integrado al expediente clínico del paciente en el sistema médico.
+            El consentimiento se ha registrado en la historia clínica del paciente con firma digitalizada (RF-CON-002).
           </p>
           <div className="pt-4">
             <Button variant="primary" className="w-full min-h-[48px]" onClick={onExit}>
-              Finalizar y Regresar al Sistema
+              Finalizar y Regresar a la Ficha del Paciente
             </Button>
           </div>
         </div>
@@ -106,7 +141,10 @@ export const TabletSigningPage: React.FC<TabletSigningPageProps> = ({
             </p>
           </div>
         </div>
-        <Badge label="Dispositivo Seguro • 30 min max" variant="gold" size="sm" />
+        <div className="flex items-center gap-2">
+          {isMinor && <Badge label="Menor de Edad (Acudiente Obligatorio)" variant="neutral" size="sm" />}
+          <Badge label="Dispositivo Seguro" variant="gold" size="sm" />
+        </div>
       </header>
 
       {/* Contenido Central: Lectura y Firma */}
@@ -121,22 +159,55 @@ export const TabletSigningPage: React.FC<TabletSigningPageProps> = ({
               {nombrePaciente}
             </p>
             <p className="text-xs text-[#687380]">
-              Documento de Identidad: C.C. {documentoPaciente}
+              Documento de Identidad: {documentoPaciente}
             </p>
           </div>
-          <Badge label="En Consulta Activa" variant="info" />
+          <Badge label={isMinor ? 'Menor de 18 años' : 'Adulto'} variant="neutral" />
         </div>
 
         {/* Texto Legal del Consentimiento */}
-        <div className="rounded-3xl border border-[#E2E6EA] bg-white p-6 shadow-xs space-y-3">
+        <div className="rounded-3xl border border-[#E2E6EA] bg-white p-6 shadow-xs space-y-4">
           <h2 className="text-base font-extrabold text-[#1E242B]">
             {tituloConsentimiento}
           </h2>
           <div className="max-h-48 overflow-y-auto rounded-2xl bg-[#F8F9FA] border border-[#E2E6EA] p-4 text-xs leading-relaxed text-[#4B5563] space-y-2">
             <p>{cuerpoTexto}</p>
             <p className="text-[11px] text-[#8F99A3] italic">
-              Conforme a la Ley 23 de 1981, Resolución 1995 de 1999 y Ley 1581 de 2012. Este documento no exime de la responsabilidad profesional legal pero certifica el consentimiento expreso e informado.
+              Conforme a la Ley 23 de 1981, Resolución 1995 de 1999 y Ley 1581 de 2012. Este documento certifica el consentimiento libre, previo y expreso.
             </p>
+          </div>
+
+          {/* RF-CON-005: Casilla y campo de acudiente */}
+          <div className="p-4 rounded-2xl border border-[#E2E6EA] bg-[#F8F9FA] space-y-3">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isGuardianSigning}
+                disabled={isMinor}
+                onChange={(e) => {
+                  if (!isMinor) {
+                    setIsGuardianSigning(e.target.checked);
+                  }
+                }}
+                className="h-4 w-4 rounded text-[#D4AF37] focus:ring-[#D4AF37] disabled:opacity-50"
+              />
+              <span className="text-xs font-bold text-[#1E242B]">
+                Firma en calidad de acudiente / representante legal
+                {isMinor && ' (Obligatorio para menores de 18 años - RF-CON-005)'}
+              </span>
+            </label>
+
+            {isGuardianSigning && (
+              <div className="pt-2">
+                <Input
+                  label="Nombre y Documento del Acudiente / Representante Legal *"
+                  required
+                  value={guardianNameAndDoc}
+                  onChange={(e) => setGuardianNameAndDoc(e.target.value)}
+                  placeholder="Ej: Claudia Patricia Gómez - C.C. 37.890.123"
+                />
+              </div>
+            )}
           </div>
 
           <label className="flex items-start gap-3 p-3 rounded-xl bg-[#FBF6E6]/60 border border-[#EAD89B] cursor-pointer">
@@ -147,18 +218,25 @@ export const TabletSigningPage: React.FC<TabletSigningPageProps> = ({
               className="mt-0.5 h-4 w-4 rounded text-[#D4AF37] focus:ring-[#D4AF37]"
             />
             <span className="text-xs font-semibold text-[#1E242B]">
-              He leído y comprendido plenamente la totalidad del documento, se me han explicado los riesgos y alternativas, y otorgo mi consentimiento informado.
+              He leído y comprendido plenamente la totalidad del documento, se me han explicado los riesgos y alternativas, y otorgo mi consentimiento informado (RF-CON-002).
             </span>
           </label>
         </div>
 
-        {/* Lienzo de Firma Digital (RQNF-COM-002: botones >= 44x44px) */}
+        {/* Lienzo de Firma Digital (RQNF-COM-002: controles >= 44x44px) */}
         {!isRejecting ? (
           <div className="rounded-3xl border border-[#E2E6EA] bg-white p-6 shadow-xs space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="text-xs font-extrabold uppercase tracking-wider text-[#1E242B]">
-                Firma Digital Manuscrita en Pantalla
-              </h3>
+              <div>
+                <h3 className="text-xs font-extrabold uppercase tracking-wider text-[#1E242B]">
+                  {isGuardianSigning
+                    ? `Firma del acudiente / representante legal del paciente ${nombrePaciente}`
+                    : 'Firma del paciente'}
+                </h3>
+                <p className="text-[11px] text-[#8F99A3]">
+                  Realice su trazo manuscrito en el recuadro con el dedo, lápiz óptico o mouse (RF-CON-002 / RF-CON-005)
+                </p>
+              </div>
               {signatureData && (
                 <Badge label="Firma capturada ✓" variant="success" size="sm" />
               )}
@@ -175,7 +253,7 @@ export const TabletSigningPage: React.FC<TabletSigningPageProps> = ({
               Constancia de No Aceptación / Disentimiento
             </h3>
             <p className="text-xs text-[#687380]">
-              El paciente tiene el derecho legal de rechazar el procedimiento propuesto. Ingrese las razones o manifestaciones del paciente:
+              El paciente tiene el derecho legal de rechazar el procedimiento propuesto. Ingrese las razones:
             </p>
             <textarea
               rows={3}
@@ -207,7 +285,7 @@ export const TabletSigningPage: React.FC<TabletSigningPageProps> = ({
               disabled={!signatureData || !hasAcceptedTerms}
               leftIcon={<span>✍️</span>}
             >
-              Sustentar y Concluir Firma
+              Guardar Consentimiento Firmado
             </Button>
           </>
         ) : (

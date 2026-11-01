@@ -14,14 +14,12 @@ export const ConsentTemplatesAdminPage: React.FC = () => {
 
   const [formTitle, setFormTitle] = useState('');
   const [formBody, setFormBody] = useState('');
-  const [formRequiresDocSign, setFormRequiresDocSign] = useState(true);
   const { showAlert, AlertModalComponent } = useAlertModal();
 
   const handleOpenCreate = () => {
     setEditingTemplate(null);
     setFormTitle('');
     setFormBody('');
-    setFormRequiresDocSign(true);
     setIsModalOpen(true);
   };
 
@@ -29,7 +27,6 @@ export const ConsentTemplatesAdminPage: React.FC = () => {
     setEditingTemplate(t);
     setFormTitle(t.titulo);
     setFormBody(t.cuerpoTexto);
-    setFormRequiresDocSign(t.requiereFirmaProfesional);
     setIsModalOpen(true);
   };
 
@@ -48,7 +45,6 @@ export const ConsentTemplatesAdminPage: React.FC = () => {
       idPlantilla: editingTemplate?.idPlantilla,
       titulo: formTitle.trim(),
       cuerpoTexto: formBody.trim(),
-      requiereFirmaProfesional: formRequiresDocSign,
     });
     setIsModalOpen(false);
   };
@@ -102,7 +98,7 @@ export const ConsentTemplatesAdminPage: React.FC = () => {
               </p>
 
               <div className="text-[11px] text-[#8F99A3] pt-2">
-                Fecha creación: {tpl.fechaCreacion} • {tpl.requiereFirmaProfesional ? 'Requiere firma del odontólogo' : 'Solo firma paciente'}
+                Fecha actualización: {tpl.fechaCreacion}
               </div>
             </div>
 
@@ -153,16 +149,6 @@ export const ConsentTemplatesAdminPage: React.FC = () => {
               className="w-full rounded-xl border border-[#E2E6EA] p-3 text-xs leading-relaxed text-[#1E242B] focus:border-[#D4AF37] focus:outline-none"
             />
           </div>
-
-          <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-[#1E242B]">
-            <input
-              type="checkbox"
-              checked={formRequiresDocSign}
-              onChange={(e) => setFormRequiresDocSign(e.target.checked)}
-              className="h-4 w-4 rounded text-[#D4AF37]"
-            />
-            Requiere incrustación de firma digital del odontólogo tratante (RF-DOC-004)
-          </label>
 
           <div className="flex justify-end gap-3 pt-4 border-t border-[#E2E6EA]">
             <Button variant="outline" type="button" onClick={() => setIsModalOpen(false)}>

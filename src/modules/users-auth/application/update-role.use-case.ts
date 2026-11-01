@@ -54,6 +54,7 @@ export class UpdateRoleUseCase {
       nombreRol: currentRole.nombre_rol,
       descripcion: currentRole.descripcion ?? '',
       permisos: currentRole.permisos ?? [],
+      esInicial: currentRole.es_inicial,
     });
 
     roleEntity.update({

@@ -10,10 +10,12 @@ import { Modal } from '../../../../shared/ui/components/Modal';
 export interface PatientsDirectoryPageProps {
   onSelectPatient: (patient: PatientListItem, tab?: 'APPOINTMENTS' | 'CLINICAL' | 'CONSENTS' | 'DOCUMENTS') => void;
   onOpenPrivacyNotice?: () => void;
+  onOpenHolderDataQuery?: () => void;
 }
 
 export const PatientsDirectoryPage: React.FC<PatientsDirectoryPageProps> = ({
   onSelectPatient,
+  onOpenHolderDataQuery,
 }) => {
   const { patients, isLoading, createPatient, updatePatient } = usePatients();
   const [searchQuery, setSearchQuery] = useState('');
@@ -97,17 +99,27 @@ export const PatientsDirectoryPage: React.FC<PatientsDirectoryPageProps> = ({
             Gestión y consulta centralizada de pacientes, historias clínicas e información de contacto médico-odontológico.
           </p>
         </div>
-        <Button
-          variant="primary"
-          onClick={handleOpenCreate}
-          leftIcon={
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-          }
-        >
-          Nuevo paciente
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          {onOpenHolderDataQuery && (
+            <Button
+              variant="outline"
+              onClick={onOpenHolderDataQuery}
+            >
+              Datos del Titular (Habeas Data)
+            </Button>
+          )}
+          <Button
+            variant="primary"
+            onClick={handleOpenCreate}
+            leftIcon={
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+            }
+          >
+            Nuevo paciente
+          </Button>
+        </div>
       </div>
 
       {/* Barra de Filtros y Búsqueda */}

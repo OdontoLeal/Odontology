@@ -16,7 +16,7 @@ export interface PatientProfilePageProps {
   onScheduleAppointment: (patient: PatientListItem) => void;
   onOpenConsultation: (patient: PatientListItem, idCita?: number) => void;
   onViewClinicalHistoryDetail: (idHistoria: number) => void;
-  onSignConsent: (idConsentimiento: number) => void;
+  onSignConsent: (templateOrId: any) => void;
   onUpdatePatient: (id: number, data: PatientFormData) => Promise<void> | void;
 }
 
@@ -48,7 +48,7 @@ export const PatientProfilePage: React.FC<PatientProfilePageProps> = ({
   const { history, isLoading: isHistoryLoading } = useClinicalRecord(patient.idPaciente);
 
   // Consentimientos reales
-  const { patientConsents, templates, fetchPatientConsents, isLoading: isConsentsLoading } = useConsents();
+  const { patientConsents, templates, fetchPatientConsents, downloadConsentPdf, isLoading: isConsentsLoading } = useConsents();
 
   // Cargar citas reales del paciente
   const fetchPatientAppointments = useCallback(async () => {
@@ -370,67 +370,107 @@ export const PatientProfilePage: React.FC<PatientProfilePageProps> = ({
           <div className="p-4 rounded-2xl bg-[#F8F9FA] text-center text-xs text-[#687380]">
             Cargando consentimientos...
           </div>
-        ) : patientConsents.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {patientConsents.map((c) => (
-              <div
-                key={c.idConsentimiento}
-                className="rounded-2xl border border-[#E2E6EA] bg-[#F8F9FA] p-4 flex flex-col justify-between space-y-3"
-              >
-                <div>
-                  <div className="flex items-center justify-between">
-                    <Badge label={`v${c.version}.0`} variant="neutral" size="sm" />
-                    <Badge
-                      label={c.estado}
-                      variant={c.estado === 'Firmado' ? 'success' : 'warning'}
-                      size="sm"
-                    />
-                  </div>
-                  <h4 className="mt-2 text-xs font-extrabold text-[#1E242B]">
-                    {c.titulo}
-                  </h4>
-                  <p className="text-[11px] text-[#8F99A3] mt-1">
-                    {c.fechaFirma || 'Fecha pendiente'}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => onSignConsent(c.idConsentimiento)}
-                  className="text-xs font-bold text-[#D4AF37] hover:underline self-end"
-                >
-                  {c.estado === 'Firmado' ? 'Consultar 👁️' : 'Firmar ✍️'}
-                </button>
-              </div>
-            ))}
-          </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {templates.slice(0, 3).map((tpl) => (
-              <div
-                key={tpl.idPlantilla}
-                className="rounded-2xl border border-[#E2E6EA] bg-[#F8F9FA] p-4 flex flex-col justify-between space-y-3"
-              >
-                <div>
-                  <Badge label={`v${tpl.version}.0`} variant="neutral" size="sm" />
-                  <h4 className="mt-2 text-xs font-extrabold text-[#1E242B]">
-                    {tpl.titulo}
-                  </h4>
-                  <p className="text-[11px] text-[#8F99A3] mt-1">Plantilla legal activa</p>
+          <div className="space-y-6">
+            {/* Consentimientos Firmados */}
+            <div>
+              <h4 className="text-xs font-extrabold uppercase tracking-wider text-[#687380] mb-3">
+                Consentimientos Firmados ({patientConsents.length})
+              </h4>
+              {patientConsents.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {patientConsents.map((c) => (
+                    <div
+                      key={c.idConsentimientoFirmado || c.idConsentimiento}
+                      className="rounded-2xl border border-[#E2E6EA] bg-[#F8F9FA] p-4 flex flex-col justify-between space-y-3"
+                    >
+                      <div>
+                        <div className="flex items-center justify-between">
+                          <Badge label={`v${c.version}.0`} variant="neutral" size="sm" />
+                          <Badge label="Firmado" variant="success" size="sm" />
+                        </div>
+                        <h4 className="mt-2 text-xs font-extrabold text-[#1E242B]">
+                          {c.titulo}
+                        </h4>
+                        <p className="text-[11px] text-[#8F99A3] mt-1">
+                          {c.fechaFirma || 'Fecha registrada'} • {c.firmadoPor}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (c.idConsentimientoFirmado) {
+                            downloadConsentPdf(
+                              c.idConsentimientoFirmado,
+                              `Consentimiento_${c.titulo.replace(/\s+/g, '_')}_v${c.version}.pdf`
+                            );
+                          }
+                        }}
+                        className="text-xs font-bold text-[#D4AF37] hover:underline self-end flex items-center gap-1 cursor-pointer"
+                      >
+                        Descargar PDF 📄
+                      </button>
+                    </div>
+                  ))}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => onSignConsent(tpl.idPlantilla)}
-                  className="text-xs font-bold text-[#D4AF37] hover:underline self-end inline-flex items-center gap-1"
-                >
-                  Suscribir en Tablet ✍️
-                </button>
+              ) : (
+                <p className="text-xs text-[#8F99A3] italic">El paciente no tiene consentimientos firmados aún.</p>
+              )}
+            </div>
+
+            {/* Plantillas Disponibles para Suscribir (RF-CON-001) */}
+            <div className="pt-4 border-t border-[#E2E6EA]">
+              <h4 className="text-xs font-extrabold uppercase tracking-wider text-[#687380] mb-3">
+                Plantillas Médicas Disponibles
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {templates
+                  .filter((t) => t.activo)
+                  .map((tpl) => {
+                    const alreadySigned = patientConsents.find(
+                      (c) => c.idPlantilla === tpl.idPlantilla && c.version === tpl.version
+                    );
+                    return (
+                      <div
+                        key={tpl.idPlantilla}
+                        className="rounded-2xl border border-[#E2E6EA] bg-[#F8F9FA] p-4 flex flex-col justify-between space-y-3"
+                      >
+                        <div>
+                          <div className="flex items-center justify-between">
+                            <Badge label={`v${tpl.version}.0`} variant="neutral" size="sm" />
+                            {alreadySigned ? (
+                              <Badge label="Ya suscrito" variant="neutral" size="sm" />
+                            ) : (
+                              <Badge label="Disponible" variant="info" size="sm" />
+                            )}
+                          </div>
+                          <h4 className="mt-2 text-xs font-extrabold text-[#1E242B]">
+                            {tpl.titulo}
+                          </h4>
+                          <p className="text-[11px] text-[#8F99A3] mt-1">
+                            {alreadySigned
+                              ? `El paciente ya firmó este consentimiento el ${alreadySigned.fechaFirma || 'previamente'}`
+                              : 'Listo para toma de consentimiento'}
+                          </p>
+                        </div>
+                        {!alreadySigned ? (
+                          <button
+                            type="button"
+                            onClick={() => onSignConsent(tpl)}
+                            className="text-xs font-bold text-[#D4AF37] hover:underline self-end inline-flex items-center gap-1 cursor-pointer"
+                          >
+                            Tomar Firma ✍️
+                          </button>
+                        ) : (
+                          <span className="text-[11px] text-[#137333] font-semibold self-end">
+                            ✓ Vigente
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
               </div>
-            ))}
-            {templates.length === 0 && (
-              <div className="col-span-3 text-center py-4 text-xs text-[#8F99A3]">
-                No hay plantillas de consentimiento informados disponibles en el sistema.
-              </div>
-            )}
+            </div>
           </div>
         )}
       </div>

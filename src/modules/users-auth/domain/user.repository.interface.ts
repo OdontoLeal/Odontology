@@ -6,6 +6,7 @@ export interface RoleDTO {
   nombre_rol: string;
   descripcion?: string;
   permisos?: string[];
+  es_inicial?: boolean;
 }
 
 export interface UserRoleAssignmentDTO {
@@ -14,6 +15,7 @@ export interface UserRoleAssignmentDTO {
   nombreRol: string;
   descripcion?: string;
   permisos?: string[];
+  es_inicial?: boolean;
   estadoAsignacion: boolean;
 }
 

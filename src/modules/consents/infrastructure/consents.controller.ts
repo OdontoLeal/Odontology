@@ -1,3 +1,4 @@
+// src/modules/consents/infrastructure/consents.controller.ts
 import { Request, Response } from 'express';
 import { ConsentService } from '../application/consent.service';
 import { ConsentDomainError } from '../domain/consent.errors';
@@ -7,11 +8,12 @@ export class ConsentsController {
 
   public createTemplate = async (req: Request, res: Response): Promise<void> => {
     try {
-      const { nombre, plantillaUrl, tipoConsentimiento } = req.body;
+      const { nombre, textoPlantilla, plantillaUrl } = req.body;
+      const idUsuario = (req as any).user?.idUsuario ?? null;
       const created = await this.consentService.createTemplate({
         nombre,
-        plantillaUrl,
-        tipoConsentimiento: Boolean(tipoConsentimiento),
+        textoPlantilla: textoPlantilla ?? plantillaUrl,
+        idUsuarioModificador: idUsuario,
       });
       res.status(201).json({
         message: 'Plantilla creada en versión 1.',
@@ -25,10 +27,12 @@ export class ConsentsController {
   public updateTemplate = async (req: Request, res: Response): Promise<void> => {
     try {
       const id = Number(req.params.id);
-      const { nombre, plantillaUrl } = req.body;
+      const { nombre, textoPlantilla, plantillaUrl } = req.body;
+      const idUsuario = (req as any).user?.idUsuario ?? null;
       const updated = await this.consentService.updateTemplateVersion(id, {
         nombre,
-        plantillaUrl,
+        textoPlantilla: textoPlantilla ?? plantillaUrl,
+        idUsuarioModificador: idUsuario,
       });
       res.status(200).json({
         message: 'Nueva versión de plantilla generada.',
@@ -65,11 +69,28 @@ export class ConsentsController {
 
   public signConsent = async (req: Request, res: Response): Promise<void> => {
     try {
-      const { idConsentimiento, idPaciente, idCita, archivoUrl } = req.body;
+      const {
+        idConsentimiento,
+        idPaciente,
+        textoFirmado,
+        firmaBase64,
+        firmaPorAcudiente,
+        nombreDocumentoAcudiente,
+        archivoUrl,
+        idCita,
+      } = req.body;
+      const idUsuarioDiligencio =
+        (req as any).user?.idUsuario ?? req.body.idUsuarioDiligencio ?? null;
+
       const signed = await this.consentService.signConsent({
         idConsentimiento: Number(idConsentimiento),
         idPaciente: Number(idPaciente),
-        idCita: Number(idCita),
+        textoFirmado,
+        firmaBase64: firmaBase64 ?? archivoUrl,
+        firmaPorAcudiente: Boolean(firmaPorAcudiente),
+        nombreDocumentoAcudiente,
+        idUsuarioDiligencio,
+        idCita: idCita ? Number(idCita) : undefined,
         archivoUrl,
       });
       res.status(201).json({
@@ -91,6 +112,21 @@ export class ConsentsController {
     }
   };
 
+  public getConsentPdf = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const id = Number(req.params.id);
+      const pdfBase64 = await this.consentService.generateConsentPdf(id);
+      res.status(200).json({
+        data: {
+          idConsentimientoFirmado: id,
+          pdfBase64,
+        },
+      });
+    } catch (error) {
+      this.handleError(res, error);
+    }
+  };
+
   private handleError(res: Response, error: unknown): void {
     if (error instanceof ConsentDomainError) {
       res.status(error.statusCode).json({ message: error.message });
@@ -98,7 +134,7 @@ export class ConsentsController {
     }
 
     const fallbackMessage =
-      error instanceof Error ? error.message : 'Error interno del servidor.';
+      error instanceof Error ? error.message : 'Error interno al procesar el consentimiento.';
     res.status(500).json({ message: fallbackMessage });
   }
 }

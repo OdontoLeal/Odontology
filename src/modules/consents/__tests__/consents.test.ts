@@ -20,21 +20,23 @@ import {
   SignConsentDTO,
 } from '../application/consent.dtos';
 
-// Implementación en memoria del repositorio de consentimientos
+// Implementación en memoria del repositorio de consentimientos adaptada a ERS v1.2
 class InMemoryConsentRepository implements IConsentRepository {
   public templates: Map<number, ConsentTemplate> = new Map();
   public signedConsents: SignedConsent[] = [];
   private templateIdSeq = 1;
+  private signedConsentIdSeq = 1;
 
   async createTemplate(dto: CreateConsentTemplateDTO): Promise<ConsentTemplate> {
     const id = this.templateIdSeq++;
     const template = new ConsentTemplate({
       idConsentimiento: id,
       nombre: dto.nombre,
-      plantillaUrl: dto.plantillaUrl,
+      textoPlantilla: dto.textoPlantilla ?? dto.plantillaUrl ?? '',
       version: 1, // Regla RF-CON-004
-      tipoConsentimiento: dto.tipoConsentimiento,
       estado: true, // Activa por defecto
+      idUsuarioModificador: dto.idUsuarioModificador ?? null,
+      fechaModificacion: new Date(),
     });
     this.templates.set(id, template);
     return template;
@@ -51,14 +53,15 @@ class InMemoryConsentRepository implements IConsentRepository {
     const existing = this.templates.get(idConsentimiento);
     if (!existing) return null;
 
-    const newVersion = existing.version + 1; // Incremento automático versión
+    const newVersion = existing.version + 1; // Incremento automático versión (+1)
     const updated = new ConsentTemplate({
       idConsentimiento: existing.idConsentimiento,
       nombre: dto.nombre ?? existing.nombre,
-      plantillaUrl: dto.plantillaUrl ?? existing.plantillaUrl,
+      textoPlantilla: dto.textoPlantilla ?? dto.plantillaUrl ?? existing.textoPlantilla,
       version: newVersion,
-      tipoConsentimiento: existing.tipoConsentimiento,
       estado: existing.estado,
+      idUsuarioModificador: dto.idUsuarioModificador ?? null,
+      fechaModificacion: new Date(),
     });
     this.templates.set(idConsentimiento, updated);
     return updated;
@@ -74,10 +77,11 @@ class InMemoryConsentRepository implements IConsentRepository {
     const updated = new ConsentTemplate({
       idConsentimiento: existing.idConsentimiento,
       nombre: existing.nombre,
-      plantillaUrl: existing.plantillaUrl,
+      textoPlantilla: existing.textoPlantilla,
       version: existing.version,
-      tipoConsentimiento: existing.tipoConsentimiento,
       estado,
+      idUsuarioModificador: existing.idUsuarioModificador,
+      fechaModificacion: new Date(),
     });
     this.templates.set(idConsentimiento, updated);
     return updated;
@@ -92,11 +96,18 @@ class InMemoryConsentRepository implements IConsentRepository {
   }
 
   async recordSignedConsent(dto: SignConsentDTO): Promise<SignedConsent> {
+    const tmpl = this.templates.get(dto.idConsentimiento);
+    const id = this.signedConsentIdSeq++;
     const signed = new SignedConsent({
+      idConsentimientoFirmado: id,
       idConsentimiento: dto.idConsentimiento,
       idPaciente: dto.idPaciente,
-      idCita: dto.idCita,
-      archivoUrl: dto.archivoUrl,
+      versionPlantilla: tmpl ? tmpl.version : 1,
+      textoFirmado: dto.textoFirmado ?? (tmpl ? tmpl.textoPlantilla : ''),
+      firmaBase64: dto.firmaBase64 ?? dto.archivoUrl ?? '',
+      firmaPorAcudiente: Boolean(dto.firmaPorAcudiente),
+      nombreDocumentoAcudiente: dto.nombreDocumentoAcudiente ?? null,
+      idUsuarioDiligencio: dto.idUsuarioDiligencio ?? null,
       fecha: new Date(),
     });
     this.signedConsents.push(signed);
@@ -111,20 +122,51 @@ class InMemoryConsentRepository implements IConsentRepository {
       .map((s) => {
         const tmpl = this.templates.get(s.idConsentimiento);
         return {
+          idConsentimientoFirmado: s.idConsentimientoFirmado || 1,
           idConsentimiento: s.idConsentimiento,
           nombrePlantilla: tmpl ? tmpl.nombre : 'Consentimiento General',
+          versionPlantilla: s.versionPlantilla,
           versionActualPlantilla: tmpl ? tmpl.version : 1,
           idPaciente: s.idPaciente,
-          idCita: s.idCita,
           fecha: s.fecha ?? new Date(),
-          archivoUrl: s.archivoUrl,
+          textoFirmado: s.textoFirmado,
+          firmaBase64: s.firmaBase64,
+          firmaPorAcudiente: s.firmaPorAcudiente,
+          nombreDocumentoAcudiente: s.nombreDocumentoAcudiente ?? null,
+          idUsuarioDiligencio: s.idUsuarioDiligencio ?? null,
+          usuarioDiligencioNombre: 'Dr. Eduar Leal',
         };
       })
       .sort((a, b) => b.fecha.getTime() - a.fecha.getTime());
   }
+
+  async findSignedConsentById(
+    idConsentimientoFirmado: number
+  ): Promise<PatientSignedConsentDetail | null> {
+    const s = this.signedConsents.find(
+      (c) => c.idConsentimientoFirmado === idConsentimientoFirmado
+    );
+    if (!s) return null;
+    const tmpl = this.templates.get(s.idConsentimiento);
+    return {
+      idConsentimientoFirmado: s.idConsentimientoFirmado || 1,
+      idConsentimiento: s.idConsentimiento,
+      nombrePlantilla: tmpl ? tmpl.nombre : 'Consentimiento General',
+      versionPlantilla: s.versionPlantilla,
+      versionActualPlantilla: tmpl ? tmpl.version : 1,
+      idPaciente: s.idPaciente,
+      fecha: s.fecha ?? new Date(),
+      textoFirmado: s.textoFirmado,
+      firmaBase64: s.firmaBase64,
+      firmaPorAcudiente: s.firmaPorAcudiente,
+      nombreDocumentoAcudiente: s.nombreDocumentoAcudiente ?? null,
+      idUsuarioDiligencio: s.idUsuarioDiligencio ?? null,
+      usuarioDiligencioNombre: 'Dr. Eduar Leal',
+    };
+  }
 }
 
-describe('MÓDULO D: Consentimientos Informados (RF-CON-001 a RF-CON-008)', () => {
+describe('MÓDULO D: Consentimientos Informados (RF-CON-001 a RF-CON-008 - ERS v1.2)', () => {
   let repo: InMemoryConsentRepository;
   let service: ConsentService;
 
@@ -136,8 +178,7 @@ describe('MÓDULO D: Consentimientos Informados (RF-CON-001 a RF-CON-008)', () =
   it('RF-CON-004: Crear plantilla de consentimiento iniciando en versión 1 y estado Activa (RQNF-MAN-001)', async () => {
     const created = await service.createTemplate({
       nombre: 'Diseño de Sonrisa y Carillas',
-      plantillaUrl: 'https://odontoleal.com/plantillas/diseno_sonrisa_v1.html',
-      tipoConsentimiento: true,
+      textoPlantilla: 'Texto legal descriptivo del procedimiento de diseño de sonrisa y carillas.',
     });
 
     assert.ok(created.idConsentimiento);
@@ -145,37 +186,42 @@ describe('MÓDULO D: Consentimientos Informados (RF-CON-001 a RF-CON-008)', () =
     assert.strictEqual(created.version, 1);
     assert.strictEqual(created.estado, true);
     assert.strictEqual(created.isActive(), true);
+    assert.strictEqual(
+      created.textoPlantilla,
+      'Texto legal descriptivo del procedimiento de diseño de sonrisa y carillas.'
+    );
   });
 
-  it('RF-CON-004: Rechazar creación con nombre o plantillaUrl vacíos o tipo inválido', async () => {
+  it('RF-CON-004: Rechazar creación con nombre o textoPlantilla vacíos', async () => {
     await assert.rejects(
       async () => {
         await service.createTemplate({
           nombre: '',
-          plantillaUrl: 'https://odontoleal.com/plantillas/test.html',
-          tipoConsentimiento: true,
+          textoPlantilla: 'Texto legal válido.',
         });
       },
-      (err: any) => err instanceof ConsentValidationError && /nombre de la plantilla es obligatorio/.test(err.message)
+      (err: any) =>
+        err instanceof ConsentValidationError &&
+        /nombre de la plantilla es obligatorio/.test(err.message)
     );
 
     await assert.rejects(
       async () => {
         await service.createTemplate({
           nombre: 'Extracción Simple',
-          plantillaUrl: '',
-          tipoConsentimiento: true,
+          textoPlantilla: '',
         });
       },
-      (err: any) => err instanceof ConsentValidationError && /URL de la plantilla.*es obligatoria/.test(err.message)
+      (err: any) =>
+        err instanceof ConsentValidationError &&
+        /texto de la plantilla.*es obligatorio/.test(err.message)
     );
   });
 
   it('RF-CON-007: Actualizar plantilla incrementando automáticamente la versión (+1) sin alterar consentimientos previos', async () => {
     const template = await service.createTemplate({
       nombre: 'Blanqueamiento Dental',
-      plantillaUrl: 'https://odontoleal.com/plantillas/blanqueamiento_v1.html',
-      tipoConsentimiento: true,
+      textoPlantilla: 'Texto v1 de blanqueamiento dental convencional.',
     });
 
     assert.strictEqual(template.version, 1);
@@ -183,19 +229,22 @@ describe('MÓDULO D: Consentimientos Informados (RF-CON-001 a RF-CON-008)', () =
     // Actualización de texto legal de la plantilla
     const updated = await service.updateTemplateVersion(template.idConsentimiento, {
       nombre: 'Blanqueamiento Dental Láser Avanzado',
-      plantillaUrl: 'https://odontoleal.com/plantillas/blanqueamiento_v2.html',
+      textoPlantilla: 'Texto v2 con tecnología láser y protocolos actualizados.',
     });
 
     assert.strictEqual(updated.idConsentimiento, template.idConsentimiento);
     assert.strictEqual(updated.nombre, 'Blanqueamiento Dental Láser Avanzado');
     assert.strictEqual(updated.version, 2); // Versión incrementada a 2
+    assert.strictEqual(
+      updated.textoPlantilla,
+      'Texto v2 con tecnología láser y protocolos actualizados.'
+    );
   });
 
   it('RF-CON-008: Inactivar y activar plantilla sin eliminarla del repositorio (Regla de Negocio 8)', async () => {
     const template = await service.createTemplate({
       nombre: 'Ortodoncia Invisible',
-      plantillaUrl: 'https://odontoleal.com/plantillas/orto_v1.html',
-      tipoConsentimiento: true,
+      textoPlantilla: 'Texto explicativo de ortodoncia invisible.',
     });
 
     // Inactivar plantilla
@@ -217,34 +266,70 @@ describe('MÓDULO D: Consentimientos Informados (RF-CON-001 a RF-CON-008)', () =
     assert.strictEqual(reactivated.isActive(), true);
   });
 
-  it('RF-CON-002: Registrar consentimiento firmado asociándolo al paciente y a la cita', async () => {
+  it('RF-CON-002: Registrar consentimiento firmado con texto consolidado y firma en texto (Base64)', async () => {
     const template = await service.createTemplate({
       nombre: 'Cirugía de Terceros Molares',
-      plantillaUrl: 'https://odontoleal.com/plantillas/cirugia_cordales.html',
-      tipoConsentimiento: true,
+      textoPlantilla: 'Consentimiento para extracción de terceros molares incluidos.',
     });
 
     const signed = await service.signConsent({
       idConsentimiento: template.idConsentimiento,
       idPaciente: 201,
-      idCita: 701,
-      archivoUrl: 'https://storage.odontoleal.com/consents/201_701_cordales_firmado.pdf',
+      textoFirmado:
+        'Consentimiento para extracción de terceros molares incluidos. Suscrito por paciente titular.',
+      firmaBase64: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...',
+      firmaPorAcudiente: false,
     });
 
     assert.strictEqual(signed.idConsentimiento, template.idConsentimiento);
     assert.strictEqual(signed.idPaciente, 201);
-    assert.strictEqual(signed.idCita, 701);
+    assert.strictEqual(signed.versionPlantilla, 1);
+    assert.strictEqual(signed.firmaPorAcudiente, false);
     assert.strictEqual(
-      signed.archivoUrl,
-      'https://storage.odontoleal.com/consents/201_701_cordales_firmado.pdf'
+      signed.firmaBase64,
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...'
     );
+  });
+
+  it('RF-CON-005: Validar obligatoriedad de nombre y documento del acudiente si firmaPorAcudiente es verdadero', async () => {
+    const template = await service.createTemplate({
+      nombre: 'Pulpotomía Pediátrica',
+      textoPlantilla: 'Tratamiento pulpar para pacientes menores de edad.',
+    });
+
+    // Rechaza si falta nombre y documento del acudiente
+    await assert.rejects(
+      async () => {
+        await service.signConsent({
+          idConsentimiento: template.idConsentimiento,
+          idPaciente: 305,
+          firmaBase64: 'data:image/png;base64,iVBORw0KG...',
+          firmaPorAcudiente: true,
+          nombreDocumentoAcudiente: '',
+        });
+      },
+      (err: any) =>
+        err instanceof ConsentValidationError &&
+        /nombre y documento del acudiente/i.test(err.message)
+    );
+
+    // Acepta si se suministra
+    const signed = await service.signConsent({
+      idConsentimiento: template.idConsentimiento,
+      idPaciente: 305,
+      firmaBase64: 'data:image/png;base64,iVBORw0KG...',
+      firmaPorAcudiente: true,
+      nombreDocumentoAcudiente: 'Marta Pérez - C.C. 52.123.456',
+    });
+
+    assert.strictEqual(signed.firmaPorAcudiente, true);
+    assert.strictEqual(signed.nombreDocumentoAcudiente, 'Marta Pérez - C.C. 52.123.456');
   });
 
   it('RF-CON-002: Rechazar firma sobre plantilla inexistente o en estado Inactiva', async () => {
     const template = await service.createTemplate({
       nombre: 'Endodoncia Unirradicular',
-      plantillaUrl: 'https://odontoleal.com/plantillas/endo.html',
-      tipoConsentimiento: true,
+      textoPlantilla: 'Tratamiento de conductos radiculares.',
     });
 
     // Inactivar la plantilla
@@ -256,8 +341,7 @@ describe('MÓDULO D: Consentimientos Informados (RF-CON-001 a RF-CON-008)', () =
         await service.signConsent({
           idConsentimiento: template.idConsentimiento,
           idPaciente: 202,
-          idCita: 702,
-          archivoUrl: 'https://storage.odontoleal.com/consents/test.pdf',
+          firmaBase64: 'data:image/png;base64,sample...',
         });
       },
       (err: any) => err instanceof InactiveConsentTemplateError
@@ -269,8 +353,7 @@ describe('MÓDULO D: Consentimientos Informados (RF-CON-001 a RF-CON-008)', () =
         await service.signConsent({
           idConsentimiento: 9999,
           idPaciente: 202,
-          idCita: 702,
-          archivoUrl: 'https://storage.odontoleal.com/consents/test.pdf',
+          firmaBase64: 'data:image/png;base64,sample...',
         });
       },
       (err: any) => err instanceof ConsentNotFoundError
@@ -280,30 +363,26 @@ describe('MÓDULO D: Consentimientos Informados (RF-CON-001 a RF-CON-008)', () =
   it('RF-CON-003: Consultar historial de consentimientos firmados del paciente en orden cronológico descendente', async () => {
     const t1 = await service.createTemplate({
       nombre: 'Detartraje y Profilaxis',
-      plantillaUrl: 'https://odontoleal.com/plantillas/limpieza.html',
-      tipoConsentimiento: true,
+      textoPlantilla: 'Limpieza dental ultrasónica.',
     });
 
     const t2 = await service.createTemplate({
       nombre: 'Restauración Resina',
-      plantillaUrl: 'https://odontoleal.com/plantillas/resina.html',
-      tipoConsentimiento: true,
+      textoPlantilla: 'Restauración dental estética con resina fotocurada.',
     });
 
     // Firmar primer consentimiento
     await service.signConsent({
       idConsentimiento: t1.idConsentimiento,
       idPaciente: 203,
-      idCita: 801,
-      archivoUrl: 'https://storage.odontoleal.com/consents/203_801.pdf',
+      firmaBase64: 'data:image/png;base64,firma1...',
     });
 
     // Firmar segundo consentimiento
     await service.signConsent({
       idConsentimiento: t2.idConsentimiento,
       idPaciente: 203,
-      idCita: 802,
-      archivoUrl: 'https://storage.odontoleal.com/consents/203_802.pdf',
+      firmaBase64: 'data:image/png;base64,firma2...',
     });
 
     const patientConsents = await service.getSignedConsentsByPatient(203);

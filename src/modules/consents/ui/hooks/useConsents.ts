@@ -7,22 +7,28 @@ export interface ConsentTemplateItem {
   version: number;
   cuerpoTexto: string;
   activo: boolean;
-  requiereFirmaProfesional: boolean;
+  requiereFirmaProfesional?: boolean;
   fechaCreacion: string;
 }
 
 export interface PatientConsentItem {
+  idConsentimientoFirmado?: number;
   idConsentimiento: number;
   idPlantilla: number;
   titulo: string;
   version: number;
+  versionActualPlantilla?: number;
   idPaciente: number;
   estado: 'Sin firmar' | 'Pendiente de firma' | 'Firmado' | 'No aceptado';
   fechaFirma?: string | null;
   firmaDigitalUrl?: string | null;
+  firmaBase64?: string | null;
   firmadoPor?: string | null;
   rolFirmante?: 'Paciente' | 'Acudiente';
-  observaciones?: string | null;
+  firmaPorAcudiente?: boolean;
+  nombreDocumentoAcudiente?: string | null;
+  diligenciadoPor?: string | null;
+  textoFirmado?: string | null;
 }
 
 export function useConsents(apiBaseUrl = '/api/v1') {
@@ -35,10 +41,12 @@ export function useConsents(apiBaseUrl = '/api/v1') {
     idPlantilla: Number(t.idConsentimiento ?? t.id_consentimiento ?? t.idPlantilla ?? 1),
     titulo: t.nombre ?? t.titulo ?? 'Plantilla de Consentimiento',
     version: Number(t.version ?? 1),
-    cuerpoTexto: t.plantillaUrl ?? t.cuerpoTexto ?? 'Cuerpo del consentimiento informado.',
+    cuerpoTexto: t.textoPlantilla ?? t.texto_plantilla ?? t.plantillaUrl ?? t.cuerpoTexto ?? '',
     activo: Boolean(t.estado ?? t.activo ?? true),
-    requiereFirmaProfesional: Boolean(t.tipoConsentimiento ?? t.tipo_consentimiento ?? true),
-    fechaCreacion: t.fecha ?? t.fechaCreacion ?? new Date().toISOString().split('T')[0],
+    requiereFirmaProfesional: false,
+    fechaCreacion: t.fechaModificacion
+      ? String(t.fechaModificacion).slice(0, 10)
+      : (t.fecha ?? t.fechaCreacion ?? new Date().toISOString().split('T')[0]),
   });
 
   const fetchTemplates = useCallback(async () => {
@@ -76,17 +84,36 @@ export function useConsents(apiBaseUrl = '/api/v1') {
           const raw = json.data || json;
           if (Array.isArray(raw)) {
             setPatientConsents(
-              raw.map((item: any) => ({
-                idConsentimiento: Number(item.id_consentimiento ?? item.idConsentimiento),
-                idPlantilla: Number(item.id_consentimiento ?? item.idPlantilla),
-                titulo: item.nombre || item.titulo || 'Consentimiento Informado',
-                version: Number(item.version || 1),
-                idPaciente,
-                estado: item.fecha ? 'Firmado' : 'Sin firmar',
-                fechaFirma: item.fecha ? String(item.fecha).replace('T', ' ').slice(0, 16) : null,
-                firmadoPor: item.firmadoPor || 'Paciente Titular',
-                rolFirmante: item.rolFirmante || 'Paciente',
-              }))
+              raw.map((item: any) => {
+                const esAcudiente = Boolean(item.firmaPorAcudiente ?? item.firma_por_acudiente);
+                const nombreAcudiente =
+                  item.nombreDocumentoAcudiente ?? item.nombre_documento_acudiente ?? null;
+
+                return {
+                  idConsentimientoFirmado: Number(
+                    item.idConsentimientoFirmado ??
+                      item.id_consentimiento_firmado ??
+                      item.idConsentimiento
+                  ),
+                  idConsentimiento: Number(item.idConsentimiento ?? item.id_consentimiento),
+                  idPlantilla: Number(item.idConsentimiento ?? item.id_consentimiento),
+                  titulo:
+                    item.nombrePlantilla || item.nombre || item.titulo || 'Consentimiento Informado',
+                  version: Number(item.versionPlantilla ?? item.version ?? 1),
+                  versionActualPlantilla: Number(item.versionActualPlantilla ?? item.version ?? 1),
+                  idPaciente,
+                  estado: 'Firmado' as const,
+                  fechaFirma: item.fecha ? String(item.fecha).replace('T', ' ').slice(0, 16) : null,
+                  firmaBase64: item.firmaBase64 ?? item.firma_base64 ?? null,
+                  firmaDigitalUrl: item.firmaBase64 ?? item.firma_base64 ?? null,
+                  firmaPorAcudiente: esAcudiente,
+                  nombreDocumentoAcudiente: nombreAcudiente,
+                  firmadoPor: esAcudiente ? (nombreAcudiente || 'Acudiente') : 'Paciente Titular',
+                  rolFirmante: (esAcudiente ? 'Acudiente' : 'Paciente') as 'Paciente' | 'Acudiente',
+                  diligenciadoPor: item.usuarioDiligencioNombre ?? null,
+                  textoFirmado: item.textoFirmado ?? item.texto_firmado ?? null,
+                };
+              })
             );
           }
         }
@@ -104,42 +131,35 @@ export function useConsents(apiBaseUrl = '/api/v1') {
     async (params: {
       idConsentimiento: number;
       idPaciente: number;
-      idCita?: number;
+      textoFirmado?: string;
       firmaBase64: string;
-      nombreFirmante: string;
-      rolFirmante: 'Paciente' | 'Acudiente';
+      firmaPorAcudiente?: boolean;
+      nombreDocumentoAcudiente?: string | null;
+      nombreFirmante?: string;
+      rolFirmante?: 'Paciente' | 'Acudiente';
+      idCita?: number;
     }) => {
-      try {
-        await fetch(`${apiBaseUrl}/consents/sign`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            idConsentimiento: params.idConsentimiento,
-            idPaciente: params.idPaciente,
-            idCita: params.idCita || 1,
-            archivoUrl: params.firmaBase64.slice(0, 50), // referencia o storage
-          }),
-        });
+      const res = await fetch(`${apiBaseUrl}/consents/sign`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          idConsentimiento: params.idConsentimiento,
+          idPaciente: params.idPaciente,
+          textoFirmado: params.textoFirmado,
+          firmaBase64: params.firmaBase64,
+          firmaPorAcudiente: Boolean(params.firmaPorAcudiente),
+          nombreDocumentoAcudiente: params.nombreDocumentoAcudiente ?? null,
+        }),
+      });
 
-        setPatientConsents((prev) =>
-          prev.map((c) =>
-            c.idConsentimiento === params.idConsentimiento
-              ? {
-                  ...c,
-                  estado: 'Firmado',
-                  fechaFirma: new Date().toISOString().replace('T', ' ').slice(0, 16),
-                  firmaDigitalUrl: params.firmaBase64,
-                  firmadoPor: params.nombreFirmante,
-                  rolFirmante: params.rolFirmante,
-                }
-              : c
-          )
-        );
-      } catch (err: any) {
-        console.error('Error signing consent:', err.message);
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.message || 'Error al guardar el consentimiento firmado.');
       }
+
+      await fetchPatientConsents(params.idPaciente);
     },
-    [apiBaseUrl]
+    [apiBaseUrl, fetchPatientConsents]
   );
 
   const toggleTemplateStatus = useCallback(
@@ -173,7 +193,7 @@ export function useConsents(apiBaseUrl = '/api/v1') {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               nombre: template.titulo,
-              plantillaUrl: template.cuerpoTexto,
+              textoPlantilla: template.cuerpoTexto,
             }),
           });
         } else {
@@ -182,8 +202,7 @@ export function useConsents(apiBaseUrl = '/api/v1') {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               nombre: template.titulo,
-              plantillaUrl: template.cuerpoTexto || 'https://odontoleal.com/plantillas/default.pdf',
-              tipoConsentimiento: Boolean(template.requiereFirmaProfesional),
+              textoPlantilla: template.cuerpoTexto,
             }),
           });
         }
@@ -193,6 +212,25 @@ export function useConsents(apiBaseUrl = '/api/v1') {
       }
     },
     [apiBaseUrl, fetchTemplates]
+  );
+
+  const downloadConsentPdf = useCallback(
+    async (idConsentimientoFirmado: number, filename = 'consentimiento_firmado.pdf') => {
+      const res = await fetch(`${apiBaseUrl}/consents/${idConsentimientoFirmado}/pdf`);
+      if (!res.ok) {
+        throw new Error('Error al generar PDF del consentimiento firmado.');
+      }
+      const json = await res.json();
+      const pdfBase64 = json.data?.pdfBase64;
+      if (!pdfBase64) {
+        throw new Error('No se recibió el documento PDF.');
+      }
+      const link = document.createElement('a');
+      link.href = `data:application/pdf;base64,${pdfBase64}`;
+      link.download = filename;
+      link.click();
+    },
+    [apiBaseUrl]
   );
 
   return {
@@ -205,5 +243,6 @@ export function useConsents(apiBaseUrl = '/api/v1') {
     signConsent,
     toggleTemplateStatus,
     saveTemplate,
+    downloadConsentPdf,
   };
 }
