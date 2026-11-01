@@ -1,6 +1,7 @@
 // src/app/routes/api.routes.ts
 import { Router } from 'express';
 import { db } from '../../shared/infrastructure/database/database';
+import { authMiddleware } from '../../shared/infrastructure/security/auth.middleware';
 
 import { UserRepository } from '../../modules/users-auth/infrastructure/user.repository';
 import { UsersAuthController } from '../../modules/users-auth/infrastructure/users-auth.controller';
@@ -41,58 +42,91 @@ router.get('/health', async (_req, res) => {
 });
 
 // 1. Rutas Módulo A: Usuarios, Roles y Autenticación (RF-USR-001 a RF-USR-011)
+// 1.1 Rutas públicas de acceso y recuperación (RF-USR-005, RF-USR-009)
 router.post('/auth/login', usersController.login);
-router.post('/auth/logout', usersController.logout);
 router.post('/auth/recovery/request', usersController.requestPasswordRecovery);
 router.post('/auth/recovery/reset', usersController.resetPasswordWithToken);
 
-router.post('/roles', usersController.createRole);
-router.get('/roles', usersController.getRoles);
-router.put('/roles/:id', usersController.updateRole);
-router.delete('/roles/:id', usersController.deleteRole);
+// 1.2 Rutas autenticadas de administración de usuarios y roles (RQNF-SEG-003)
+router.post('/auth/logout', authMiddleware, usersController.logout);
 
-router.post('/users', usersController.createUser);
-router.get('/users', usersController.searchUsers);
-router.put('/users/:id', usersController.updateUser);
-router.patch('/users/:id/status', usersController.toggleUserStatus);
+router.post('/roles', authMiddleware, usersController.createRole);
+router.get('/roles', authMiddleware, usersController.getRoles);
+router.put('/roles/:id', authMiddleware, usersController.updateRole);
+router.delete('/roles/:id', authMiddleware, usersController.deleteRole);
+
+// Alias de compatibilidad hacia atrás para contratos de roles (I1-005, I1-006)
+router.post('/auth/roles', authMiddleware, usersController.createRole);
+router.get('/auth/roles', authMiddleware, usersController.getRoles);
+router.put('/auth/roles/:id', authMiddleware, usersController.updateRole);
+router.delete('/auth/roles/:id', authMiddleware, usersController.deleteRole);
+
+router.post('/users', authMiddleware, usersController.createUser);
+router.get('/users', authMiddleware, usersController.searchUsers);
+router.put('/users/:id', authMiddleware, usersController.updateUser);
+router.patch('/users/:id/status', authMiddleware, usersController.toggleUserStatus);
 
 // 2. Rutas Módulo B: Agendamiento de Citas
-router.post('/appointments/slots', appointmentsController.upsertTimeSlot);
+// 2.1 Rutas públicas del portal de pacientes (RF-AGE-003, RF-AGE-012, RF-USR-006)
 router.get('/appointments/available-slots', appointmentsController.getAvailableSlots);
-router.post('/appointments/generate-day-slots', appointmentsController.generateDaySlots);
-router.patch('/appointments/slots/toggle', appointmentsController.toggleSlotStatus);
-router.get('/appointments/slots', appointmentsController.getTimeSlots);
-router.get('/appointments/monthly-summary', appointmentsController.getMonthlySummary);
-router.get('/appointments/requests', appointmentsController.getRequests);
-router.get('/appointments/requests/:id', appointmentsController.getRequestById);
 router.post('/appointments/public-requests', appointmentsController.requestAppointmentPublic);
-router.post('/appointments/requests/:id/review', appointmentsController.reviewRequest);
-router.post('/appointments', appointmentsController.scheduleAppointment);
-router.put('/appointments/:id', appointmentsController.updateAppointment);
-router.patch('/appointments/:id/state', appointmentsController.changeState);
-router.get('/appointments/agenda', appointmentsController.getAgenda);
 
-// 3. Rutas Módulo C (Parte 1): Pacientes
-router.post('/patients', patientsController.createPatient);
-router.put('/patients/:id', patientsController.updatePatient);
-router.get('/patients', patientsController.searchPatients);
-router.get('/patients/:id', patientsController.getPatientProfile);
+// 2.2 Rutas internas protegidas de agenda y gestión (RQNF-SEG-003)
+router.post('/appointments/slots', authMiddleware, appointmentsController.upsertTimeSlot);
+router.post('/appointments/generate-day-slots', authMiddleware, appointmentsController.generateDaySlots);
+router.patch('/appointments/slots/toggle', authMiddleware, appointmentsController.toggleSlotStatus);
+router.get('/appointments/slots', authMiddleware, appointmentsController.getTimeSlots);
+router.get('/appointments/monthly-summary', authMiddleware, appointmentsController.getMonthlySummary);
+router.get('/appointments/requests', authMiddleware, appointmentsController.getRequests);
+router.get('/appointments/requests/:id', authMiddleware, appointmentsController.getRequestById);
+router.post('/appointments/requests/:id/review', authMiddleware, appointmentsController.reviewRequest);
+router.post('/appointments', authMiddleware, appointmentsController.scheduleAppointment);
+router.put('/appointments/:id', authMiddleware, appointmentsController.updateAppointment);
+router.patch('/appointments/:id/state', authMiddleware, appointmentsController.changeState);
+router.get('/appointments/agenda', authMiddleware, appointmentsController.getAgenda);
 
-// 4. Rutas Módulo C (Parte 2): Historia Clínica, Odontograma y Evolución
-router.post('/clinical-records/evolutions', clinicalRecordsController.createEntry);
-router.put('/clinical-records/evolutions/:idEvolucion', clinicalRecordsController.updateEntry);
-router.get('/clinical-records/patient/:idPaciente', clinicalRecordsController.getHistoryByPatient);
+// 3. Rutas Módulo C (Parte 1): Pacientes (RQNF-SEG-003)
+// DEF-15 & CPS-HCL-010-01: Rutas de datos de titular registradas ANTES de /patients/:id para evitar colisión
+router.get('/patients/holder/:documento', authMiddleware, patientsController.exportHolderData);
+router.get('/patients/holder', authMiddleware, patientsController.exportHolderData);
+router.get('/patients/holder-data/:documento', authMiddleware, patientsController.exportHolderData);
+router.get('/patients/holder-data', authMiddleware, patientsController.exportHolderData);
 
-// 5. Rutas Módulo D: Consentimientos Informados
-router.post('/consents/templates', consentsController.createTemplate);
-router.put('/consents/templates/:id', consentsController.updateTemplate);
-router.patch('/consents/templates/:id/status', consentsController.toggleStatus);
-router.get('/consents/templates', consentsController.getTemplates);
-router.post('/consents/sign', consentsController.signConsent);
-router.get('/consents/patient/:idPaciente', consentsController.getPatientConsents);
+router.post('/patients', authMiddleware, patientsController.createPatient);
+router.get('/patients', authMiddleware, patientsController.searchPatients);
+router.put('/patients/:id', authMiddleware, patientsController.updatePatient);
+router.get('/patients/:id', authMiddleware, patientsController.getPatientProfile);
 
-// 6. Rutas Módulo E: Documentos Clínicos
-router.post('/clinical-documents', clinicalDocumentsController.generateDocument);
-router.get('/clinical-documents/patient/:idPaciente', clinicalDocumentsController.getPatientDocuments);
+// 4. Rutas Módulo C (Parte 2): Historia Clínica, Odontograma y Evolución (RQNF-SEG-003)
+// DEF-15 & CPS-HCL-007-03: Ruta publicada del último odontograma
+router.get('/clinical-records/odontogram/latest/:idPaciente', authMiddleware, clinicalRecordsController.getLatestOdontogram);
+router.get('/clinical-records/odontogram/latest', authMiddleware, clinicalRecordsController.getLatestOdontogram);
+
+router.post('/clinical-records', authMiddleware, clinicalRecordsController.createEntry);
+router.put('/clinical-records/:idEvolucion', authMiddleware, clinicalRecordsController.updateEntry);
+router.post('/clinical-records/evolutions', authMiddleware, clinicalRecordsController.createEntry);
+router.put('/clinical-records/evolutions/:idEvolucion', authMiddleware, clinicalRecordsController.updateEntry);
+router.get('/clinical-records/patient/:idPaciente', authMiddleware, clinicalRecordsController.getHistoryByPatient);
+
+// 5. Rutas Módulo D: Consentimientos Informados (ERS v1.2)
+// DEF-21 & CPS-CON-002-02, CPS-CON-006-01: Rutas de token y sesión para firma en Tablet
+router.post('/consents/tablet-token', authMiddleware, consentsController.createTabletToken);
+router.get('/consents/tablet-session/:token', consentsController.getTabletSession);
+router.post('/consents/tablet-sign/:token', consentsController.submitTabletSigning);
+
+// 5.1 Firma de consentimiento dentro de la sesión clínica (RF-CON-001, RF-CON-002, RF-CON-005)
+router.post('/consents/sign', authMiddleware, consentsController.signConsent);
+
+// 5.2 Rutas internas protegidas de plantillas y consulta clínica (RQNF-SEG-003, RF-CON-003, RF-CON-004, RF-CON-007, RF-CON-008)
+router.post('/consents/templates', authMiddleware, consentsController.createTemplate);
+router.put('/consents/templates/:id', authMiddleware, consentsController.updateTemplate);
+router.patch('/consents/templates/:id/status', authMiddleware, consentsController.toggleStatus);
+router.get('/consents/templates', authMiddleware, consentsController.getTemplates);
+router.get('/consents/patient/:idPaciente', authMiddleware, consentsController.getPatientConsents);
+router.get('/consents/:id/pdf', authMiddleware, consentsController.getConsentPdf);
+
+// 6. Rutas Módulo E: Documentos Clínicos (RQNF-SEG-003)
+router.post('/clinical-documents', authMiddleware, clinicalDocumentsController.generateDocument);
+router.get('/clinical-documents/patient/:idPaciente', authMiddleware, clinicalDocumentsController.getPatientDocuments);
 
 export default router;

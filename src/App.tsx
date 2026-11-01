@@ -21,6 +21,7 @@ import {
 import {
   PatientsDirectoryPage,
   PatientProfilePage,
+  HolderDataQueryPage,
 } from './modules/patients/ui/views';
 import { PatientListItem, usePatients } from './modules/patients/ui/hooks/usePatients';
 import {
@@ -47,12 +48,19 @@ export const App: React.FC = () => {
 
   // Estados de navegación contextual de Pacientes e Historias
   const [selectedPatient, setSelectedPatient] = useState<PatientListItem | null>(null);
-  const [patientSubView, setPatientSubView] = useState<'DIRECTORY' | 'PROFILE' | 'CLINICAL_HISTORY'>('DIRECTORY');
+  const [selectedConsentTemplate, setSelectedConsentTemplate] = useState<{
+    idPlantilla: number;
+    titulo: string;
+    cuerpoTexto: string;
+  } | null>(null);
+  const [patientSubView, setPatientSubView] = useState<'DIRECTORY' | 'PROFILE' | 'CLINICAL_HISTORY' | 'HOLDER_DATA'>('DIRECTORY');
 
   // Estado de Consulta Activa
   const [activeConsultationContext, setActiveConsultationContext] = useState<{
     idPaciente: number;
     idCita: number;
+    doctorName?: string;
+    doctorSignature?: string | null;
   } | null>(null);
 
   const calculatedPatientAge = useMemo(() => {
@@ -77,18 +85,18 @@ export const App: React.FC = () => {
   });
 
   const userDraftHook = useSessionDraft(auth.session?.usuario.idUsuario);
-  const { patients, updatePatient } = usePatients();
+  const { patients, updatePatient, getHolderData } = usePatients();
   const { showAlert, showConfirm, AlertModalComponent } = useAlertModal();
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
+      if (window.location.pathname.startsWith('/tablet-sign')) {
+        setCurrentRoute('TABLET_SIGNING');
+        return;
+      }
       const params = new URLSearchParams(window.location.search);
       if (params.get('token')) {
         setCurrentRoute('RECOVERY');
-        return;
-      }
-      if (window.location.pathname.startsWith('/tablet-sign')) {
-        setCurrentRoute('TABLET_SIGNING');
         return;
       }
     }
@@ -111,6 +119,113 @@ export const App: React.FC = () => {
       });
   }, [auth.isAuthenticated, auth.fetchRoles]);
 
+  // Permisos dinámicos RBAC centralizados
+  const canAccessAppointments = useMemo(() => {
+    return (
+      auth.hasPermission('RF-AGE-008') ||
+      auth.hasPermission('RF-AGE-001') ||
+      auth.hasPermission('RF-AGE-002') ||
+      auth.hasPermission('RF-AGE-005') ||
+      auth.hasPermission('RF-AGE-009') ||
+      auth.hasPermission('RF-AGE-012')
+    );
+  }, [auth]);
+
+  const canAccessPatients = useMemo(() => {
+    return (
+      auth.hasPermission('RF-HCL-004') ||
+      auth.hasPermission('RF-HCL-001') ||
+      auth.hasPermission('RF-HCL-002') ||
+      auth.hasPermission('RF-HCL-003') ||
+      auth.hasPermission('RF-HCL-005') ||
+      auth.hasPermission('RF-HCL-008') ||
+      auth.hasPermission('RF-HCL-010')
+    );
+  }, [auth]);
+
+  const canAccessUsersModule = useMemo(() => {
+    return (
+      auth.hasPermission('RF-USR-004') ||
+      auth.hasPermission('RF-USR-001') ||
+      auth.hasPermission('RF-USR-002') ||
+      auth.hasPermission('RF-USR-003')
+    );
+  }, [auth]);
+
+  const canAccessRolesModule = useMemo(() => {
+    return (
+      auth.hasPermission('RF-USR-007') ||
+      auth.hasPermission('RF-USR-010') ||
+      auth.hasPermission('RF-USR-011')
+    );
+  }, [auth]);
+
+  const canAccessConsents = useMemo(() => {
+    return (
+      auth.hasPermission('RF-CON-001') ||
+      auth.hasPermission('RF-CON-002') ||
+      auth.hasPermission('RF-CON-003') ||
+      auth.hasPermission('RF-CON-004') ||
+      auth.hasPermission('RF-CON-006') ||
+      auth.hasPermission('RF-CON-007') ||
+      auth.hasPermission('RF-CON-008')
+    );
+  }, [auth]);
+
+  // Permisos operativos granulares según RBAC
+  const canManageSlots = auth.hasPermission('RF-AGE-001');
+  const canCreateAppointment = auth.hasPermission('RF-AGE-002');
+  const canStartAttention = auth.hasPermission('RF-AGE-009');
+  const canCreatePatient = auth.hasPermission('RF-HCL-001');
+  const canAccessHabeasData = auth.hasPermission('RF-HCL-010');
+  const canCreateUser = auth.hasPermission('RF-USR-001');
+  const canCreateRole = auth.hasPermission('RF-USR-007');
+
+  // Redirigir dinámicamente si la vista activa no está permitida para el rol del usuario
+  useEffect(() => {
+    if (!auth.session || currentRoute !== 'INTERNAL_DASHBOARD') return;
+
+    const isViewAllowed = (view: InternalNavigationView): boolean => {
+      switch (view) {
+        case 'APPOINTMENTS':
+          return canAccessAppointments;
+        case 'PATIENTS':
+          return canAccessPatients;
+        case 'USERS':
+          return canAccessUsersModule;
+        case 'ROLES':
+          return canAccessRolesModule;
+        case 'CONSENTS':
+          return canAccessConsents;
+        default:
+          return false;
+      }
+    };
+
+    if (!isViewAllowed(internalView)) {
+      if (canAccessAppointments) {
+        setInternalView('APPOINTMENTS');
+      } else if (canAccessPatients) {
+        setInternalView('PATIENTS');
+      } else if (canAccessConsents) {
+        setInternalView('CONSENTS');
+      } else if (canAccessUsersModule) {
+        setInternalView('USERS');
+      } else if (canAccessRolesModule) {
+        setInternalView('ROLES');
+      }
+    }
+  }, [
+    auth.session,
+    currentRoute,
+    internalView,
+    canAccessAppointments,
+    canAccessPatients,
+    canAccessUsersModule,
+    canAccessRolesModule,
+    canAccessConsents,
+  ]);
+
   // Ruta 1: Portal Público de Agendamiento (Páginas 3, 4, 5)
   if (currentRoute === 'PUBLIC_BOOKING') {
     return (
@@ -123,32 +238,53 @@ export const App: React.FC = () => {
     );
   }
 
-  // Ruta 2: Terminal Táctil para Tablet de Paciente (Página 21 / RF-CON-002)
+  // Ruta 2: Terminal Táctil para Tablet de Paciente (RF-CON-001, RF-CON-002, RF-CON-005)
   if (currentRoute === 'TABLET_SIGNING') {
+    const isMinor = calculatedPatientAge !== undefined ? calculatedPatientAge < 18 : false;
+
     return (
       <TabletSigningPage
+        tituloConsentimiento={selectedConsentTemplate?.titulo}
+        cuerpoTexto={selectedConsentTemplate?.cuerpoTexto}
         nombrePaciente={selectedPatient?.nombreCompleto}
         documentoPaciente={selectedPatient?.documentoIdentidad}
-        onConsentSigned={async (sig) => {
+        isMinor={isMinor}
+        onConsentSigned={async (payload) => {
           if (selectedPatient) {
             try {
+              const body =
+                typeof payload === 'string'
+                  ? {
+                      idConsentimiento: selectedConsentTemplate?.idPlantilla || 1,
+                      idPaciente: selectedPatient.idPaciente,
+                      firmaBase64: payload,
+                      firmaPorAcudiente: isMinor,
+                      nombreDocumentoAcudiente: isMinor ? 'Acudiente Autorizado' : null,
+                    }
+                  : {
+                      idConsentimiento: selectedConsentTemplate?.idPlantilla || 1,
+                      idPaciente: selectedPatient.idPaciente,
+                      firmaBase64: payload.firmaBase64,
+                      firmaPorAcudiente: payload.firmaPorAcudiente,
+                      nombreDocumentoAcudiente: payload.nombreDocumentoAcudiente,
+                      textoFirmado: payload.textoFirmado,
+                    };
+
               await fetch('/api/v1/consents/sign', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  idConsentimiento: 1,
-                  idPaciente: selectedPatient.idPaciente,
-                  firmaBase64: sig,
-                  nombreFirmante: selectedPatient.nombreCompleto,
-                  rolFirmante: 'Paciente',
-                }),
+                body: JSON.stringify(body),
               });
             } catch (err) {
               console.error('Error signing consent on tablet:', err);
             }
           }
         }}
-        onExit={() => setCurrentRoute('INTERNAL_DASHBOARD')}
+        onExit={() => {
+          setCurrentRoute('INTERNAL_DASHBOARD');
+          setInternalView('PATIENTS');
+          setPatientSubView('PROFILE');
+        }}
       />
     );
   }
@@ -182,17 +318,16 @@ export const App: React.FC = () => {
     );
   }
 
-  // Permisos dinámicos
-  const canAccessUsersModule =
-    auth.hasPermission('RF-USR-004') || auth.hasPermission('RF-USR-001');
-  const canAccessRolesModule =
-    auth.hasPermission('RF-USR-007') || auth.hasPermission('RF-USR-010');
-
   // Render del Dashboard Interno
   return (
     <InternalDashboardLayout
       currentUser={auth.session.usuario}
       activeView={internalView}
+      canAccessAppointments={canAccessAppointments}
+      canAccessPatients={canAccessPatients}
+      canAccessUsersModule={canAccessUsersModule}
+      canAccessRolesModule={canAccessRolesModule}
+      canAccessConsents={canAccessConsents}
       onSelectView={(view) => {
         setInternalView(view);
         // Si cambia de vista principal, resetea sub-vistas
@@ -242,7 +377,8 @@ export const App: React.FC = () => {
             patientEmail={selectedPatient?.correo || ''}
             patientAge={calculatedPatientAge}
             patientSex={selectedPatient?.sexo}
-            doctorName={auth.session.usuario.nombreCompleto}
+            doctorName={activeConsultationContext.doctorName || auth.session.usuario.nombreCompleto}
+            doctorSignature={activeConsultationContext.doctorSignature || (auth.session.usuario as any).firmaUrl}
             onBackToAgenda={() => setActiveConsultationContext(null)}
             onFinishConsultation={async (idCita) => {
               try {
@@ -250,7 +386,7 @@ export const App: React.FC = () => {
                   method: 'PATCH',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({
-                    nuevoEstado: 'Completada',
+                    nuevoEstado: 'Atendida',
                     idUsuarioGestor: auth.session?.usuario.idUsuario ?? 1,
                     motivo: 'Atención odontológica concluida con éxito.',
                   }),
@@ -258,20 +394,35 @@ export const App: React.FC = () => {
               } catch (err) {
                 console.error('Error finalizando cita:', err);
               }
+
               setActiveConsultationContext(null);
+              setInternalView('APPOINTMENTS');
             }}
           />
         ) : (
           <InternalAgendaPage
-            onStartAttention={(idCita, idPaciente) => {
+            canManageSlots={canManageSlots}
+            canCreateAppointment={canCreateAppointment}
+            canStartAttention={canStartAttention}
+            onStartAttention={(idCita, idPaciente, doctorInfo) => {
               const matched = patients.find((p) => p.idPaciente === idPaciente);
               if (matched) setSelectedPatient(matched);
-              setActiveConsultationContext({ idPaciente, idCita });
+              setActiveConsultationContext({
+                idPaciente,
+                idCita,
+                doctorName: doctorInfo?.doctorName,
+                doctorSignature: doctorInfo?.doctorSignature,
+              });
             }}
-            onOpenConsultationWorkspace={(idPaciente, idCita) => {
+            onOpenConsultationWorkspace={(idPaciente, idCita, doctorInfo) => {
               const matched = patients.find((p) => p.idPaciente === idPaciente);
               if (matched) setSelectedPatient(matched);
-              setActiveConsultationContext({ idPaciente, idCita });
+              setActiveConsultationContext({
+                idPaciente,
+                idCita,
+                doctorName: doctorInfo?.doctorName,
+                doctorSignature: doctorInfo?.doctorSignature,
+              });
             }}
             onNavigateToPatientProfile={(idPaciente) => {
               const matched = patients.find((p) => p.idPaciente === idPaciente);
@@ -300,22 +451,68 @@ export const App: React.FC = () => {
 
       {/* VISTA 2: MÓDULO C (PARTE 1) - PACIENTES & HISTORIAL CLÍNICO */}
       {internalView === 'PATIENTS' && (
-        patientSubView === 'PROFILE' && selectedPatient ? (
+        patientSubView === 'HOLDER_DATA' ? (
+          <HolderDataQueryPage
+            onBack={() => setPatientSubView('DIRECTORY')}
+            onQueryHolderData={getHolderData}
+          />
+        ) : patientSubView === 'PROFILE' && selectedPatient ? (
           <PatientProfilePage
             patient={selectedPatient}
+            canScheduleAppointment={canCreateAppointment}
+            canStartAttention={canStartAttention}
             onBack={() => setPatientSubView('DIRECTORY')}
             onScheduleAppointment={(_patient) => {
               setInternalView('APPOINTMENTS');
             }}
-            onOpenConsultation={(patient, idCita) => {
+            onOpenConsultation={async (patient, idCita) => {
               setSelectedPatient(patient);
+              if (idCita) {
+                try {
+                  await fetch(`/api/v1/appointments/${idCita}/state`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      nuevoEstado: 'En consulta',
+                      idUsuarioGestor: auth.session?.usuario?.idUsuario ?? 1,
+                      motivo: 'Inicio de atención clínica desde el perfil del paciente',
+                    }),
+                  });
+                } catch (err) {
+                  console.error('Error al iniciar atención desde perfil de paciente:', err);
+                }
+              }
               setActiveConsultationContext({ idPaciente: patient.idPaciente, idCita: idCita || 1 });
               setInternalView('APPOINTMENTS');
             }}
             onViewClinicalHistoryDetail={() => {
+              const roles: any[] = auth.session?.usuario?.roles || [];
+              const roleCodes = roles.map((r) => (typeof r === 'string' ? r : r.codigoRol || r.nombreRol));
+              const isCoordinatorOnly = roleCodes.includes('ROL-COA') && !roleCodes.some((rc) => ['ROL-ODO', 'ROL-ESP', 'ROL-ADM'].includes(rc));
+              if (isCoordinatorOnly) {
+                showAlert({
+                  title: 'Acceso Restringido',
+                  message: 'El perfil de Coordinadora de Atención (ROL-COA) no tiene permisos para consultar historias clínicas.',
+                  type: 'warning',
+                });
+                return;
+              }
               setPatientSubView('CLINICAL_HISTORY');
             }}
-            onSignConsent={() => {
+            onSignConsent={(tplOrId) => {
+              if (tplOrId && typeof tplOrId === 'object') {
+                setSelectedConsentTemplate({
+                  idPlantilla: tplOrId.idPlantilla,
+                  titulo: tplOrId.titulo,
+                  cuerpoTexto: tplOrId.cuerpoTexto,
+                });
+              } else {
+                setSelectedConsentTemplate({
+                  idPlantilla: Number(tplOrId || 1),
+                  titulo: 'Consentimiento Informado',
+                  cuerpoTexto: '',
+                });
+              }
               setCurrentRoute('TABLET_SIGNING');
             }}
             onUpdatePatient={async (id, data) => {
@@ -328,13 +525,28 @@ export const App: React.FC = () => {
             idPaciente={selectedPatient.idPaciente}
             patientName={selectedPatient.nombreCompleto}
             patientDoc={selectedPatient.documentoIdentidad}
+            patientData={selectedPatient}
             onBack={() => setPatientSubView('PROFILE')}
           />
         ) : (
           <PatientsDirectoryPage
+            onOpenHolderDataQuery={() => setPatientSubView('HOLDER_DATA')}
+            canCreatePatient={canCreatePatient}
+            canAccessHabeasData={canAccessHabeasData}
             onSelectPatient={(patient, tab) => {
               setSelectedPatient(patient);
               if (tab === 'CLINICAL') {
+                const roles: any[] = auth.session?.usuario?.roles || [];
+                const roleCodes = roles.map((r) => (typeof r === 'string' ? r : r.codigoRol || r.nombreRol));
+                const isCoordinatorOnly = roleCodes.includes('ROL-COA') && !roleCodes.some((rc) => ['ROL-ODO', 'ROL-ESP', 'ROL-ADM'].includes(rc));
+                if (isCoordinatorOnly) {
+                  showAlert({
+                    title: 'Acceso Restringido',
+                    message: 'El perfil de Coordinadora de Atención (ROL-COA) no tiene permisos para consultar historias clínicas.',
+                    type: 'warning',
+                  });
+                  return;
+                }
                 setPatientSubView('CLINICAL_HISTORY');
               } else {
                 setPatientSubView('PROFILE');
@@ -363,6 +575,7 @@ export const App: React.FC = () => {
         ) : (
           <UsersManagementPage
             initialRoles={catalogRoles}
+            canCreateUser={canCreateUser}
             savedUserDraft={userDraftHook.getDraftByFormId('USER_FORM')}
             onDiscardUserDraft={() => userDraftHook.discardDraft('USER_FORM')}
             onSearchUsers={auth.searchUsers}
@@ -392,6 +605,7 @@ export const App: React.FC = () => {
         ) : (
           <RolesManagementPage
             initialRoles={catalogRoles}
+            canCreateRole={canCreateRole}
             onCreateRole={auth.createRole}
             onUpdateRole={auth.updateRole}
             onDeleteRole={auth.deleteRole}

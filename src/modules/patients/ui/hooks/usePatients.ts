@@ -154,6 +154,33 @@ export function usePatients(apiBaseUrl = '/api/v1') {
     [apiBaseUrl]
   );
 
+  const getHolderData = useCallback(
+    async (documento: string, formato: 'JSON' | 'PDF' = 'JSON') => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const res = await fetch(
+          `${apiBaseUrl}/patients/holder-data/${encodeURIComponent(documento)}?formato=${formato}`
+        );
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(
+            errData.message || `Error al consultar datos del titular (${res.status})`
+          );
+        }
+        const json = await res.json();
+        return json.data;
+      } catch (err: any) {
+        console.error('Error fetching holder data:', err.message);
+        setError(err.message);
+        throw err;
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [apiBaseUrl]
+  );
+
   return {
     patients,
     isLoading,
@@ -161,5 +188,6 @@ export function usePatients(apiBaseUrl = '/api/v1') {
     fetchPatients,
     createPatient,
     updatePatient,
+    getHolderData,
   };
 }

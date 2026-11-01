@@ -219,8 +219,9 @@ describe('MÓDULO C (Parte 2): Historia Clínica, Odontograma y Evolución (RF-H
   beforeEach(() => {
     repo = new InMemoryClinicalRecordRepository();
 
-    // Cargar muestra de odontograma.json suministrado por el usuario
-    const jsonPath = path.resolve('d:/Descargas/odontograma.json');
+    // Cargar muestra de odontograma.json portable
+    const localAsset = path.resolve(__dirname, '../../../schemas/assets/odontograma.json');
+    const jsonPath = fs.existsSync(localAsset) ? localAsset : path.resolve('d:/Descargas/odontograma.json');
     const rawJson = fs.readFileSync(jsonPath, 'utf-8');
     odontogramaJsonSample = JSON.parse(rawJson);
   });

@@ -49,6 +49,7 @@ export const InactivityWarningModal: React.FC<InactivityWarningModalProps> = ({
 
   return (
     <div
+      id="inactivity-warning-modal"
       role="alertdialog"
       aria-modal="true"
       aria-labelledby="inactivity-modal-title"

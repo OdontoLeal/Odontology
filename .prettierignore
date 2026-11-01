@@ -1,0 +1,8 @@
+node_modules
+dist
+coverage
+.git
+.github
+*.lock
+package-lock.json
+src/schemas/assets

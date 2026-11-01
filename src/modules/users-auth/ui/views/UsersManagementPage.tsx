@@ -34,6 +34,7 @@ export interface UsersManagementPageProps {
     message: string;
     data: UserWithRolesDomainDTO;
   }>;
+  canCreateUser?: boolean;
 }
 
 // Constantes estáticas fuera del componente para evitar nuevas referencias en cada render
@@ -58,6 +59,7 @@ export const UsersManagementPage: React.FC<UsersManagementPageProps> = ({
   onCreateUser,
   onUpdateUser,
   onToggleUserStatus,
+  canCreateUser = true,
 }) => {
   const [allLoadedUsers, setAllLoadedUsers] = useState<UserWithRolesDomainDTO[]>(initialUsers);
   const [roles, setRoles] = useState<RoleDTO[]>(initialRoles);
@@ -421,16 +423,18 @@ export const UsersManagementPage: React.FC<UsersManagementPageProps> = ({
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={handleOpenCreateModal}
-            className="min-h-[44px] self-start sm:self-end inline-flex items-center justify-center gap-2 rounded-xl bg-[#D4AF37] px-5 py-2.5 text-[14px] font-bold text-[#111111] shadow-xs hover:bg-[#B8942A] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#111111] transition-colors"
-          >
-            <span className="text-lg leading-none font-normal" aria-hidden="true">
-              +
-            </span>
-            <span>Nuevo Usuario</span>
-          </button>
+          {canCreateUser && (
+            <button
+              type="button"
+              onClick={handleOpenCreateModal}
+              className="min-h-[44px] self-start sm:self-end inline-flex items-center justify-center gap-2 rounded-xl bg-[#D4AF37] px-5 py-2.5 text-[14px] font-bold text-[#111111] shadow-xs hover:bg-[#B8942A] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#111111] transition-colors"
+            >
+              <span className="text-lg leading-none font-normal" aria-hidden="true">
+                +
+              </span>
+              <span>Nuevo Usuario</span>
+            </button>
+          )}
         </header>
 
         {/* Aviso de borrador pendiente si aplica (RF-USR-008) */}
@@ -583,8 +587,12 @@ export const UsersManagementPage: React.FC<UsersManagementPageProps> = ({
         {/* Listado de Tarjetas Horizontales según diseño image_8285bb.png */}
         <section aria-label="Listado del equipo clínico" className="space-y-3">
           {isInitialLoading ? (
-            <div className="rounded-2xl border border-[#E2E6EA] bg-white p-10 text-center text-sm font-semibold text-[#687380]">
-              Cargando directorio de usuarios...
+            <div className="rounded-2xl border border-[#E2E6EA] bg-white p-12 text-center space-y-4 shadow-2xs">
+              <div className="h-12 w-12 mx-auto rounded-2xl bg-[#FFFBEB] text-[#D4AF37] flex items-center justify-center border border-[#FDE68A]">
+                <div className="w-5 h-5 border-2 border-[#D4AF37] border-t-transparent rounded-full animate-spin" />
+              </div>
+              <p className="text-sm font-bold text-[#1E242B]">Cargando directorio de doctores y usuarios...</p>
+              <p className="text-xs text-[#687380]">Consultando el equipo registrado en el sistema...</p>
             </div>
           ) : filteredUsers.length === 0 ? (
             <div

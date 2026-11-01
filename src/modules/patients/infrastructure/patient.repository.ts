@@ -1,3 +1,5 @@
+import fs from 'fs';
+import path from 'path';
 import { db } from '../../../shared/infrastructure/database/database';
 import { DataAuthorizationVO } from '../domain/data-authorization.vo';
 import {
@@ -19,12 +21,64 @@ interface ExtendedPatientMetadata {
   acudiente?: GuardianInfo | null;
   contactoRespaldo?: BackupContactInfo | null;
   autorizacionDatos?: ReturnType<DataAuthorizationVO['toPrimitives']> | null;
+  datosIncompletos?: boolean;
 }
 
 export class PatientRepository implements IPatientRepository {
-  // Almacén auxiliar en memoria para metadatos extendidos si la tabla física `paciente`
-  // aún no tiene las columnas JSONB de acudiente/autorizacionDatos en dll.txt
-  private readonly metadataStore = new Map<number, ExtendedPatientMetadata>();
+  private static readonly METADATA_FILE = path.join(
+    process.cwd(),
+    'storage',
+    'patients_metadata.json'
+  );
+  private static readonly metadataStore = new Map<number, ExtendedPatientMetadata>();
+  private static isInitialized = false;
+
+  public static getMetadata(idPaciente: number): ExtendedPatientMetadata | undefined {
+    if (!PatientRepository.isInitialized) {
+      new PatientRepository().ensureInitialized();
+    }
+    return PatientRepository.metadataStore.get(idPaciente);
+  }
+
+  constructor() {
+    this.ensureInitialized();
+  }
+
+  private ensureInitialized(): void {
+    if (PatientRepository.isInitialized) return;
+    try {
+      const storageDir = path.dirname(PatientRepository.METADATA_FILE);
+      if (!fs.existsSync(storageDir)) {
+        fs.mkdirSync(storageDir, { recursive: true });
+      }
+      if (fs.existsSync(PatientRepository.METADATA_FILE)) {
+        const raw = fs.readFileSync(PatientRepository.METADATA_FILE, 'utf8');
+        const parsed = JSON.parse(raw);
+        for (const [key, value] of Object.entries(parsed)) {
+          PatientRepository.metadataStore.set(Number(key), value as ExtendedPatientMetadata);
+        }
+      }
+    } catch (err) {
+      // Continuar con memoria si hay error de I/O
+    }
+    PatientRepository.isInitialized = true;
+  }
+
+  private persistMetadata(): void {
+    try {
+      const storageDir = path.dirname(PatientRepository.METADATA_FILE);
+      if (!fs.existsSync(storageDir)) {
+        fs.mkdirSync(storageDir, { recursive: true });
+      }
+      const obj: Record<number, ExtendedPatientMetadata> = {};
+      for (const [key, value] of PatientRepository.metadataStore.entries()) {
+        obj[key] = value;
+      }
+      fs.writeFileSync(PatientRepository.METADATA_FILE, JSON.stringify(obj, null, 2), 'utf8');
+    } catch (err) {
+      // Ignorar fallas secundarias de persistencia
+    }
+  }
 
   private formatDateOnly(value: string | Date): string {
     if (value instanceof Date) {
@@ -34,16 +88,17 @@ export class PatientRepository implements IPatientRepository {
   }
 
   private mapRowToEntity(row: PatientRow): Patient {
-    const extra = this.metadataStore.get(row.id_paciente);
-    const authVO = extra?.autorizacionDatos
+    const extra = PatientRepository.metadataStore.get(row.id_paciente);
+    const rawAuth = extra?.autorizacionDatos || row.autorizacion_datos;
+    const authVO = rawAuth
       ? DataAuthorizationVO.create({
-          autorizado: extra.autorizacionDatos.autorizado,
-          fechaHora: extra.autorizacionDatos.fechaHora,
-          medio: extra.autorizacionDatos.medio,
+          autorizado: Boolean(rawAuth.autorizado),
+          fechaHora: rawAuth.fechaHora || rawAuth.fecha_hora || new Date(),
+          medio: rawAuth.medio || 'CONSULTORIO_WEB',
           versionAvisoPrivacidad:
-            extra.autorizacionDatos.versionAvisoPrivacidad,
-          idUsuarioRegistro: extra.autorizacionDatos.idUsuarioRegistro,
-          firmadoPorAcudiente: extra.autorizacionDatos.firmadoPorAcudiente,
+            rawAuth.versionAvisoPrivacidad || rawAuth.version_aviso_privacidad || '1.0',
+          idUsuarioRegistro: rawAuth.idUsuarioRegistro || rawAuth.id_usuario_registro || null,
+          firmadoPorAcudiente: Boolean(rawAuth.firmadoPorAcudiente || rawAuth.firmado_por_acudiente),
         })
       : null;
 
@@ -55,8 +110,8 @@ export class PatientRepository implements IPatientRepository {
       telefono: row.telefono,
       fechaNacimiento: this.formatDateOnly(row.fecha_nacimiento),
       sexo: (row.sexo as PatientSex) ?? null,
-      acudiente: extra?.acudiente ?? null,
-      contactoRespaldo: extra?.contactoRespaldo ?? null,
+      acudiente: extra?.acudiente ?? row.acudiente ?? null,
+      contactoRespaldo: extra?.contactoRespaldo ?? row.contacto_respaldo ?? null,
       autorizacionDatos: authVO,
       creadoDesdeSolicitud: !row.sexo,
     });
@@ -85,17 +140,19 @@ export class PatientRepository implements IPatientRepository {
         id_historia: number;
         fecha_creacion: Date;
       }>(
-        `INSERT INTO public.historia_clinica (id_paciente) VALUES ($1) RETURNING id_historia, fecha_creacion;`,
+        `INSERT INTO public.historia_clinica (id_paciente) VALUES ($1) ON CONFLICT (id_paciente) DO UPDATE SET id_paciente = EXCLUDED.id_paciente RETURNING id_historia, fecha_creacion;`,
         [row.id_paciente]
       );
 
-      this.metadataStore.set(row.id_paciente, {
+      PatientRepository.metadataStore.set(row.id_paciente, {
         acudiente: patient.acudiente,
         contactoRespaldo: patient.contactoRespaldo,
         autorizacionDatos: patient.autorizacionDatos
           ? patient.autorizacionDatos.toPrimitives()
           : null,
+        datosIncompletos: patient.datosIncompletos,
       });
+      this.persistMetadata();
 
       const savedEntity = this.mapRowToEntity(row);
 
@@ -135,12 +192,17 @@ export class PatientRepository implements IPatientRepository {
 
     if (rows.length === 0) return null;
 
-    const currentMeta = this.metadataStore.get(idPaciente) ?? {};
-    this.metadataStore.set(idPaciente, {
-      ...currentMeta,
-      acudiente: patient.acudiente,
-      contactoRespaldo: patient.contactoRespaldo,
+    const existingMeta = PatientRepository.metadataStore.get(idPaciente) || {};
+    PatientRepository.metadataStore.set(idPaciente, {
+      ...existingMeta,
+      acudiente: patient.acudiente !== undefined ? patient.acudiente : existingMeta.acudiente,
+      contactoRespaldo: patient.contactoRespaldo !== undefined ? patient.contactoRespaldo : existingMeta.contactoRespaldo,
+      autorizacionDatos: patient.autorizacionDatos
+        ? patient.autorizacionDatos.toPrimitives()
+        : existingMeta.autorizacionDatos,
+      datosIncompletos: patient.datosIncompletos,
     });
+    this.persistMetadata();
 
     const updatedEntity = this.mapRowToEntity(rows[0]);
     return updatedEntity.toPrimitives();
@@ -190,6 +252,7 @@ export class PatientRepository implements IPatientRepository {
     const { rows } = await db.query<PatientRow>(sql, params);
     return rows.map((row) => {
       const entity = this.mapRowToEntity(row);
+      const extra = PatientRepository.metadataStore.get(row.id_paciente);
       return {
         idPaciente: row.id_paciente,
         nombreCompleto: entity.nombreCompleto,
@@ -198,12 +261,12 @@ export class PatientRepository implements IPatientRepository {
         telefono: entity.telefono,
         fechaNacimiento: entity.fechaNacimiento,
         sexo: entity.sexo,
-        datosIncompletos: entity.datosIncompletos,
+        datosIncompletos: extra?.datosIncompletos ?? entity.datosIncompletos,
       };
     });
   }
 
-  // RF-HCL-004: Visualizar ficha de paciente con su historial de citas (sin datos clínicos)
+  // RF-HCL-004: Visualizar ficha de paciente con su historial de citas y datos reales
   public async getPatientProfileByIdOrDoc(identifier: {
     idPaciente?: number;
     documento?: string;
@@ -229,7 +292,18 @@ export class PatientRepository implements IPatientRepository {
               'idCita', c.id_cita,
               'titulo', c.titulo,
               'estado', c.estado,
-              'profesional', u.nombre_completo
+              'profesional', u.nombre_completo,
+              'agendadoPor', COALESCE(
+                (
+                  SELECT ug.nombre_completo
+                  FROM public.historial_cita hc_first
+                  JOIN public.usuario ug ON ug.id_usuario = hc_first.id_usuario_gestor
+                  WHERE hc_first.id_cita = c.id_cita
+                  ORDER BY hc_first.id_cambio_cita ASC
+                  LIMIT 1
+                ),
+                'Portal Web'
+              )
             ) ORDER BY c.id_cita DESC
           ) FILTER (WHERE c.id_cita IS NOT NULL), '[]'
         ) AS "historialCitas"
@@ -244,6 +318,7 @@ export class PatientRepository implements IPatientRepository {
     if (rows.length === 0) return null;
 
     const raw = rows[0];
+    const extra = PatientRepository.metadataStore.get(raw.idPaciente);
     const entity = this.mapRowToEntity({
       id_paciente: raw.idPaciente,
       nombre_completo: raw.nombreCompleto,
@@ -254,8 +329,6 @@ export class PatientRepository implements IPatientRepository {
       sexo: raw.sexo,
     });
 
-    const extra = this.metadataStore.get(raw.idPaciente);
-
     return {
       idPaciente: raw.idPaciente,
       nombreCompleto: entity.nombreCompleto,
@@ -264,11 +337,11 @@ export class PatientRepository implements IPatientRepository {
       telefono: entity.telefono,
       fechaNacimiento: entity.fechaNacimiento,
       sexo: entity.sexo,
-      datosIncompletos: entity.datosIncompletos,
+      datosIncompletos: extra?.datosIncompletos ?? entity.datosIncompletos,
       idHistoria: raw.idHistoria ?? null,
       acudiente: extra?.acudiente ?? null,
       contactoRespaldo: extra?.contactoRespaldo ?? null,
-      autorizacionDatos: extra?.autorizacionDatos ?? null,
+      autorizacionDatos: extra?.autorizacionDatos ?? (entity.autorizacionDatos ? entity.autorizacionDatos.toPrimitives() : null),
       historialCitas: raw.historialCitas ?? [],
     };
   }
@@ -299,11 +372,10 @@ export class PatientRepository implements IPatientRepository {
 
     // Buscar si figura como acudiente de algún menor en metadataStore
     const comoAcudiente: HolderDataRecord['calidades']['comoAcudiente'] = [];
-    for (const [idPac, meta] of this.metadataStore.entries()) {
+    for (const [idPac, meta] of PatientRepository.metadataStore.entries()) {
       if (meta.acudiente?.documentoIdentidad === documentoIdentidad) {
         const minorEntity = await this.findById(idPac);
         if (minorEntity) {
-          // RQNF-SEG-007: Solo incluye el nombre y el parentesco del menor que representa
           comoAcudiente.push({
             nombreAcudiente: meta.acudiente.nombreCompleto,
             documentoAcudiente: meta.acudiente.documentoIdentidad,

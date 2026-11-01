@@ -69,16 +69,24 @@ export class CreatePatientUseCase {
 
     const isMinor = previewPatient.isMinor();
 
-    // RQNF-SEG-005: Autorización previa, expresa e informada obligatoria
+    // RQNF-SEG-005: Autorización previa, expresa e informada obligatoria (DEF-07 / CPS-HCL-001-03)
+    if (!input.autorizacionDatos || input.autorizacionDatos.autorizado !== true) {
+      throw new PatientDomainError(
+        'autorizacionDatos',
+        'Campo [autorizacionDatos]: Debe aceptar la autorización previa, expresa e informada para el tratamiento de datos personales (Ley 1581 de 2012).',
+        400
+      );
+    }
+
     let dataAuthVO: DataAuthorizationVO;
     try {
       dataAuthVO = DataAuthorizationVO.create({
-        autorizado: Boolean(input.autorizacionDatos?.autorizado),
-        medio: input.autorizacionDatos?.medio ?? 'CONSULTORIO_WEB',
+        autorizado: true,
+        medio: input.autorizacionDatos.medio ?? 'CONSULTORIO_WEB',
         versionAvisoPrivacidad:
-          input.autorizacionDatos?.versionAvisoPrivacidad ?? '1.0',
-        fechaHora: input.autorizacionDatos?.fechaHora ?? new Date(),
-        idUsuarioRegistro: input.autorizacionDatos?.idUsuarioRegistro ?? null,
+          input.autorizacionDatos.versionAvisoPrivacidad ?? '1.0',
+        fechaHora: input.autorizacionDatos.fechaHora ?? new Date(),
+        idUsuarioRegistro: input.autorizacionDatos.idUsuarioRegistro ?? null,
         firmadoPorAcudiente: isMinor,
       });
     } catch (error: any) {

@@ -6,10 +6,25 @@ import {
   MonthlyDaySummary,
   TimeSlotRow,
 } from './appointment.model';
+import {
+  validatePastDateBooking,
+  validatePublicBookingWindow,
+  validateStateChangeRules,
+  getTodayColombiaDate,
+} from './helpers/appointment-state.validator';
+import {
+  computeTimeRangeFromBlocks,
+  generateStandardDayIntervals,
+} from './helpers/appointment-query.helpers';
 
 export class AppointmentRepository {
-  // RF-AGE-001: Crear / Habilitar bloque de horario
-  async upsertTimeSlot(inicio: string, final: string, estado = true): Promise<TimeSlotRow> {
+  // RF-AGE-001: Crear / Habilitar bloque de horario asignado a un profesional
+  async upsertTimeSlot(
+    inicio: string,
+    final: string,
+    estado = true,
+    _idProfesional = 1
+  ): Promise<TimeSlotRow> {
     const sql = `
       INSERT INTO public.bloques_horario (inicio, final, estado, ocupacion)
       VALUES ($1, $2, $3, FALSE)
@@ -24,7 +39,11 @@ export class AppointmentRepository {
     return rows[0];
   }
 
-  async getTimeSlots(desde?: string, hasta?: string): Promise<TimeSlotRow[]> {
+  async getTimeSlots(
+    desde?: string,
+    hasta?: string,
+    _idProfesional?: number
+  ): Promise<TimeSlotRow[]> {
     const params: any[] = [];
     const conditions: string[] = [];
     if (desde) {
@@ -44,41 +63,21 @@ export class AppointmentRepository {
   }
 
   // Generar bloques estándar de 30 min desde las 06:00 hasta las 20:00 (RF-AGE-001)
-  async generateDaySlots(fecha: string): Promise<{ totalGenerados: number; fecha: string }> {
+  async generateDaySlots(
+    fecha: string,
+    _idProfesional = 1
+  ): Promise<{ totalGenerados: number; fecha: string }> {
     const cleanFecha = fecha.trim().split('T')[0].split(' ')[0];
     if (!/^\d{4}-\d{2}-\d{2}$/.test(cleanFecha)) {
       throw new Error('La fecha debe tener formato YYYY-MM-DD');
     }
 
-    const todayColombia = new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'America/Bogota',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    }).format(new Date());
-
+    const todayColombia = getTodayColombiaDate();
     if (cleanFecha < todayColombia) {
       throw new Error(`No se pueden generar bloques de horario para fechas pasadas (${cleanFecha}).`);
     }
 
-    const slots: { inicio: string; final: string }[] = [];
-    // Horarios ERS RF-AGE-001: 06:00 a 20:00 cada 30 minutos (28 bloques)
-    for (let hour = 6; hour < 20; hour++) {
-      for (const minute of [0, 30]) {
-        const startH = hour.toString().padStart(2, '0');
-        const startM = minute.toString().padStart(2, '0');
-
-        const endHour = minute === 30 ? hour + 1 : hour;
-        const endMinute = minute === 30 ? 0 : 30;
-        const endH = endHour.toString().padStart(2, '0');
-        const endM = endMinute.toString().padStart(2, '0');
-
-        const inicio = `${cleanFecha} ${startH}:${startM}:00`;
-        const final = `${cleanFecha} ${endH}:${endM}:00`;
-        slots.push({ inicio, final });
-      }
-    }
-
+    const slots = generateStandardDayIntervals(cleanFecha);
     for (const s of slots) {
       await db.query(
         `INSERT INTO public.bloques_horario (inicio, final, estado, ocupacion)
@@ -91,34 +90,29 @@ export class AppointmentRepository {
     return { totalGenerados: slots.length, fecha: cleanFecha };
   }
 
-  // Obtener únicamente bloques disponibles (estado = true AND ocupacion = false) para agendamiento público
-  async getAvailableSlots(fecha: string): Promise<TimeSlotRow[]> {
+  // Obtener bloques disponibles para agendamiento público
+  async getAvailableSlots(fecha: string, _idProfesional?: number): Promise<TimeSlotRow[]> {
     const cleanFecha = fecha.trim().split('T')[0].split(' ')[0];
+    const params: any[] = [`${cleanFecha} 00:00:00`, `${cleanFecha} 23:59:59`];
     const { rows } = await db.query<TimeSlotRow>(
-      `SELECT inicio, final, estado, ocupacion 
+      `SELECT inicio, final, estado, ocupacion
        FROM public.bloques_horario 
        WHERE inicio >= $1::timestamp AND inicio <= $2::timestamp 
          AND estado = true AND ocupacion = false
        ORDER BY inicio ASC;`,
-      [`${cleanFecha} 00:00:00`, `${cleanFecha} 23:59:59`]
+      params
     );
     return rows;
   }
 
-  // Habilitar o deshabilitar un bloque horario de manera independiente
-  async toggleSlotStatus(inicio: string): Promise<TimeSlotRow> {
+  // Habilitar o deshabilitar un bloque horario
+  async toggleSlotStatus(inicio: string, _idProfesional = 1): Promise<TimeSlotRow> {
     let cleanInicio = String(inicio).trim();
     if (cleanInicio.includes('T')) {
       cleanInicio = cleanInicio.replace('T', ' ').split('.')[0];
     }
 
-    const todayColombia = new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'America/Bogota',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    }).format(new Date());
-
+    const todayColombia = getTodayColombiaDate();
     const slotDate = cleanInicio.split(' ')[0];
     if (slotDate < todayColombia) {
       throw new Error(`No se pueden modificar bloques de horario de fechas pasadas (${slotDate}).`);
@@ -141,22 +135,11 @@ export class AppointmentRepository {
     return updateRes.rows[0];
   }
 
-  // RF-AGE-003: Solicitar cita desde sección pública y reservar bloque (Regla de Negocio 1)
+  // RF-AGE-003: Solicitar cita desde sección pública y reservar bloque
   async createPublicRequest(dto: CreateSolicitudCitaDTO) {
-    const todayColombia = new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'America/Bogota',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    }).format(new Date());
-
-    const reqDate = String(dto.bloqueSolicitado).trim().split('T')[0].split(' ')[0];
-    if (reqDate < todayColombia) {
-      throw new Error(`No se pueden solicitar citas para fechas pasadas (${reqDate}).`);
-    }
+    validatePublicBookingWindow(dto.bloqueSolicitado, Boolean(dto.autorizacionDatos));
 
     return db.withTransaction(async (client) => {
-      // 1. Asegurar que el bloque horario existe en la base de datos
       const startDate = new Date(dto.bloqueSolicitado);
       const endDate = new Date(startDate.getTime() + 30 * 60 * 1000);
       const startStr = dto.bloqueSolicitado;
@@ -177,7 +160,6 @@ export class AppointmentRepository {
         throw new Error('El horario seleccionado no se encuentra disponible o ya está ocupado.');
       }
 
-      // 2. Registrar en public.solicitud_cita
       const insertSolSql = `
         INSERT INTO public.solicitud_cita 
           (nombre_solicitante, documento_solicitante, correo_solicitante, telefono_solicitante, fecha_nacimiento, sexo, bloque_solicitado, descripcion, estado)
@@ -189,86 +171,33 @@ export class AppointmentRepository {
         dto.documentoSolicitante.trim(),
         dto.correoSolicitante.trim(),
         dto.telefonoSolicitante?.trim() || null,
-        dto.fechaNacimiento || '1997-04-12',
-        dto.sexo || 'Femenino',
+        dto.fechaNacimiento || null,
+        dto.sexo || null,
         startStr,
         dto.descripcion || 'Valoración odontológica solicitada vía portal web',
       ]);
       const solicitud = solRes.rows[0];
 
-      // 3. Crear cita preliminar en public.cita en estado 'Solicitada'
-      const idDoctor = dto.idProfesional || 101; // Dr. Mateo Gómez o asignado
+      await client.query(
+        `UPDATE public.bloques_horario SET ocupacion = TRUE WHERE inicio = $1;`,
+        [startStr]
+      );
+
       const existingPatientRes = await client.query(
         `SELECT id_paciente FROM public.paciente WHERE documento_identidad = $1;`,
         [dto.documentoSolicitante.trim()]
       );
-      let tempPacId: number;
-      const esPacienteNuevo = existingPatientRes.rows.length === 0;
-
-      if (esPacienteNuevo) {
-        // Crear paciente en la base de datos si no existe con el mismo documento
-        const insertPacRes = await client.query(
-          `INSERT INTO public.paciente 
-            (nombre_completo, documento_identidad, correo, telefono, fecha_nacimiento, sexo)
-           VALUES ($1, $2, $3, $4, $5, $6)
-           RETURNING id_paciente;`,
-          [
-            dto.nombreSolicitante.trim(),
-            dto.documentoSolicitante.trim(),
-            dto.correoSolicitante.trim(),
-            dto.telefonoSolicitante?.trim() || '+57 318 459 2011',
-            dto.fechaNacimiento || '1997-04-12',
-            dto.sexo || 'Femenino',
-          ]
-        );
-        tempPacId = insertPacRes.rows[0].id_paciente;
-        await client.query(
-          `INSERT INTO public.historia_clinica (id_paciente) VALUES ($1) ON CONFLICT (id_paciente) DO NOTHING;`,
-          [tempPacId]
-        );
-      } else {
-        tempPacId = existingPatientRes.rows[0].id_paciente;
-      }
-
-      const insertCitaSql = `
-        INSERT INTO public.cita (titulo, descripcion, id_paciente, id_usuario, estado)
-        VALUES ($1, $2, $3, $4, 'Solicitada')
-        RETURNING *;
-      `;
-      const citaRes = await client.query(insertCitaSql, [
-        (dto.descripcion || 'Valoración Odontológica Web').slice(0, 50),
-        `Solicitud externa de cita por ${dto.nombreSolicitante}`,
-        tempPacId,
-        idDoctor,
-      ]);
-      const nuevaCita = citaRes.rows[0];
-
-      // 4. Vincular a bloques_citas y marcar bloque como ocupado
-      await client.query(
-        `INSERT INTO public.bloques_citas (id_bloque, id_cita) VALUES ($1, $2) ON CONFLICT DO NOTHING;`,
-        [startStr, nuevaCita.id_cita]
-      );
-      await client.query(`UPDATE public.bloques_horario SET ocupacion = TRUE WHERE inicio = $1;`, [
-        startStr,
-      ]);
-
-      // 5. Registrar en auditoría historial_cita
-      await client.query(
-        `INSERT INTO public.historial_cita (id_cita, id_usuario_gestor, reporte, motivo)
-         VALUES ($1, 1, 'Cita creada en estado Solicitada desde portal web público', 'Solicitud externa');`,
-        [nuevaCita.id_cita]
-      );
 
       return {
         solicitud,
-        cita: nuevaCita,
-        idPaciente: tempPacId,
+        idSolicitud: solicitud.id_solicitud,
+        bloqueSolicitado: startStr,
         esPacienteNuevo: existingPatientRes.rows.length === 0,
       };
     });
   }
 
-  // RF-AGE-005: Gestionar solicitud (Aprobar o Rechazar y guardar en historial_solicitud)
+  // RF-AGE-005: Gestionar solicitud (Aprobar o Rechazar)
   async reviewRequest(params: {
     idSolicitud: number;
     idUsuarioGestor: number;
@@ -278,6 +207,10 @@ export class AppointmentRepository {
     idProfesional?: number;
     selectedBlocks?: string[];
   }) {
+    if (!params.aprobar && (!params.motivo || !params.motivo.trim())) {
+      throw new Error('El motivo de rechazo de la solicitud es obligatorio.');
+    }
+
     return db.withTransaction(async (client) => {
       const solRes = await client.query(
         `SELECT * FROM public.solicitud_cita WHERE id_solicitud = $1 FOR UPDATE;`,
@@ -286,12 +219,10 @@ export class AppointmentRepository {
       if (solRes.rows.length === 0) throw new Error('Solicitud no encontrada.');
       const solicitud = solRes.rows[0];
 
-      // Regla de estados: Si la solicitud ya fue revisada (aprobada o rechazada), impedir cambios
       if (solicitud.estado === false) {
-        throw new Error('Esta solicitud ya ha sido gestionada previamente y no puede ser modificada de nuevo.');
+        throw new Error('Esta solicitud ya ha sido gestionada previamente y no puede ser modificada de nuevo (D-09).');
       }
 
-      // Actualizar estado de la solicitud
       await client.query(`UPDATE public.solicitud_cita SET estado = FALSE WHERE id_solicitud = $1;`, [
         params.idSolicitud,
       ]);
@@ -322,178 +253,159 @@ export class AppointmentRepository {
         };
       }
 
-      // ALTA AUTOMÁTICA (RF-AGE-005 / RF-HCL-001): Si el paciente no existe, se crea en la base de datos
-      const patientCheck = await client.query(
-        `SELECT id_paciente, nombre_completo, correo, telefono FROM public.paciente WHERE documento_identidad = $1;`,
-        [solicitud.documento_solicitante.trim()]
-      );
-
-      let finalPatientId: number;
-      let esNuevo = false;
-
-      if (patientCheck.rows.length > 0) {
-        finalPatientId = patientCheck.rows[0].id_paciente;
-      } else {
-        esNuevo = true;
-        const insertPacRes = await client.query(
-          `INSERT INTO public.paciente 
-            (nombre_completo, documento_identidad, correo, telefono, fecha_nacimiento, sexo)
-           VALUES ($1, $2, $3, $4, $5, $6)
-           RETURNING id_paciente;`,
-          [
-            solicitud.nombre_solicitante.trim(),
-            solicitud.documento_solicitante.trim(),
-            solicitud.correo_solicitante.trim(),
-            solicitud.telefono_solicitante?.trim() || '+57 318 459 2011',
-            solicitud.fecha_nacimiento || '1997-04-12',
-            solicitud.sexo || 'Femenino',
-          ]
-        );
-        finalPatientId = insertPacRes.rows[0].id_paciente;
-
-        // Crear historia clínica inicial vacía
-        await client.query(
-          `INSERT INTO public.historia_clinica (id_paciente) VALUES ($1) ON CONFLICT (id_paciente) DO NOTHING;`,
-          [finalPatientId]
-        );
-      }
-
-      // Buscar si ya existe una cita vinculada a ese bloque horario
-      const existingCitaRes = await client.query(
-        `SELECT c.* FROM public.cita c
-         JOIN public.bloques_citas bc ON c.id_cita = bc.id_cita
-         WHERE bc.id_bloque = $1;`,
-        [solicitud.bloque_solicitado]
-      );
-
-      let cita;
-      const targetDoctorId = params.idProfesional || 101; // Dr. Mateo Gómez por defecto
-
-      if (existingCitaRes.rows.length > 0) {
-        const updateCitaRes = await client.query(
-          `UPDATE public.cita 
-           SET estado = 'Confirmada', id_paciente = $2, id_usuario = COALESCE($3, id_usuario)
-           WHERE id_cita = $1
-           RETURNING *;`,
-          [existingCitaRes.rows[0].id_cita, finalPatientId, targetDoctorId]
-        );
-        cita = updateCitaRes.rows[0];
-      } else {
-        const insertCitaRes = await client.query(
-          `INSERT INTO public.cita (titulo, descripcion, id_paciente, id_usuario, estado)
-           VALUES ($1, $2, $3, $4, 'Confirmada') RETURNING *;`,
-          [
-            'Valoración Odontológica',
-            solicitud.descripcion || 'Valoración por sensibilidad en molar inferior derecho y revisión general',
-            finalPatientId,
-            targetDoctorId,
-          ]
-        );
-        cita = insertCitaRes.rows[0];
-        await client.query(
-          `INSERT INTO public.bloques_citas (id_bloque, id_cita) VALUES ($1, $2) ON CONFLICT DO NOTHING;`,
-          [solicitud.bloque_solicitado, cita.id_cita]
-        );
-      }
-
-      // Bloques a ocupar y asociar a la cita
-      const rawBlocks =
-        params.selectedBlocks && params.selectedBlocks.length > 0
-          ? params.selectedBlocks
-          : [solicitud.bloque_solicitado];
-      const blocksToOccupy = rawBlocks.map((b) => String(b).replace('T', ' ').slice(0, 19));
-
-      // Liberar el bloque originalmente solicitado si el doctor seleccionó otros bloques
-      const originalBlockClean = String(solicitud.bloque_solicitado).replace('T', ' ').slice(0, 19);
-      if (!blocksToOccupy.includes(originalBlockClean)) {
-        await client.query(
-          `UPDATE public.bloques_horario SET ocupacion = FALSE WHERE inicio = $1;`,
-          [solicitud.bloque_solicitado]
-        );
-      }
-
-      // Eliminar vínculos previos en bloques_citas para esta cita
-      await client.query(`DELETE FROM public.bloques_citas WHERE id_cita = $1;`, [cita.id_cita]);
-
-      // Asegurar que cada bloque seleccionado existe, queda ocupado y vinculado a la cita
-      for (const bInicio of blocksToOccupy) {
-        const bStartDate = new Date(bInicio);
-        const bEndDate = new Date(bStartDate.getTime() + 30 * 60 * 1000);
-        const bEndStr = `${bEndDate.getFullYear()}-${(bEndDate.getMonth() + 1).toString().padStart(2, '0')}-${bEndDate.getDate().toString().padStart(2, '0')} ${bEndDate.getHours().toString().padStart(2, '0')}:${bEndDate.getMinutes().toString().padStart(2, '0')}:00`;
-
-        await client.query(
-          `INSERT INTO public.bloques_horario (inicio, final, estado, ocupacion)
-           VALUES ($1, $2, TRUE, TRUE)
-           ON CONFLICT (inicio) DO UPDATE SET ocupacion = TRUE, estado = TRUE;`,
-          [bInicio, bEndStr]
-        );
-
-        await client.query(
-          `INSERT INTO public.bloques_citas (id_bloque, id_cita)
-           VALUES ($1, $2)
-           ON CONFLICT DO NOTHING;`,
-          [bInicio, cita.id_cita]
-        );
-      }
-
-      // Cálculo del rango horario para la confirmación formal
-      const sortedBlocks = [...blocksToOccupy].sort();
-      const firstBlockStr = sortedBlocks[0];
-      const lastBlockStr = sortedBlocks[sortedBlocks.length - 1];
-      const lastDate = new Date(lastBlockStr);
-      const endDate = new Date(lastDate.getTime() + 30 * 60 * 1000);
-      const endHHmm = `${endDate.getHours().toString().padStart(2, '0')}:${endDate.getMinutes().toString().padStart(2, '0')}`;
-      const firstParts = firstBlockStr.split(' ');
-      const fechaCita = firstParts[0];
-      const startHHmm = (firstParts[1] || '').slice(0, 5);
-      const horaRango = `${startHHmm} - ${endHHmm}`;
-
-      // Obtener datos del doctor para notificación
-      const docRes = await client.query(
-        `SELECT nombre_completo, correo FROM public.usuario WHERE id_usuario = $1;`,
-        [cita.id_usuario]
-      );
-      const doctorNombre = docRes.rows[0]?.nombre_completo || 'Dr. Eduar Leal Álvarez';
-      const doctorCorreo = docRes.rows[0]?.correo || 'eduard.leal@gmail.com';
-
-      // Registro de trazabilidad en historial_cita (Regla 10)
-      await client.query(
-        `INSERT INTO public.historial_cita (id_cita, id_usuario_gestor, reporte, motivo)
-         VALUES ($1, $2, 'Cita Confirmada por gestión de solicitud web (Alta automática)', $3);`,
-        [cita.id_cita, params.idUsuarioGestor, params.motivo]
-      );
-
-      return {
-        ...cita,
-        idCita: cita.id_cita,
-        correoPaciente: solicitud.correo_solicitante,
-        nombrePaciente: solicitud.nombre_solicitante,
-        fechaHora: `${fechaCita} ${horaRango}`,
-        fecha: fechaCita,
-        hora: horaRango,
-        nombreDoctor: doctorNombre,
-        correoDoctor: doctorCorreo,
-        telefonoPaciente: solicitud.telefono_solicitante,
-        esPacienteNuevo: esNuevo,
-      };
+      return this.confirmApprovedRequest(client, solicitud, params);
     });
   }
 
-  // RF-AGE-002: Agendar cita directamente (Confirmada) ocupando múltiples bloques
-  async scheduleAppointment(dto: CreateCitaDTO) {
-    const todayColombia = new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'America/Bogota',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    }).format(new Date());
-
-    for (const bloque of dto.bloques) {
-      const blockDate = String(bloque).trim().split('T')[0].split(' ')[0];
-      if (blockDate < todayColombia) {
-        throw new Error(`No se pueden agendar citas para fechas pasadas (${blockDate}).`);
-      }
+  // Helper interno de confirmación de solicitud aprobada
+  private async confirmApprovedRequest(
+    client: any,
+    solicitud: any,
+    params: {
+      idSolicitud: number;
+      idUsuarioGestor: number;
+      motivo: string;
+      idProfesional?: number;
+      selectedBlocks?: string[];
     }
+  ) {
+    const patientCheck = await client.query(
+      `SELECT id_paciente FROM public.paciente WHERE documento_identidad = $1;`,
+      [solicitud.documento_solicitante.trim()]
+    );
+
+    let finalPatientId: number;
+    let esNuevo = false;
+
+    if (patientCheck.rows.length > 0) {
+      finalPatientId = patientCheck.rows[0].id_paciente;
+    } else {
+      esNuevo = true;
+      const insertPacRes = await client.query(
+        `INSERT INTO public.paciente 
+          (nombre_completo, documento_identidad, correo, telefono, fecha_nacimiento, sexo)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         RETURNING id_paciente;`,
+        [
+          solicitud.nombre_solicitante.trim(),
+          solicitud.documento_solicitante.trim(),
+          solicitud.correo_solicitante.trim(),
+          solicitud.telefono_solicitante?.trim() || null,
+          solicitud.fecha_nacimiento || null,
+          solicitud.sexo || null,
+        ]
+      );
+      finalPatientId = insertPacRes.rows[0].id_paciente;
+      await client.query(
+        `INSERT INTO public.historia_clinica (id_paciente) VALUES ($1) ON CONFLICT (id_paciente) DO NOTHING;`,
+        [finalPatientId]
+      );
+    }
+
+    const existingCitaRes = await client.query(
+      `SELECT c.* FROM public.cita c
+       JOIN public.bloques_citas bc ON c.id_cita = bc.id_cita
+       WHERE bc.id_bloque = $1;`,
+      [solicitud.bloque_solicitado]
+    );
+
+    let cita;
+    const targetDoctorId = params.idProfesional || 1;
+
+    if (existingCitaRes.rows.length > 0) {
+      const updateCitaRes = await client.query(
+        `UPDATE public.cita 
+         SET estado = 'Confirmada', id_paciente = $2, id_usuario = COALESCE($3, id_usuario)
+         WHERE id_cita = $1
+         RETURNING *;`,
+        [existingCitaRes.rows[0].id_cita, finalPatientId, targetDoctorId]
+      );
+      cita = updateCitaRes.rows[0];
+    } else {
+      const insertCitaRes = await client.query(
+        `INSERT INTO public.cita (titulo, descripcion, id_paciente, id_usuario, estado)
+         VALUES ($1, $2, $3, $4, 'Confirmada') RETURNING *;`,
+        [
+          'Valoración Odontológica',
+          solicitud.descripcion || 'Valoración odontológica confirmada',
+          finalPatientId,
+          targetDoctorId,
+        ]
+      );
+      cita = insertCitaRes.rows[0];
+      await client.query(
+        `INSERT INTO public.bloques_citas (id_bloque, id_cita) VALUES ($1, $2) ON CONFLICT DO NOTHING;`,
+        [solicitud.bloque_solicitado, cita.id_cita]
+      );
+    }
+
+    const rawBlocks =
+      params.selectedBlocks && params.selectedBlocks.length > 0
+        ? params.selectedBlocks
+        : [solicitud.bloque_solicitado];
+    const blocksToOccupy = rawBlocks.map((b) => String(b).replace('T', ' ').slice(0, 19));
+
+    const originalBlockClean = String(solicitud.bloque_solicitado).replace('T', ' ').slice(0, 19);
+    if (!blocksToOccupy.includes(originalBlockClean)) {
+      await client.query(
+        `UPDATE public.bloques_horario SET ocupacion = FALSE WHERE inicio = $1;`,
+        [solicitud.bloque_solicitado]
+      );
+    }
+
+    await client.query(`DELETE FROM public.bloques_citas WHERE id_cita = $1;`, [cita.id_cita]);
+
+    for (const bInicio of blocksToOccupy) {
+      const bStartDate = new Date(bInicio);
+      const bEndDate = new Date(bStartDate.getTime() + 30 * 60 * 1000);
+      const bEndStr = `${bEndDate.getFullYear()}-${(bEndDate.getMonth() + 1).toString().padStart(2, '0')}-${bEndDate.getDate().toString().padStart(2, '0')} ${bEndDate.getHours().toString().padStart(2, '0')}:${bEndDate.getMinutes().toString().padStart(2, '0')}:00`;
+
+      await client.query(
+        `INSERT INTO public.bloques_horario (inicio, final, estado, ocupacion)
+         VALUES ($1, $2, TRUE, TRUE)
+         ON CONFLICT (inicio) DO UPDATE SET ocupacion = TRUE, estado = TRUE;`,
+        [bInicio, bEndStr]
+      );
+
+      await client.query(
+        `INSERT INTO public.bloques_citas (id_bloque, id_cita)
+         VALUES ($1, $2)
+         ON CONFLICT DO NOTHING;`,
+        [bInicio, cita.id_cita]
+      );
+    }
+
+    const timeRange = computeTimeRangeFromBlocks(blocksToOccupy);
+
+    const docRes = await client.query(
+      `SELECT nombre_completo, correo FROM public.usuario WHERE id_usuario = $1;`,
+      [cita.id_usuario]
+    );
+
+    await client.query(
+      `INSERT INTO public.historial_cita (id_cita, id_usuario_gestor, reporte, motivo)
+       VALUES ($1, $2, 'Cita Confirmada por gestión de solicitud web (Alta automática)', $3);`,
+      [cita.id_cita, params.idUsuarioGestor, params.motivo]
+    );
+
+    return {
+      ...cita,
+      idCita: cita.id_cita,
+      correoPaciente: solicitud.correo_solicitante,
+      nombrePaciente: solicitud.nombre_solicitante,
+      fechaHora: `${timeRange.fecha} ${timeRange.hora}`,
+      fecha: timeRange.fecha,
+      hora: timeRange.hora,
+      nombreDoctor: docRes.rows[0]?.nombre_completo || 'Dr. Eduar Leal Álvarez',
+      correoDoctor: docRes.rows[0]?.correo || 'eduard.leal@gmail.com',
+      telefonoPaciente: solicitud.telefono_solicitante,
+      esPacienteNuevo: esNuevo,
+    };
+  }
+
+  // RF-AGE-002: Agendar cita directamente (Confirmada)
+  async scheduleAppointment(dto: CreateCitaDTO) {
+    validatePastDateBooking(dto.bloques);
 
     return db.withTransaction(async (client) => {
       for (const bloque of dto.bloques) {
@@ -519,19 +431,18 @@ export class AppointmentRepository {
           bloque,
           cita.id_cita,
         ]);
-        await client.query(`UPDATE public.bloques_horario SET ocupacion = TRUE WHERE inicio = $1;`, [
-          bloque,
-        ]);
+        await client.query(
+          `UPDATE public.bloques_horario SET ocupacion = TRUE WHERE inicio = $1;`,
+          [bloque]
+        );
       }
 
-      // Regla de Negocio 10: Guardar "Agendado por" en historial_cita
       await client.query(
         `INSERT INTO public.historial_cita (id_cita, id_usuario_gestor, reporte, motivo)
          VALUES ($1, $2, 'Cita creada en estado Confirmada (Agendado por)', 'Agendamiento interno');`,
         [cita.id_cita, dto.idUsuarioGestor]
       );
 
-      // Obtener datos del paciente y profesional para el envío de correos
       const pacRes = await client.query(
         `SELECT nombre_completo, correo, telefono FROM public.paciente WHERE id_paciente = $1;`,
         [dto.idPaciente]
@@ -541,16 +452,7 @@ export class AppointmentRepository {
         [dto.idUsuarioProfesional]
       );
 
-      // Calcular fecha y rango horario
-      const sortedBlocks = [...dto.bloques].sort();
-      const firstBlockStr = String(sortedBlocks[0]).replace('T', ' ');
-      const lastBlockStr = String(sortedBlocks[sortedBlocks.length - 1]).replace('T', ' ');
-      const fechaCita = firstBlockStr.split(' ')[0];
-      const startHHmm = (firstBlockStr.split(' ')[1] || '').slice(0, 5);
-      const lastDate = new Date(lastBlockStr);
-      const endDate = new Date(lastDate.getTime() + 30 * 60 * 1000);
-      const endHHmm = `${endDate.getHours().toString().padStart(2, '0')}:${endDate.getMinutes().toString().padStart(2, '0')}`;
-      const horaRango = `${startHHmm} - ${endHHmm}`;
+      const timeRange = computeTimeRangeFromBlocks(dto.bloques);
 
       return {
         ...cita,
@@ -559,19 +461,20 @@ export class AppointmentRepository {
         telefonoPaciente: pacRes.rows[0]?.telefono || null,
         nombreDoctor: docRes.rows[0]?.nombre_completo || 'Doctor',
         correoDoctor: docRes.rows[0]?.correo || null,
-        fecha: fechaCita,
-        hora: horaRango,
+        fecha: timeRange.fecha,
+        hora: timeRange.hora,
       };
     });
   }
 
-  // RF-AGE-007, RF-AGE-009, RF-AGE-013: Cambiar estado de cita y registrar auditoría en historial_cita
+  // RF-AGE-007, RF-AGE-009, RF-AGE-013: Cambiar estado de cita
   async changeAppointmentState(params: {
     idCita: number;
     nuevoEstado: EstadoCita;
     idUsuarioGestor: number;
     motivo: string;
     liberarBloques?: boolean;
+    isAdmin?: boolean;
   }) {
     return db.withTransaction(async (client) => {
       const currentRes = await client.query(
@@ -581,26 +484,41 @@ export class AppointmentRepository {
       if (currentRes.rows.length === 0) throw new Error('La cita no existe.');
       const citaActual = currentRes.rows[0];
 
-      // Reglas de transición de estados de cita (Clean Code / SOLID)
-      if (['Cancelada', 'No asistió', 'Completada', 'Rechazada'].includes(citaActual.estado)) {
-        throw new Error(
-          `La cita se encuentra en estado final '${citaActual.estado}' y no permite cambios de estado posteriores.`
+      validateStateChangeRules({
+        citaActual,
+        nuevoEstado: params.nuevoEstado,
+        motivo: params.motivo,
+        idUsuarioGestor: params.idUsuarioGestor,
+        isAdmin: params.isAdmin,
+      });
+
+      if (citaActual.estado === params.nuevoEstado) return citaActual;
+
+      if (params.nuevoEstado === 'No asistió' || params.nuevoEstado === 'Inasistencia') {
+        const bcCheck = await client.query(
+          `SELECT id_bloque FROM public.bloques_citas WHERE id_cita = $1 ORDER BY id_bloque ASC LIMIT 1;`,
+          [params.idCita]
         );
+        if (bcCheck.rows.length > 0 && new Date(bcCheck.rows[0].id_bloque).getTime() > Date.now()) {
+          throw new Error('No se puede marcar inasistencia antes de la fecha y hora programada de la cita.');
+        }
       }
 
-      if (params.nuevoEstado === 'No asistió' && citaActual.estado !== 'Confirmada' && citaActual.estado !== 'En espera') {
-        throw new Error(`Solo se puede registrar inasistencia en citas en estado 'Confirmada' o 'En espera'.`);
+      if (params.nuevoEstado === 'Completada' || params.nuevoEstado === 'Atendida') {
+        const evoRes = await client.query(
+          `SELECT motivo_consulta FROM public.evolucion WHERE id_cita = $1 AND TRIM(COALESCE(motivo_consulta, '')) != '' LIMIT 1;`,
+          [params.idCita]
+        );
+        if (evoRes.rows.length === 0) {
+          throw new Error('No se puede finalizar la atención sin registrar el motivo de consulta en la historia clínica.');
+        }
       }
 
-      if (params.nuevoEstado === 'Cancelada' && citaActual.estado !== 'Confirmada' && citaActual.estado !== 'En espera') {
-        throw new Error(`Solo se pueden cancelar citas en estado 'Confirmada' o 'En espera'.`);
-      }
-
-      // Regla RF-AGE-009: Un profesional solo puede tener una cita "En consulta" a la vez
       if (params.nuevoEstado === 'En consulta') {
+        const doctorIdToCheck = citaActual.id_usuario || params.idUsuarioGestor;
         const activeRes = await client.query(
-          `SELECT id_cita FROM public.cita WHERE id_usuario = $1 AND estado = 'En consulta';`,
-          [citaActual.id_usuario]
+          `SELECT id_cita FROM public.cita WHERE id_usuario = $1 AND estado = 'En consulta' AND id_cita != $2;`,
+          [doctorIdToCheck, params.idCita]
         );
         if (activeRes.rows.length > 0) {
           throw new Error('El profesional ya tiene otra cita En consulta activa.');
@@ -608,8 +526,12 @@ export class AppointmentRepository {
       }
 
       const updateRes = await client.query(
-        `UPDATE public.cita SET estado = $1 WHERE id_cita = $2 RETURNING *;`,
-        [params.nuevoEstado, params.idCita]
+        `UPDATE public.cita 
+         SET estado = $1, 
+             id_usuario = COALESCE(id_usuario, $3)
+         WHERE id_cita = $2 
+         RETURNING *;`,
+        [params.nuevoEstado, params.idCita, params.idUsuarioGestor || null]
       );
 
       if (params.nuevoEstado === 'Cancelada' && params.liberarBloques !== false) {
@@ -632,11 +554,35 @@ export class AppointmentRepository {
         ]
       );
 
-      return updateRes.rows[0];
+      const detailRes = await client.query(
+        `SELECT p.nombre_completo AS "nombrePaciente", p.correo AS "correoPaciente",
+                u.nombre_completo AS "nombreDoctor", u.correo AS "correoDoctor"
+         FROM public.cita c
+         JOIN public.paciente p ON c.id_paciente = p.id_paciente
+         JOIN public.usuario u ON c.id_usuario = u.id_usuario
+         WHERE c.id_cita = $1;`,
+        [params.idCita]
+      );
+
+      const bcRes = await client.query(
+        `SELECT to_char(id_bloque, 'YYYY-MM-DD HH24:MI:SS') AS id_bloque FROM public.bloques_citas WHERE id_cita = $1 ORDER BY id_bloque ASC;`,
+        [params.idCita]
+      );
+      const timeRange = computeTimeRangeFromBlocks(bcRes.rows.map((r: any) => r.id_bloque));
+
+      return {
+        ...updateRes.rows[0],
+        nombrePaciente: detailRes.rows[0]?.nombrePaciente || 'Paciente',
+        correoPaciente: detailRes.rows[0]?.correoPaciente || null,
+        nombreDoctor: detailRes.rows[0]?.nombreDoctor || 'Doctor',
+        correoDoctor: detailRes.rows[0]?.correoDoctor || null,
+        fecha: timeRange.fecha,
+        hora: timeRange.hora,
+      };
     });
   }
 
-  // RF-AGE-006: Editar cita confirmada (profesional, tratamiento, descripción y bloques)
+  // RF-AGE-006: Editar cita confirmada
   async updateAppointmentDetails(params: {
     idCita: number;
     idUsuarioGestor: number;
@@ -663,85 +609,27 @@ export class AppointmentRepository {
         );
       }
 
-      // 1. Actualizar datos básicos de la cita
+      const targetDoctorId = params.idDoctor || cita.id_usuario;
+
       await client.query(
         `UPDATE public.cita
          SET titulo = COALESCE($2, titulo),
              descripcion = COALESCE($3, descripcion),
              id_usuario = COALESCE($4, id_usuario)
          WHERE id_cita = $1;`,
-        [params.idCita, params.titulo ? params.titulo.slice(0, 50) : null, params.descripcion, params.idDoctor]
+        [params.idCita, params.titulo ? params.titulo.slice(0, 50) : null, params.descripcion, targetDoctorId]
       );
 
-      // 2. Gestionar bloques de horario si fueron provistos
       if (params.selectedBlocks && params.selectedBlocks.length > 0) {
-        const currentBcRes = await client.query(
-          `SELECT to_char(id_bloque, 'YYYY-MM-DD HH24:MI:SS') AS id_bloque FROM public.bloques_citas WHERE id_cita = $1;`,
-          [params.idCita]
-        );
-        const currentBlocks: string[] = currentBcRes.rows.map((r: any) => r.id_bloque);
-        const newBlocks: string[] = params.selectedBlocks.map((b) =>
-          String(b).replace('T', ' ').slice(0, 19)
-        );
-
-        // Bloques a liberar (los que la cita deja de usar)
-        const blocksToRelease = currentBlocks.filter((b) => !newBlocks.includes(b));
-        for (const b of blocksToRelease) {
-          await client.query(
-            `UPDATE public.bloques_horario SET ocupacion = FALSE WHERE inicio = $1;`,
-            [b]
-          );
-          await client.query(
-            `DELETE FROM public.bloques_citas WHERE id_cita = $1 AND id_bloque = $2;`,
-            [params.idCita, b]
-          );
-        }
-
-        // Bloques nuevos a ocupar
-        const blocksToOccupy = newBlocks.filter((b) => !currentBlocks.includes(b));
-        for (const b of blocksToOccupy) {
-          const slotCheck = await client.query<TimeSlotRow>(
-            `SELECT inicio, final, estado, ocupacion FROM public.bloques_horario WHERE inicio = $1 FOR UPDATE;`,
-            [b]
-          );
-
-          if (slotCheck.rows.length === 0) {
-            const bDate = new Date(b);
-            const bEndDate = new Date(bDate.getTime() + 30 * 60 * 1000);
-            const bEndStr = `${bEndDate.getFullYear()}-${(bEndDate.getMonth() + 1).toString().padStart(2, '0')}-${bEndDate.getDate().toString().padStart(2, '0')} ${bEndDate.getHours().toString().padStart(2, '0')}:${bEndDate.getMinutes().toString().padStart(2, '0')}:00`;
-
-            await client.query(
-              `INSERT INTO public.bloques_horario (inicio, final, estado, ocupacion) VALUES ($1, $2, TRUE, TRUE);`,
-              [b, bEndStr]
-            );
-          } else {
-            if (!slotCheck.rows[0].estado) {
-              throw new Error(`El bloque ${b} se encuentra deshabilitado.`);
-            }
-            if (slotCheck.rows[0].ocupacion) {
-              throw new Error(`El bloque ${b} ya se encuentra ocupado por otra cita.`);
-            }
-            await client.query(
-              `UPDATE public.bloques_horario SET ocupacion = TRUE WHERE inicio = $1;`,
-              [b]
-            );
-          }
-
-          await client.query(
-            `INSERT INTO public.bloques_citas (id_bloque, id_cita) VALUES ($1, $2) ON CONFLICT DO NOTHING;`,
-            [b, params.idCita]
-          );
-        }
+        await this.syncAppointmentBlocks(client, params.idCita, params.selectedBlocks);
       }
 
-      // 3. Registrar auditoría en historial_cita
       await client.query(
         `INSERT INTO public.historial_cita (id_cita, id_usuario_gestor, reporte, motivo)
          VALUES ($1, $2, 'Cita modificada / reprogramada', $3);`,
         [params.idCita, params.idUsuarioGestor, params.motivo || 'Modificación de detalles y/o bloques de la cita']
       );
 
-      // 4. Retornar cita actualizada con fecha y horario calculado
       const updatedRes = await client.query(
         `SELECT c.*, u.nombre_completo AS "nombreDoctor", u.correo AS "correoDoctor"
          FROM public.cita c
@@ -757,59 +645,94 @@ export class AppointmentRepository {
          ORDER BY id_bloque ASC;`,
         [params.idCita]
       );
-      const finalBlocks: string[] = finalBcRes.rows.map((r: any) => r.id_bloque);
-      let fechaCita = 'Fecha por confirmar';
-      let horaRango = 'Horario por confirmar';
-      if (finalBlocks.length > 0) {
-        const first = finalBlocks[0];
-        const last = finalBlocks[finalBlocks.length - 1];
-        fechaCita = first.split(' ')[0];
-        const startHHmm = (first.split(' ')[1] || '').slice(0, 5);
-        const lastDate = new Date(last);
-        const endDate = new Date(lastDate.getTime() + 30 * 60 * 1000);
-        const endHHmm = `${endDate.getHours().toString().padStart(2, '0')}:${endDate.getMinutes().toString().padStart(2, '0')}`;
-        horaRango = `${startHHmm} - ${endHHmm}`;
-      }
+      const timeRange = computeTimeRangeFromBlocks(finalBcRes.rows.map((r: any) => r.id_bloque));
 
       return {
         ...updatedRes.rows[0],
         correoPaciente: cita.correoPaciente,
         nombrePaciente: cita.nombrePaciente,
         telefonoPaciente: cita.telefonoPaciente,
-        fecha: fechaCita,
-        hora: horaRango,
+        fecha: timeRange.fecha,
+        hora: timeRange.hora,
       };
     });
   }
 
-  // RF-AGE-004: Obtener personal a notificar ante solicitudes externas (Coordinadores o Administradores)
+  private async syncAppointmentBlocks(client: any, idCita: number, selectedBlocks: string[]) {
+    const currentBcRes = await client.query(
+      `SELECT to_char(id_bloque, 'YYYY-MM-DD HH24:MI:SS') AS id_bloque FROM public.bloques_citas WHERE id_cita = $1;`,
+      [idCita]
+    );
+    const currentBlocks: string[] = currentBcRes.rows.map((r: any) => r.id_bloque);
+    const newBlocks: string[] = selectedBlocks.map((b) => String(b).replace('T', ' ').slice(0, 19));
+
+    const blocksToRelease = currentBlocks.filter((b) => !newBlocks.includes(b));
+    for (const b of blocksToRelease) {
+      await client.query(`UPDATE public.bloques_horario SET ocupacion = FALSE WHERE inicio = $1;`, [b]);
+      await client.query(`DELETE FROM public.bloques_citas WHERE id_cita = $1 AND id_bloque = $2;`, [idCita, b]);
+    }
+
+    const blocksToOccupy = newBlocks.filter((b) => !currentBlocks.includes(b));
+    for (const b of blocksToOccupy) {
+      const slotCheck: any = await client.query(
+        `SELECT inicio, final, estado, ocupacion FROM public.bloques_horario WHERE inicio = $1 FOR UPDATE;`,
+        [b]
+      );
+
+      if (slotCheck.rows.length === 0) {
+        const bDate = new Date(b);
+        const bEndDate = new Date(bDate.getTime() + 30 * 60 * 1000);
+        const bEndStr = `${bEndDate.getFullYear()}-${(bEndDate.getMonth() + 1).toString().padStart(2, '0')}-${bEndDate.getDate().toString().padStart(2, '0')} ${bEndDate.getHours().toString().padStart(2, '0')}:${bEndDate.getMinutes().toString().padStart(2, '0')}:00`;
+
+        await client.query(
+          `INSERT INTO public.bloques_horario (inicio, final, estado, ocupacion) VALUES ($1, $2, TRUE, TRUE);`,
+          [b, bEndStr]
+        );
+      } else {
+        if (!slotCheck.rows[0].estado) throw new Error(`El bloque ${b} se encuentra deshabilitado.`);
+        if (slotCheck.rows[0].ocupacion) throw new Error(`El bloque ${b} ya se encuentra ocupado por otra cita.`);
+        await client.query(`UPDATE public.bloques_horario SET ocupacion = TRUE WHERE inicio = $1;`, [b]);
+      }
+
+      await client.query(
+        `INSERT INTO public.bloques_citas (id_bloque, id_cita) VALUES ($1, $2) ON CONFLICT DO NOTHING;`,
+        [b, idCita]
+      );
+    }
+  }
+
+  // RF-AGE-004: Obtener personal a notificar ante solicitudes externas con escalado COA -> AUX -> ADM
   async getStaffForNewRequestNotification(): Promise<
     Array<{ nombreCompleto: string; correo: string; rol: string }>
   > {
-    // 1. Intentar obtener coordinadores de agendamiento activos
     const coaRes = await db.query(
       `SELECT DISTINCT u.nombre_completo AS "nombreCompleto", u.correo, r.nombre_rol AS "rol"
        FROM public.usuario u
        JOIN public.usuario_rol ur ON u.id_usuario = ur.id_usuario
        JOIN public.rol r ON ur.id_rol = r.id_rol
-       WHERE (LOWER(r.nombre_rol) LIKE '%coordinad%' OR LOWER(r.nombre_rol) LIKE '%agend%')
+       WHERE (LOWER(r.nombre_rol) LIKE '%coordinad%' OR LOWER(r.nombre_rol) LIKE '%agend%' OR r.codigo_rol = 'ROL-COA')
          AND u.estado = true AND ur.estado = true;`
     );
+    if (coaRes.rows.length > 0) return coaRes.rows;
 
-    if (coaRes.rows.length > 0) {
-      return coaRes.rows;
-    }
+    const auxRes = await db.query(
+      `SELECT DISTINCT u.nombre_completo AS "nombreCompleto", u.correo, r.nombre_rol AS "rol"
+       FROM public.usuario u
+       JOIN public.usuario_rol ur ON u.id_usuario = ur.id_usuario
+       JOIN public.rol r ON ur.id_rol = r.id_rol
+       WHERE (LOWER(r.nombre_rol) LIKE '%auxiliar%' OR r.codigo_rol = 'ROL-AUX')
+         AND u.estado = true AND ur.estado = true;`
+    );
+    if (auxRes.rows.length > 0) return auxRes.rows;
 
-    // 2. Si no hay coordinadores activos, recurrir a administradores del sistema
     const admRes = await db.query(
       `SELECT DISTINCT u.nombre_completo AS "nombreCompleto", u.correo, r.nombre_rol AS "rol"
        FROM public.usuario u
        JOIN public.usuario_rol ur ON u.id_usuario = ur.id_usuario
        JOIN public.rol r ON ur.id_rol = r.id_rol
-       WHERE (LOWER(r.nombre_rol) LIKE '%administrad%' OR LOWER(r.nombre_rol) LIKE '%admin%')
+       WHERE (LOWER(r.nombre_rol) LIKE '%administrad%' OR LOWER(r.nombre_rol) LIKE '%admin%' OR r.codigo_rol = 'ROL-ADM')
          AND u.estado = true AND ur.estado = true;`
     );
-
     return admRes.rows;
   }
 
@@ -837,6 +760,7 @@ export class AppointmentRepository {
         c.titulo,
         c.descripcion,
         c.estado,
+        c.titulo AS "servicio",
         p.id_paciente AS "idPaciente",
         COALESCE(sc.nombre_solicitante, p.nombre_completo) AS "nombrePaciente",
         COALESCE(sc.documento_solicitante, p.documento_identidad) AS "documentoPaciente",
@@ -844,11 +768,12 @@ export class AppointmentRepository {
         COALESCE(sc.correo_solicitante, p.correo, 'paciente@odontoleal.com') AS "correoPaciente",
         sc.id_solicitud AS "idSolicitud",
         sc.fecha_solicitud AS "fechaSolicitud",
-        COALESCE(sc.fecha_nacimiento::text, p.fecha_nacimiento::text, '1997-04-12') AS "fechaNacimiento",
-        COALESCE(sc.sexo, p.sexo, 'Femenino') AS "sexo",
+        COALESCE(sc.fecha_nacimiento::text, p.fecha_nacimiento::text) AS "fechaNacimiento",
+        COALESCE(sc.sexo, p.sexo) AS "sexo",
         CASE WHEN p.id_paciente IS NULL OR p.documento_identidad != sc.documento_solicitante THEN true ELSE false END AS "esPacienteNuevo",
         u.id_usuario AS "idProfesional",
         u.nombre_completo AS "nombreProfesional",
+        u.firma_base64 AS "firmaProfesional",
         COALESCE(json_agg(DISTINCT to_char(bc.id_bloque, 'YYYY-MM-DD HH24:MI:SS')) FILTER (WHERE bc.id_bloque IS NOT NULL), '[]') AS bloques,
         COALESCE(
           json_agg(
@@ -868,7 +793,7 @@ export class AppointmentRepository {
       LEFT JOIN public.solicitud_cita sc ON (sc.bloque_solicitado = bc.id_bloque AND sc.estado = true)
       LEFT JOIN public.historial_cita hc ON c.id_cita = hc.id_cita
       ${where}
-      GROUP BY c.id_cita, p.id_paciente, u.id_usuario, sc.id_solicitud, sc.nombre_solicitante,
+      GROUP BY c.id_cita, p.id_paciente, u.id_usuario, u.firma_base64, sc.id_solicitud, sc.nombre_solicitante,
                sc.documento_solicitante, sc.telefono_solicitante, sc.correo_solicitante,
                sc.fecha_solicitud, sc.fecha_nacimiento, sc.sexo
       ORDER BY c.id_cita DESC;
@@ -877,7 +802,7 @@ export class AppointmentRepository {
     return rows;
   }
 
-  // Resumen mensual de citas y bloques para el calendario lateral izquierdo
+  // Resumen mensual de citas y bloques para el calendario
   async getMonthlySummary(year: number, month: number): Promise<MonthlyDaySummary[]> {
     const monthStr = month.toString().padStart(2, '0');
     const startDate = `${year}-${monthStr}-01`;
@@ -933,8 +858,8 @@ export class AppointmentRepository {
         sc.bloque_solicitado AS "bloqueSolicitado",
         sc.descripcion AS "motivoConsulta",
         sc.fecha_solicitud AS "fechaSolicitud",
-        COALESCE(sc.fecha_nacimiento::text, p.fecha_nacimiento::text, '1997-04-12') AS "fechaNacimiento",
-        COALESCE(sc.sexo, p.sexo, 'Femenino') AS "sexo",
+        COALESCE(sc.fecha_nacimiento::text, p.fecha_nacimiento::text) AS "fechaNacimiento",
+        COALESCE(sc.sexo, p.sexo) AS "sexo",
         CASE WHEN p.id_paciente IS NULL THEN true ELSE false END AS "esPacienteNuevo",
         c.id_cita AS "idCita",
         u.nombre_completo AS "doctorAsignado"

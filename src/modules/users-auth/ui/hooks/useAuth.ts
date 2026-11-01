@@ -23,6 +23,7 @@ const WARNING_TIME_MS = 29 * 60 * 1000; // Minuto 29 (RF-USR-008)
 export interface ActiveSessionState {
   usuario: UserWithRolesDomainDTO;
   permisos: string[];
+  token?: string;
   authenticatedAt: string;
 }
 
@@ -51,15 +52,25 @@ export function useAuth(options?: {
   });
 
   const [isWarningModalOpen, setIsWarningModalOpen] = useState(false);
+  const isWarningModalOpenRef = useRef(false);
+  isWarningModalOpenRef.current = isWarningModalOpen;
+
   const [unsavedFormDraft, setUnsavedFormDraft] =
     useState<PendingFormDraftTracker | null>(null);
 
   const warningTimerRef = useRef<number | null>(null);
+  const logoutTimerRef = useRef<number | null>(null);
+  const logoutRef = useRef<any>(null);
 
   const clearTimers = useCallback(() => {
-    if (warningTimerRef.current !== null && typeof window !== 'undefined') {
+    if (typeof window === 'undefined') return;
+    if (warningTimerRef.current !== null) {
       window.clearTimeout(warningTimerRef.current);
       warningTimerRef.current = null;
+    }
+    if (logoutTimerRef.current !== null) {
+      window.clearTimeout(logoutTimerRef.current);
+      logoutTimerRef.current = null;
     }
   }, []);
 
@@ -70,6 +81,10 @@ export function useAuth(options?: {
 
     warningTimerRef.current = window.setTimeout(() => {
       setIsWarningModalOpen(true);
+      // Minuto 30 (60 segundos después): cierre automático de sesión por inactividad (DEF-24)
+      logoutTimerRef.current = window.setTimeout(() => {
+        logoutRef.current?.('INACTIVITY_TIMEOUT', true);
+      }, 60 * 1000);
     }, WARNING_TIME_MS);
   }, [clearTimers, session]);
 
@@ -82,10 +97,12 @@ export function useAuth(options?: {
 
     resetInactivityTimer();
 
-    const handleUserActivity = () => {
-      if (!isWarningModalOpen) {
-        resetInactivityTimer();
+    const handleUserActivity = (e: Event) => {
+      // DEF-24 & CPS-USR-008-02: Si el modal de inactividad ya está abierto, no reiniciar el temporizador en bucle
+      if (isWarningModalOpenRef.current) {
+        return;
       }
+      resetInactivityTimer();
     };
 
     const events = ['mousedown', 'keydown', 'touchstart', 'scroll'];
@@ -99,7 +116,7 @@ export function useAuth(options?: {
         window.removeEventListener(evt, handleUserActivity)
       );
     };
-  }, [session, isWarningModalOpen, resetInactivityTimer, clearTimers]);
+  }, [session, resetInactivityTimer, clearTimers]);
 
   // Impedir que el botón "Atrás" muestre contenido interno tras cerrar sesión (RF-USR-008)
   useEffect(() => {
@@ -115,15 +132,19 @@ export function useAuth(options?: {
   }, []);
 
   const setActiveSession = useCallback(
-    (newSession: { usuario: UserWithRolesDomainDTO; permisos: string[] }) => {
+    (newSession: { usuario: UserWithRolesDomainDTO; permisos: string[]; token?: string }) => {
       const state: ActiveSessionState = {
         usuario: newSession.usuario,
         permisos: newSession.permisos,
+        token: newSession.token,
         authenticatedAt: new Date().toISOString(),
       };
       setSession(state);
       if (typeof window !== 'undefined') {
         window.sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(state));
+        if (newSession.token) {
+          window.sessionStorage.setItem('odontoleal_jwt_token', newSession.token);
+        }
       }
     },
     []
@@ -203,6 +224,7 @@ export function useAuth(options?: {
 
       if (typeof window !== 'undefined') {
         window.sessionStorage.removeItem(SESSION_STORAGE_KEY);
+        window.sessionStorage.removeItem('odontoleal_jwt_token');
         window.history.pushState(null, '', '/login');
       }
 
@@ -210,6 +232,7 @@ export function useAuth(options?: {
     },
     [apiBase, clearTimers, options, session, unsavedFormDraft]
   );
+  logoutRef.current = logout;
 
   // Solicitar enlace y restablecer contraseña
   const requestPasswordRecovery = useCallback(
@@ -273,9 +296,16 @@ export function useAuth(options?: {
       if (!response.ok) {
         throw new Error(body.message || 'Error al buscar usuarios.');
       }
+      const rawData = Array.isArray(body.data)
+        ? body.data
+        : Array.isArray(body.data?.data)
+        ? body.data.data
+        : Array.isArray(body)
+        ? body
+        : [];
       return {
         message: body.message,
-        data: (body.data ?? []) as UserWithRolesDomainDTO[],
+        data: rawData as UserWithRolesDomainDTO[],
       };
     },
     [apiBase]
@@ -421,7 +451,8 @@ export function useAuth(options?: {
         (r) =>
           r.estadoAsignacion &&
           (r.codigo === 'ROL-ADM' ||
-            r.nombreRol.toLowerCase().includes('administrador'))
+            (r as any).codigoRol === 'ROL-ADM' ||
+            (r.nombreRol && r.nombreRol.toLowerCase().includes('administrador')))
       );
       if (isAdmin) return true;
       return session.permisos.includes(rfCode);

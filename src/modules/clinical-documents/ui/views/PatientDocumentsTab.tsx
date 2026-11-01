@@ -6,8 +6,8 @@ import { SickLeaveFormModal } from '../components/SickLeaveFormModal';
 import { ReferralFormModal } from '../components/ReferralFormModal';
 import { Button } from '../../../../shared/ui/components/Button';
 import { Badge } from '../../../../shared/ui/components/Badge';
-import { Modal } from '../../../../shared/ui/components/Modal';
 import { useAlertModal } from '../../../../shared/ui/hooks/useAlertModal';
+import { printClinicalDocument } from '../../application/print-clinical-document.service';
 
 export interface PatientDocumentsTabProps {
   idPaciente: number;
@@ -26,7 +26,56 @@ export const PatientDocumentsTab: React.FC<PatientDocumentsTabProps> = ({
   const [isPrescriptionModalOpen, setIsPrescriptionModalOpen] = useState(false);
   const [isSickLeaveModalOpen, setIsSickLeaveModalOpen] = useState(false);
   const [isReferralModalOpen, setIsReferralModalOpen] = useState(false);
-  const [selectedDocForView, setSelectedDocForView] = useState<ClinicalDocumentItem | null>(null);
+
+  const handlePrintItem = (doc: ClinicalDocumentItem) => {
+    if (doc.tipoDocumento === 'FORMULA') {
+      const meds = Array.isArray(doc.detalle?.medicamentos)
+        ? doc.detalle.medicamentos.map((m: any) => ({
+            medicamento_principio_activo: m.nombre || m.medicamento_principio_activo || '',
+            dosis_concentracion: m.dosis || m.dosis_concentracion || '',
+            frecuencia_via: m.frecuencia || m.frecuencia_via || '',
+            duracion_tratamiento: m.duracion || m.duracion_tratamiento || '',
+          }))
+        : [];
+      printClinicalDocument({
+        tipo: 'RECETA',
+        patientName,
+        doctorName: doc.profesionalNombre || doctorName,
+        doctorSignature: doc.detalle?.doctorSignature || (doc as any).firmaProfesional || null,
+        displayDate: doc.fechaEmision,
+        medications: meds,
+      });
+    } else if (doc.tipoDocumento === 'INCAPACIDAD') {
+      printClinicalDocument({
+        tipo: 'INCAPACIDAD',
+        patientName,
+        doctorName: doc.profesionalNombre || doctorName,
+        doctorSignature: doc.detalle?.doctorSignature || (doc as any).firmaProfesional || null,
+        displayDate: doc.fechaEmision,
+        diagnostico: doc.detalle?.diagnostico || doc.detalle?.diagnostico_justificacion,
+        incapacidad: {
+          dias_incapacidad: doc.detalle?.diasIncapacidad || doc.detalle?.dias_incapacidad,
+          fecha_inicio: doc.detalle?.fechaInicio || doc.detalle?.fecha_inicio,
+          fecha_fin: doc.detalle?.fechaFin || doc.detalle?.fecha_culminacion,
+          diagnostico_cie10: doc.detalle?.diagnostico,
+          observaciones: doc.detalle?.justificacion || doc.detalle?.observaciones,
+        },
+      });
+    } else if (doc.tipoDocumento === 'REMISION') {
+      printClinicalDocument({
+        tipo: 'REMISION',
+        patientName,
+        doctorName: doc.profesionalNombre || doctorName,
+        doctorSignature: doc.detalle?.doctorSignature || (doc as any).firmaProfesional || null,
+        displayDate: doc.fechaEmision,
+        remision: {
+          especialidad_destino: doc.detalle?.especialidadDestino || doc.detalle?.especialidad_destino,
+          motivo_remision: doc.detalle?.motivoResumen || doc.detalle?.motivo_resumen_clinico,
+          resumen_clinico: doc.detalle?.prioridad ? `Prioridad: ${doc.detalle.prioridad}` : undefined,
+        },
+      });
+    }
+  };
 
   const getDocBadge = (tipo: ClinicalDocumentItem['tipoDocumento']) => {
     switch (tipo) {
@@ -104,15 +153,7 @@ export const PatientDocumentsTab: React.FC<PatientDocumentsTabProps> = ({
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => setSelectedDocForView(doc)}
-                leftIcon={<span>👁️</span>}
-              >
-                Visualizar
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => window.print()}
+                onClick={() => handlePrintItem(doc)}
                 leftIcon={<span>🖨️</span>}
               >
                 Imprimir
@@ -190,49 +231,6 @@ export const PatientDocumentsTab: React.FC<PatientDocumentsTabProps> = ({
         }}
       />
 
-      {/* Visor de Documento */}
-      <Modal
-        isOpen={Boolean(selectedDocForView)}
-        onClose={() => setSelectedDocForView(null)}
-        title={selectedDocForView?.titulo}
-        subtitle={`Emitido por ${selectedDocForView?.profesionalNombre} • ${selectedDocForView?.fechaEmision}`}
-        maxWidth="2xl"
-        footer={
-          <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={() => setSelectedDocForView(null)}>
-              Cerrar
-            </Button>
-            <Button variant="primary" onClick={() => window.print()} leftIcon={<span>🖨️</span>}>
-              Imprimir Documento
-            </Button>
-          </div>
-        }
-      >
-        <div className="rounded-2xl border border-[#CBD2D9] bg-[#F8F9FA] p-6 space-y-4 text-xs">
-          <div className="text-center pb-3 border-b border-[#E2E6EA]">
-            <span className="font-extrabold text-[#D4AF37] uppercase block">
-              CONSULTORIO ODONTOLEAL
-            </span>
-            <p className="text-[11px] text-[#8F99A3]">Dr. Eduar Leal Álvarez • Dirección Médica</p>
-          </div>
-
-          <div>
-            <p className="font-bold text-[#1E242B]">Paciente: {patientName}</p>
-            <p className="text-[#687380]">Fecha de expedición: {selectedDocForView?.fechaEmision}</p>
-          </div>
-
-          <div className="rounded-xl bg-white border border-[#E2E6EA] p-4 space-y-2">
-            <pre className="whitespace-pre-wrap font-sans text-xs text-[#1E242B]">
-              {JSON.stringify(selectedDocForView?.detalle, null, 2)}
-            </pre>
-          </div>
-
-          <div className="pt-4 border-t border-[#E2E6EA] text-right">
-            <p className="font-bold text-[#1E242B]">{selectedDocForView?.profesionalNombre}</p>
-            <p className="text-[11px] text-[#8F99A3]">Firma Digital Validada (Flatten AES-256)</p>
-          </div>
-        </div>
-      </Modal>
     </div>
   );
 };

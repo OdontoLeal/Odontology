@@ -6,30 +6,59 @@ import { Badge } from '../../../../shared/ui/components/Badge';
 import { Modal } from '../../../../shared/ui/components/Modal';
 import { Input } from '../../../../shared/ui/components/Input';
 import { useAlertModal } from '../../../../shared/ui/hooks/useAlertModal';
+import { AVAILABLE_TEMPLATE_PLACEHOLDERS } from '../../domain/consent-template-interpolator';
+
+const SAMPLE_BLANQUEAMIENTO_TITLE =
+  'Consentimiento Informado para Tratamiento de Blanqueamiento Dental';
+
+const SAMPLE_BLANQUEAMIENTO_BODY = `CONSENTIMIENTO INFORMADO PARA TRATAMIENTO DE BLANQUEAMIENTO DENTAL
+CONSULTORIO ODONTOLÓGICO DR. EDUAR LEAL ÁLVAREZ
+
+Yo, {{nombre_paciente}}, identificado(a) con documento de identidad N.º {{documento_paciente}}, en pleno uso de mis facultades mentales, manifiesto que he sido informado(a) de manera clara, comprensible y oportuna por parte del profesional tratante sobre la naturaleza, alcances, beneficios, riesgos y cuidados del procedimiento de blanqueamiento dental.
+
+1. Declaración del Procedimiento y Riesgos:
+Comprendo que el blanqueamiento dental busca aclarar el tono de los dientes mediante agentes químicos controlados. Se me ha advertido que puedo experimentar sensibilidad dental transitoria durante o después del tratamiento, así como irritación gingival leve. Entiendo que el grado de aclaramiento varía en cada paciente y que las restauraciones existentes (resinas, coronas, carillas) no cambiarán de color con este procedimiento.
+
+2. Recomendaciones y Compromisos:
+Me comprometo a seguir las instrucciones post-tratamiento indicadas por el profesional tratante, incluyendo la restricción temporal de alimentos y bebidas con alta pigmentación (café, té, vino, bebidas oscuras) y el consumo de tabaco.
+
+3. Autorización:
+Habiendo resuelto todas mis inquietudes de manera satisfactoria y sin que medie coacción alguna, autorizo expresamente la realización del procedimiento de blanqueamiento dental.
+
+Firmante:
+{{leyenda_firmante}}{{datos_acudiente}}`;
 
 export const ConsentTemplatesAdminPage: React.FC = () => {
-  const { templates, toggleTemplateStatus, saveTemplate } = useConsents();
+  const { templates, toggleTemplateStatus, saveTemplate, isLoading } = useConsents();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<ConsentTemplateItem | null>(null);
 
   const [formTitle, setFormTitle] = useState('');
   const [formBody, setFormBody] = useState('');
-  const [formRequiresDocSign, setFormRequiresDocSign] = useState(true);
   const { showAlert, AlertModalComponent } = useAlertModal();
 
   const handleOpenCreate = () => {
     setEditingTemplate(null);
     setFormTitle('');
     setFormBody('');
-    setFormRequiresDocSign(true);
     setIsModalOpen(true);
+  };
+
+  const handleLoadSampleTemplate = () => {
+    setEditingTemplate(null);
+    setFormTitle(SAMPLE_BLANQUEAMIENTO_TITLE);
+    setFormBody(SAMPLE_BLANQUEAMIENTO_BODY);
+    setIsModalOpen(true);
+  };
+
+  const handleInsertVariable = (variable: string) => {
+    setFormBody((prev) => (prev ? `${prev} ${variable}` : variable));
   };
 
   const handleOpenEdit = (t: ConsentTemplateItem) => {
     setEditingTemplate(t);
     setFormTitle(t.titulo);
     setFormBody(t.cuerpoTexto);
-    setFormRequiresDocSign(t.requiereFirmaProfesional);
     setIsModalOpen(true);
   };
 
@@ -48,7 +77,6 @@ export const ConsentTemplatesAdminPage: React.FC = () => {
       idPlantilla: editingTemplate?.idPlantilla,
       titulo: formTitle.trim(),
       cuerpoTexto: formBody.trim(),
-      requiereFirmaProfesional: formRequiresDocSign,
     });
     setIsModalOpen(false);
   };
@@ -74,54 +102,92 @@ export const ConsentTemplatesAdminPage: React.FC = () => {
         </Button>
       </div>
 
-      {/* Grid de Plantillas */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {templates.map((tpl) => (
-          <div
-            key={tpl.idPlantilla}
-            className={`rounded-3xl border p-6 bg-white shadow-xs space-y-4 flex flex-col justify-between transition-all ${
-              tpl.activo ? 'border-[#E2E6EA]' : 'border-dashed border-[#CBD2D9] opacity-70'
-            }`}
-          >
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Badge label={`Versión v${tpl.version}.0`} variant="neutral" size="sm" />
-                <Badge
-                  label={tpl.activo ? 'Activa' : 'Inactiva'}
-                  variant={tpl.activo ? 'success' : 'neutral'}
-                  size="sm"
-                />
-              </div>
+      {/* Estado de carga */}
+      {isLoading && (
+        <div className="rounded-3xl border border-[#E2E6EA] bg-white p-12 text-center text-xs font-semibold text-[#687380] shadow-xs">
+          Cargando plantillas de consentimiento desde la base de datos...
+        </div>
+      )}
 
-              <h3 className="text-base font-extrabold text-[#1E242B]">
-                {tpl.titulo}
-              </h3>
-
-              <p className="text-xs text-[#687380] line-clamp-3 leading-relaxed">
-                {tpl.cuerpoTexto}
-              </p>
-
-              <div className="text-[11px] text-[#8F99A3] pt-2">
-                Fecha creación: {tpl.fechaCreacion} • {tpl.requiereFirmaProfesional ? 'Requiere firma del odontólogo' : 'Solo firma paciente'}
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between pt-3 border-t border-[#E2E6EA]">
-              <button
-                type="button"
-                onClick={() => toggleTemplateStatus(tpl.idPlantilla)}
-                className="text-xs font-bold text-[#687380] hover:text-[#1E242B] underline"
-              >
-                {tpl.activo ? 'Inactivar Plantilla' : 'Activar Plantilla'}
-              </button>
-
-              <Button size="sm" variant="outline" onClick={() => handleOpenEdit(tpl)}>
-                Editar (Genera v{tpl.version + 1}.0)
-              </Button>
-            </div>
+      {/* Estado vacío informativo cuando no hay plantillas en BD */}
+      {!isLoading && templates.length === 0 && (
+        <div className="rounded-3xl border-2 border-dashed border-[#CBD2D9] bg-white p-10 text-center space-y-4 shadow-xs">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-[#FBF3D5] text-[#B8942A] text-2xl">
+            📋
           </div>
-        ))}
-      </div>
+          <div className="max-w-md mx-auto space-y-1">
+            <h3 className="text-base font-extrabold text-[#1E242B]">
+              No hay plantillas de consentimientos en la base de datos
+            </h3>
+            <p className="text-xs text-[#687380] leading-relaxed">
+              Actualmente no existen plantillas de consentimiento informadas registradas. Para que los odontólogos y auxiliares puedan tomar consentimientos desde la ficha de los pacientes (RF-CON-001), registre al menos un modelo médico-legal.
+            </p>
+          </div>
+          <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
+            <Button variant="primary" onClick={handleOpenCreate} leftIcon={<span>+</span>}>
+              Crear Nueva Plantilla
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleLoadSampleTemplate}
+              leftIcon={<span>⚡</span>}
+            >
+              Cargar Plantilla Sugerida (Blanqueamiento Dental)
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Grid de Plantillas */}
+      {!isLoading && templates.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {templates.map((tpl) => (
+            <div
+              key={tpl.idPlantilla}
+              className={`rounded-3xl border p-6 bg-white shadow-xs space-y-4 flex flex-col justify-between transition-all ${
+                tpl.activo ? 'border-[#E2E6EA]' : 'border-dashed border-[#CBD2D9] opacity-70'
+              }`}
+            >
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Badge label={`Versión v${tpl.version}.0`} variant="neutral" size="sm" />
+                  <Badge
+                    label={tpl.activo ? 'Activa' : 'Inactiva'}
+                    variant={tpl.activo ? 'success' : 'neutral'}
+                    size="sm"
+                  />
+                </div>
+
+                <h3 className="text-base font-extrabold text-[#1E242B]">
+                  {tpl.titulo}
+                </h3>
+
+                <p className="text-xs text-[#687380] line-clamp-3 leading-relaxed whitespace-pre-line">
+                  {tpl.cuerpoTexto}
+                </p>
+
+                <div className="text-[11px] text-[#8F99A3] pt-2">
+                  Fecha actualización: {tpl.fechaCreacion}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-3 border-t border-[#E2E6EA]">
+                <button
+                  type="button"
+                  onClick={() => toggleTemplateStatus(tpl.idPlantilla)}
+                  className="text-xs font-bold text-[#687380] hover:text-[#1E242B] underline"
+                >
+                  {tpl.activo ? 'Inactivar Plantilla' : 'Activar Plantilla'}
+                </button>
+
+                <Button size="sm" variant="outline" onClick={() => handleOpenEdit(tpl)}>
+                  Editar (Genera v{tpl.version + 1}.0)
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Modal de Creación / Edición */}
       <Modal
@@ -137,32 +203,44 @@ export const ConsentTemplatesAdminPage: React.FC = () => {
             required
             value={formTitle}
             onChange={(e) => setFormTitle(e.target.value)}
-            placeholder="Ej: Consentimiento para Cirugía de Terceros Molares"
+            placeholder="Ej: Consentimiento para Tratamiento de Blanqueamiento Dental"
           />
 
           <div>
-            <label className="block text-xs font-extrabold uppercase tracking-wider text-[#687380] mb-1.5">
-              Cuerpo Legal del Documento <span className="text-[#DC2626]">*</span>
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-extrabold uppercase tracking-wider text-[#687380]">
+                Cuerpo Legal del Documento <span className="text-[#DC2626]">*</span>
+              </label>
+              <span className="text-[11px] text-[#8F99A3]">
+                Haga clic en una variable para insertarla en el texto
+              </span>
+            </div>
+
+            {/* Chips de variables disponibles (RF-CON-004) */}
+            <div className="mb-2 flex flex-wrap gap-1.5 p-2.5 rounded-xl bg-[#F8F9FA] border border-[#E2E6EA]">
+              {AVAILABLE_TEMPLATE_PLACEHOLDERS.map((v) => (
+                <button
+                  key={v.placeholder}
+                  type="button"
+                  onClick={() => handleInsertVariable(v.placeholder)}
+                  title={`${v.descripcion} (Ejemplo: ${v.ejemplo})`}
+                  className="inline-flex items-center gap-1 rounded-lg border border-[#D4AF37]/40 bg-[#FBF6E6] px-2 py-1 text-[11px] font-mono font-bold text-[#B8942A] hover:bg-[#D4AF37] hover:text-[#111111] transition-colors"
+                >
+                  <span>{v.placeholder}</span>
+                  <span className="text-[10px] opacity-70">+</span>
+                </button>
+              ))}
+            </div>
+
             <textarea
-              rows={8}
+              rows={9}
               required
               value={formBody}
               onChange={(e) => setFormBody(e.target.value)}
-              placeholder="Describa el procedimiento, objetivos, riesgos previsibles, molestias comunes, contraindicaciones y cuidados postoperatorios..."
+              placeholder="Describa el procedimiento, objetivos, riesgos previsibles, molestias comunes, contraindicaciones y cuidados postoperatorios. Use {{nombre_paciente}}, {{documento_paciente}}, {{leyenda_firmante}} para incrustar datos dinámicos..."
               className="w-full rounded-xl border border-[#E2E6EA] p-3 text-xs leading-relaxed text-[#1E242B] focus:border-[#D4AF37] focus:outline-none"
             />
           </div>
-
-          <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-[#1E242B]">
-            <input
-              type="checkbox"
-              checked={formRequiresDocSign}
-              onChange={(e) => setFormRequiresDocSign(e.target.checked)}
-              className="h-4 w-4 rounded text-[#D4AF37]"
-            />
-            Requiere incrustación de firma digital del odontólogo tratante (RF-DOC-004)
-          </label>
 
           <div className="flex justify-end gap-3 pt-4 border-t border-[#E2E6EA]">
             <Button variant="outline" type="button" onClick={() => setIsModalOpen(false)}>

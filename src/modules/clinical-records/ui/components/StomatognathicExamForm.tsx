@@ -40,61 +40,67 @@ const STRUCTURE_FIELDS: StructureDef[] = [
     nombre: 'Labios',
     icon: <LipIcon size={18} color="#D4AF37" className="mt-0.5 shrink-0" />,
     descripcion: 'Superior, inferior y comisuras labiales.',
-    defaultNA: 'N/A - Hidratados, normocoloreados y sin lesiones ni queilitis comisural.',
+    defaultNA: 'N/A',
   },
   {
     key: 'lengua',
     nombre: 'Lengua',
     icon: <TongueIcon size={18} color="#D4AF37" className="mt-0.5 shrink-0" />,
     descripcion: 'Dorso, bordes laterales, cara ventral y base.',
-    defaultNA: 'N/A - Lengua normoglosa, papilas íntegras, movilidad conservada sin alteraciones.',
+    defaultNA: 'N/A',
   },
   {
     key: 'carrillos_mucosa_yugal',
     nombre: 'Carrillos / Mucosa Yugal',
     icon: <CheeksIcon size={18} color="#D4AF37" className="mt-0.5 shrink-0" />,
     descripcion: 'Línea alba, desembocadura conducto Stenon.',
-    defaultNA: 'N/A - Mucosa yugal rosada, húmeda y flexible, sin mordeduras ni queratosis.',
+    defaultNA: 'N/A',
   },
   {
     key: 'amigdalas',
     nombre: 'Amígdalas',
     icon: <TonsilsIcon size={18} color="#D4AF37" className="mt-0.5 shrink-0" />,
     descripcion: 'Amígdalas y pilares amigdalinos anteriores y posteriores.',
-    defaultNA: 'N/A - Grado I simétricas, sin exudado, hiperemia ni compromiso infeccioso.',
+    defaultNA: 'N/A',
   },
   {
     key: 'paladar_duro',
     nombre: 'Paladar Duro',
     icon: <PalateIcon size={18} color="#D4AF37" className="mt-0.5 shrink-0" />,
     descripcion: 'Paladar duro, rugas palatinas y rafe medio.',
-    defaultNA: 'N/A - Bóveda palatina normal, mucosa queratinizada sana, sin torus ni fisuras.',
+    defaultNA: 'N/A',
   },
   {
     key: 'frenillos',
     nombre: 'Frenillos',
     icon: <FrenumIcon size={18} color="#D4AF37" className="mt-0.5 shrink-0" />,
     descripcion: 'Labial superior, labial inferior y lingual.',
-    defaultNA: 'N/A - Inserciones normoposicionadas sin tracción gingival ni limitación lingual.',
+    defaultNA: 'N/A',
   },
   {
     key: 'mucosa_masticadora',
     nombre: 'Mucosa Masticadora',
     icon: <ShieldIcon size={18} color="#D4AF37" className="mt-0.5 shrink-0" />,
     descripcion: 'Zonas edéntulas, rebordes alveolares y encía insertada.',
-    defaultNA: 'N/A - Rebordes íntegros, espesor de queratinización adecuado sin zonas dolorosas.',
+    defaultNA: 'N/A',
   },
   {
     key: 'encia',
     nombre: 'Encía',
     icon: <ToothIcon size={18} color="#D4AF37" className="mt-0.5 shrink-0" />,
     descripcion: 'Marginal, adherida e interdental.',
-    defaultNA: 'N/A - Encía rosa coral, consistencia firme, textura en cáscara de naranja, sin sangrado espontáneo.',
+    defaultNA: 'N/A',
   },
 ];
 
 function normalizeStructures(raw: any): ExamenEstomatognaticoDTO {
-  const base = { ...DEFAULT_EXAMEN_ESTOMATOGNATICO };
+  const base: any = {};
+  STRUCTURE_FIELDS.forEach(({ key }) => {
+    base[key] = {
+      presenta_anormalidades: false,
+      observaciones: '',
+    };
+  });
   if (!raw) return base;
 
   if (Array.isArray(raw)) {
@@ -120,15 +126,13 @@ function normalizeStructures(raw: any): ExamenEstomatognaticoDTO {
     return base;
   }
 
-  STRUCTURE_FIELDS.forEach(({ key, defaultNA }) => {
+  STRUCTURE_FIELDS.forEach(({ key }) => {
     if (raw[key]) {
       base[key] = {
         presenta_anormalidades: Boolean(
           raw[key].presenta_anormalidades ?? raw[key].presentaAnormalidad
         ),
-        observaciones:
-          raw[key].observaciones ??
-          (raw[key].presenta_anormalidades ? '' : defaultNA),
+        observaciones: raw[key].observaciones ?? '',
       };
     }
   });

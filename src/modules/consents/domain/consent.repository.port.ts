@@ -1,3 +1,4 @@
+// src/modules/consents/domain/consent.repository.port.ts
 import {
   ConsentTemplate,
   PatientSignedConsentDetail,
@@ -23,4 +24,5 @@ export interface IConsentRepository {
   findAllTemplates(onlyActive?: boolean): Promise<ConsentTemplate[]>;
   recordSignedConsent(dto: SignConsentDTO): Promise<SignedConsent>;
   getSignedConsentsByPatient(idPaciente: number): Promise<PatientSignedConsentDetail[]>;
+  findSignedConsentById?(idConsentimientoFirmado: number): Promise<PatientSignedConsentDetail | null>;
 }

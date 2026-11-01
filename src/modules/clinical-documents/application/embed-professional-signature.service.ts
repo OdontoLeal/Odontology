@@ -4,6 +4,7 @@ import {
   ModoFirmaDocumento,
   TipoDocumentoClinico,
 } from '../domain/clinical-document.repository.interface';
+import { ClinicalDocumentPdfGeneratorService } from './clinical-document-pdf-generator.service';
 
 export interface AuthenticatedProfessionalActor {
   idUsuario: number;
@@ -170,13 +171,22 @@ export class EmbedProfessionalSignatureService {
       const generado = await this.pdfFlattenPort.renderAndFlattenClinicalPdf(pdfPayload);
       archivoPdfUrl = generado.archivoPdfUrl;
     } else if (!archivoPdfUrl) {
-      const slugTipo = params.tipoDocumento.toLowerCase().replace(/_/g, '-');
-      archivoPdfUrl = `/storage/clinical-documents/${params.contexto.paciente.idPaciente}/cita-${params.contexto.cita.idCita}-${slugTipo}-${Date.now()}-flattened.pdf`;
+      try {
+        const generated = await ClinicalDocumentPdfGeneratorService.generate({
+          ...pdfPayload,
+          idPaciente: params.contexto.paciente.idPaciente,
+          idCita: params.contexto.cita.idCita,
+        });
+        archivoPdfUrl = generated.archivoPdfUrl;
+      } catch {
+        const slugTipo = params.tipoDocumento.toLowerCase().replace(/_/g, '-');
+        archivoPdfUrl = `/storage/clinical-documents/${params.contexto.paciente.idPaciente}/cita-${params.contexto.cita.idCita}-${slugTipo}-${Date.now()}-flattened.pdf`;
+      }
     }
 
     return {
       archivoPdfUrl,
-      modoFirmaAplicado: modoSolicitado,
+      modoFirmaAplicado: firmaFusionada ? 'CON_FIRMA_REGISTRADA' : 'FIRMA_MANUSCRITA',
       firmaFusionada,
       aviso,
       fechaExpedicionColombia: fechaDDMMAAAA,

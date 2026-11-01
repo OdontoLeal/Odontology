@@ -1,4 +1,5 @@
 import { db } from '../../../shared/infrastructure/database/database';
+import { PatientRepository } from '../../patients/infrastructure/patient.repository';
 import {
   ClinicalDocumentRecord,
   ConsultationContextData,
@@ -153,6 +154,7 @@ export class ClinicalDocumentRepository implements IClinicalDocumentRepository {
         c.id_usuario AS "idProfesionalResponsable",
         c.estado AS "estadoCita",
         u.nombre_completo AS "nombreProfesionalResponsable",
+        u.firma_base64 AS "firmaProfesional",
         (
           SELECT MIN(bc.id_bloque)
           FROM public.bloques_citas bc
@@ -179,13 +181,13 @@ export class ClinicalDocumentRepository implements IClinicalDocumentRepository {
         fechaNacimiento: row.fechaNacimiento,
         sexo: row.sexo,
         idHistoria: row.idHistoria,
-        acudiente: null,
+        acudiente: (PatientRepository.getMetadata(row.id_paciente)?.acudiente as any) ?? null,
       },
       cita: {
         idCita: row.idCita,
         idProfesionalResponsable: row.idProfesionalResponsable,
         nombreProfesionalResponsable: row.nombreProfesionalResponsable,
-        firmaProfesionalUrl: null,
+        firmaProfesionalUrl: row.firmaProfesional || null,
         estado: row.estadoCita,
         fechaInicioCita: row.fechaInicioCita,
       },

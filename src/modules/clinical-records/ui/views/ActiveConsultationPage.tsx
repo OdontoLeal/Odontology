@@ -24,6 +24,8 @@ export interface ActiveConsultationPageProps {
   patientAge?: number;
   patientSex?: string;
   doctorName?: string;
+  doctorSignature?: string | null;
+  doctorRole?: string;
   treatmentTitle?: string;
   appointmentDate?: string;
   appointmentTime?: string;
@@ -41,7 +43,9 @@ export const ActiveConsultationPage: React.FC<ActiveConsultationPageProps> = ({
   patientAge,
   patientSex,
   doctorName = 'Dr. Eduar Leal Álvarez',
-  treatmentTitle = 'Atención y Valoración Odontológica',
+  doctorSignature = null,
+  doctorRole = 'Odontólogo General',
+  treatmentTitle = '',
   appointmentDate,
   appointmentTime,
   onBackToAgenda,
@@ -49,6 +53,67 @@ export const ActiveConsultationPage: React.FC<ActiveConsultationPageProps> = ({
 }) => {
   const { history, currentOdontogram, isLoading, saveEvolutionEntry } = useClinicalRecord(idPaciente);
   const { showAlert, showConfirm, AlertModalComponent } = useAlertModal();
+
+  // Asegurar que la cita esté en estado "En consulta" en la BD al abrir el espacio clínico
+  useEffect(() => {
+    if (idCita) {
+      fetch(`/api/v1/appointments/${idCita}/state`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nuevoEstado: 'En consulta',
+          motivo: 'Atención odontológica activa en curso',
+        }),
+      }).catch((err) => {
+        console.error('Error sincronizando estado En consulta:', err);
+      });
+    }
+  }, [idCita]);
+
+  // Datos del doctor asignado a la cita (asociación y firma digital del profesional)
+  const [attendingDoctor, setAttendingDoctor] = useState<{
+    name: string;
+    signature: string | null;
+    role: string;
+  }>({
+    name: doctorName,
+    signature: doctorSignature,
+    role: doctorRole,
+  });
+
+  // Resolver el doctor real que atendió o tiene asignada la cita desde la BD y su firma digital
+  useEffect(() => {
+    let isMounted = true;
+    if (doctorName && doctorSignature) {
+      setAttendingDoctor({
+        name: doctorName,
+        signature: doctorSignature,
+        role: doctorRole,
+      });
+    }
+
+    if (idCita) {
+      fetch('/api/v1/appointments/agenda')
+        .then((res) => (res.ok ? res.json() : null))
+        .then((json) => {
+          if (!isMounted) return;
+          const list: any[] = json?.data || [];
+          const match = list.find((a: any) => Number(a.idCita) === Number(idCita));
+          if (match && match.nombreProfesional) {
+            setAttendingDoctor((prev) => ({
+              name: match.nombreProfesional || prev.name,
+              signature: match.firmaProfesional ?? prev.signature,
+              role: prev.role,
+            }));
+          }
+        })
+        .catch(() => {});
+    }
+
+    return () => {
+      isMounted = false;
+    };
+  }, [idCita, doctorName, doctorSignature, doctorRole]);
 
   // Modal de Odontograma Ampliado
   const [isExpandedOdontogramOpen, setIsExpandedOdontogramOpen] = useState(false);
@@ -70,6 +135,17 @@ export const ActiveConsultationPage: React.FC<ActiveConsultationPageProps> = ({
     return otherCita || history[0];
   }, [history, idCita]);
 
+  // Si la evolución previa ya tiene datos del profesional que atendió, sincronizarlos
+  useEffect(() => {
+    if (previousEvolution?.profesional?.nombreCompleto) {
+      setAttendingDoctor((prev) => ({
+        name: previousEvolution.profesional.nombreCompleto || prev.name,
+        signature: previousEvolution.profesional.firmaBase64 ?? prev.signature,
+        role: previousEvolution.profesional.rol || prev.role,
+      }));
+    }
+  }, [previousEvolution]);
+
   // Inicialización inteligente de datos (Precarga automática de la última consulta)
   const initialFormData = useMemo<Partial<EvolutionFormData>>(() => {
     const isSameCita = previousEvolution && Number(previousEvolution.idCita) === Number(idCita);
@@ -77,7 +153,7 @@ export const ActiveConsultationPage: React.FC<ActiveConsultationPageProps> = ({
     if (isSameCita && previousEvolution) {
       // Reabriendo o editando la consulta actual
       return {
-        motivoConsulta: previousEvolution.motivoConsulta || treatmentTitle || '',
+        motivoConsulta: previousEvolution.motivoConsulta || '',
         enfermedadActual: previousEvolution.enfermedadActual || '',
         antecedentesClinicos: previousEvolution.antecedentesClinicos || DEFAULT_ANTECEDENTES_CLINICOS,
         habitosHigiene: previousEvolution.habitosHigiene || DEFAULT_HABITOS_HIGIENE,
@@ -96,7 +172,7 @@ export const ActiveConsultationPage: React.FC<ActiveConsultationPageProps> = ({
     if (previousEvolution) {
       // Precarga automática desde la consulta previa para una NUEVA cita:
       return {
-        motivoConsulta: treatmentTitle || '',
+        motivoConsulta: '',
         enfermedadActual: '',
         antecedentesClinicos: previousEvolution.antecedentesClinicos || DEFAULT_ANTECEDENTES_CLINICOS,
         habitosHigiene: previousEvolution.habitosHigiene || DEFAULT_HABITOS_HIGIENE,
@@ -114,7 +190,7 @@ export const ActiveConsultationPage: React.FC<ActiveConsultationPageProps> = ({
 
     // Primera vez que el paciente asiste (sin consultas previas)
     return {
-      motivoConsulta: treatmentTitle || '',
+      motivoConsulta: '',
       enfermedadActual: '',
       antecedentesClinicos: DEFAULT_ANTECEDENTES_CLINICOS,
       habitosHigiene: DEFAULT_HABITOS_HIGIENE,
@@ -128,7 +204,7 @@ export const ActiveConsultationPage: React.FC<ActiveConsultationPageProps> = ({
       odontograma: workingOdontogram || currentOdontogram,
       planManejo: DEFAULT_PLAN_MANEJO,
     };
-  }, [previousEvolution, idCita, treatmentTitle, workingOdontogram, currentOdontogram]);
+  }, [previousEvolution, idCita, workingOdontogram, currentOdontogram]);
 
   // Fecha legible
   const displayDate = useMemo(() => {
@@ -181,6 +257,17 @@ export const ActiveConsultationPage: React.FC<ActiveConsultationPageProps> = ({
 
   const handleOfficialSubmit = async (formData: EvolutionFormData) => {
     try {
+      if (idCita) {
+        await fetch(`/api/v1/appointments/${idCita}/state`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            nuevoEstado: 'En consulta',
+            motivo: 'Atención clínica activa en curso',
+          }),
+        }).catch(() => {});
+      }
+
       await saveEvolutionEntry({
         idCita,
         motivoConsulta: formData.motivoConsulta,
@@ -199,6 +286,17 @@ export const ActiveConsultationPage: React.FC<ActiveConsultationPageProps> = ({
         planManejo: formData.planManejo,
       });
 
+      if (idCita) {
+        await fetch(`/api/v1/appointments/${idCita}/state`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            nuevoEstado: 'Atendida',
+            motivo: 'Atención odontológica concluida con éxito tras registro de evolución clínica.',
+          }),
+        }).catch((err) => console.error('Error actualizando estado a Atendida:', err));
+      }
+
       showAlert({
         title: '¡Evolución Registrada con Éxito!',
         message:
@@ -206,6 +304,7 @@ export const ActiveConsultationPage: React.FC<ActiveConsultationPageProps> = ({
         type: 'success',
         confirmText: 'Aceptar',
         onConfirm: () => onFinishConsultation(idCita),
+        onCancel: () => onFinishConsultation(idCita),
       });
     } catch (err: any) {
       showAlert({
@@ -254,7 +353,9 @@ export const ActiveConsultationPage: React.FC<ActiveConsultationPageProps> = ({
         patientDoc={patientDoc}
         patientAge={patientAge}
         patientSex={patientSex}
-        doctorName={doctorName}
+        doctorName={attendingDoctor.name}
+        doctorSignature={attendingDoctor.signature}
+        doctorRole={attendingDoctor.role}
         displayDate={displayDate}
         initialData={initialFormData}
         odontogram={workingOdontogram}

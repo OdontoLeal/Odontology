@@ -124,19 +124,39 @@ export class ClinicalDocumentsController {
     }
   };
 
+  // DEF-01 & CPS-DOC-005-02: Exigir sesión y segregar acceso por rol
   getPatientDocuments = async (req: Request, res: Response): Promise<void> => {
     try {
-      const idPaciente = Number(req.params.idPaciente);
       const sessionUser = (req as any).user;
+      const headerRole = (req.headers['x-user-roles'] || req.headers['x-user-role']) as string;
+      const hasAuth = Boolean(sessionUser || headerRole || req.headers['authorization']);
 
-      const roles: string[] =
-        sessionUser?.roles ??
-        (req.headers['x-user-roles']
-          ? String(req.headers['x-user-roles'])
-              .split(',')
-              .map((r) => r.trim())
-          : ['ROL-ODO']);
+      if (!hasAuth) {
+        res.status(401).json({
+          message: 'Se requiere autenticación para consultar documentos clínicos.',
+        });
+        return;
+      }
 
+      const roles: string[] = Array.isArray(sessionUser?.roles)
+        ? sessionUser.roles.map((r: any) => (typeof r === 'string' ? r : r.codigoRol || r.nombreRol))
+        : headerRole
+        ? headerRole.split(',').map((r) => r.trim())
+        : [];
+
+      const isAllowed =
+        roles.includes('ROL-ODO') ||
+        roles.includes('ROL-ESP') ||
+        roles.includes('ROL-ADM');
+
+      if (!isAllowed) {
+        res.status(403).json({
+          message: 'No tiene permiso para consultar documentos clínicos.',
+        });
+        return;
+      }
+
+      const idPaciente = Number(req.params.idPaciente);
       const result = await this.getClinicalDocumentsUseCase.execute({
         idPaciente,
         actor: {

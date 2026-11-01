@@ -55,6 +55,7 @@ export class DeleteRoleUseCase {
       nombreRol: targetRole.nombre_rol,
       descripcion: targetRole.descripcion ?? '',
       permisos: targetRole.permisos ?? [],
+      esInicial: targetRole.es_inicial,
     });
 
     const assignedUsersCount = this.userRepository.countUsersByRole

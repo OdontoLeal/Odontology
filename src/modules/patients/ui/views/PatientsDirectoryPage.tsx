@@ -10,10 +10,16 @@ import { Modal } from '../../../../shared/ui/components/Modal';
 export interface PatientsDirectoryPageProps {
   onSelectPatient: (patient: PatientListItem, tab?: 'APPOINTMENTS' | 'CLINICAL' | 'CONSENTS' | 'DOCUMENTS') => void;
   onOpenPrivacyNotice?: () => void;
+  onOpenHolderDataQuery?: () => void;
+  canCreatePatient?: boolean;
+  canAccessHabeasData?: boolean;
 }
 
 export const PatientsDirectoryPage: React.FC<PatientsDirectoryPageProps> = ({
   onSelectPatient,
+  onOpenHolderDataQuery,
+  canCreatePatient = true,
+  canAccessHabeasData = false,
 }) => {
   const { patients, isLoading, createPatient, updatePatient } = usePatients();
   const [searchQuery, setSearchQuery] = useState('');
@@ -23,6 +29,21 @@ export const PatientsDirectoryPage: React.FC<PatientsDirectoryPageProps> = ({
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [editingPatient, setEditingPatient] = useState<PatientListItem | null>(null);
   const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
+
+  // DEF-17 & CPS-HCL-004-02: Ocultar botón de historia clínica para Coordinadora (ROL-COA)
+  const isCoordinator = useMemo(() => {
+    try {
+      const saved = window.sessionStorage.getItem('odontoleal_active_session_v1');
+      if (!saved) return false;
+      const parsed = JSON.parse(saved);
+      const roles: any[] = parsed?.usuario?.roles || [];
+      const roleCodes = roles.map((r) => (typeof r === 'string' ? r : r.codigoRol || r.nombreRol));
+      const hasClinicalRole = roleCodes.some((rc) => ['ROL-ODO', 'ROL-ESP', 'ROL-ADM'].includes(rc));
+      return roleCodes.includes('ROL-COA') && !hasClinicalRole;
+    } catch {
+      return false;
+    }
+  }, []);
 
   const filteredPatients = useMemo(() => {
     let result = [...patients];
@@ -97,17 +118,29 @@ export const PatientsDirectoryPage: React.FC<PatientsDirectoryPageProps> = ({
             Gestión y consulta centralizada de pacientes, historias clínicas e información de contacto médico-odontológico.
           </p>
         </div>
-        <Button
-          variant="primary"
-          onClick={handleOpenCreate}
-          leftIcon={
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-          }
-        >
-          Nuevo paciente
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          {onOpenHolderDataQuery && canAccessHabeasData && (
+            <Button
+              variant="outline"
+              onClick={onOpenHolderDataQuery}
+            >
+              Datos del Titular (Habeas Data)
+            </Button>
+          )}
+          {canCreatePatient && (
+            <Button
+              variant="primary"
+              onClick={handleOpenCreate}
+              leftIcon={
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+              }
+            >
+              Nuevo paciente
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Barra de Filtros y Búsqueda */}
@@ -156,7 +189,18 @@ export const PatientsDirectoryPage: React.FC<PatientsDirectoryPageProps> = ({
       {/* Lista de Tarjetas de Pacientes */}
       <div className="space-y-3">
         {isLoading ? (
-          <div className="text-center py-12 text-[#8F99A3]">Cargando directorio de pacientes...</div>
+          <div className="rounded-2xl border border-[#E2E6EA] bg-white p-12 text-center space-y-4 shadow-2xs">
+            <div className="h-12 w-12 mx-auto rounded-2xl bg-[#FFFBEB] text-[#D4AF37] flex items-center justify-center border border-[#FDE68A]">
+              <div className="w-5 h-5 border-2 border-[#D4AF37] border-t-transparent rounded-full animate-spin" />
+            </div>
+            <p className="text-sm font-bold text-[#1E242B]">Cargando directorio de pacientes...</p>
+            <p className="text-xs text-[#687380]">Obteniendo registros desde la base de datos...</p>
+            <div className="space-y-3 max-w-2xl mx-auto pt-2">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="h-20 bg-gray-50 border border-gray-100 rounded-2xl animate-pulse" />
+              ))}
+            </div>
+          </div>
         ) : filteredPatients.length === 0 ? (
           <div className="text-center py-12 rounded-2xl bg-white border border-[#E2E6EA] p-8 space-y-2">
             <p className="text-base font-bold text-[#1E242B]">No se encontraron pacientes</p>
@@ -220,18 +264,20 @@ export const PatientsDirectoryPage: React.FC<PatientsDirectoryPageProps> = ({
 
               {/* Acciones de la Tarjeta */}
               <div className="flex items-center gap-2 self-end md:self-center flex-shrink-0">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => onSelectPatient(patient, 'CLINICAL')}
-                  leftIcon={
-                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                  }
-                >
-                  Ver historia clínica
-                </Button>
+                {!isCoordinator && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => onSelectPatient(patient, 'CLINICAL')}
+                    leftIcon={
+                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                    }
+                  >
+                    Ver historia clínica
+                  </Button>
+                )}
                 <Button
                   size="sm"
                   variant="outline"

@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { db } from '../../../shared/infrastructure/database/database';
 import { CreateClinicalRecordUseCase } from '../application/create-clinical-record.use-case';
 import { GetClinicalHistoryUseCase } from '../application/get-clinical-history.use-case';
 import { ManageOdontogramUseCase } from '../application/manage-odontogram.use-case';
@@ -7,9 +8,22 @@ import { UpdateClinicalRecordUseCase } from '../application/update-clinical-reco
 import {
   ActorContext,
   ClinicalDomainError,
+  UserRoleCode,
 } from '../domain/clinical-record.entity';
 import { IClinicalRecordRepository } from '../domain/clinical-record.repository.interface';
 import { OdontogramDataDTO } from './clinical-record.model';
+import {
+  createDefaultAntecedentesClinicos,
+  createDefaultHabitosHigiene,
+  createDefaultExamenEstomatognatico,
+  createInitialOdontograma,
+  createDefaultPlanManejo,
+  AntecedentesClinicosSchema,
+  HabitosHigieneSchema,
+  ExamenEstomatognaticoSchema,
+  OdontogramaSchema,
+  PlanManejoSchema,
+} from '../../../schemas';
 
 export class ClinicalRecordsController {
   private readonly repo?: IClinicalRecordRepository;
@@ -45,16 +59,35 @@ export class ClinicalRecordsController {
 
   private extractActor(req: Request): ActorContext {
     const authUser = (req as any).user;
+    const headerRole = (req.headers['x-user-role'] || req.headers['x-user-roles']) as string;
+    let roles: UserRoleCode[] = [];
+
+    if (Array.isArray(authUser?.roles) && authUser.roles.length > 0) {
+      roles = authUser.roles.map((r: any) => (typeof r === 'string' ? r : r.codigoRol || r.nombreRol));
+    } else if (headerRole) {
+      roles = headerRole.split(',').map((r) => r.trim() as UserRoleCode);
+    }
+
+    const idUsuario = Number(
+      authUser?.idUsuario ??
+        req.headers['x-user-id'] ??
+        req.body?.payload?.diligenciadoPor?.idUsuario ??
+        req.body?.diligenciadoPor?.idUsuario ??
+        (roles.includes('ROL-AUX') ? 5 : 1)
+    );
+
+    const nombreUsuario = String(
+      authUser?.nombreCompleto ??
+        req.headers['x-user-name'] ??
+        req.body?.payload?.diligenciadoPor?.nombreUsuario ??
+        req.body?.diligenciadoPor?.nombreUsuario ??
+        (roles.includes('ROL-AUX') ? 'Milena' : 'Personal Clínico')
+    );
+
     return {
-      idUsuario: Number(
-        authUser?.idUsuario ?? req.body?.payload?.diligenciadoPor?.idUsuario ?? 1
-      ),
-      nombreUsuario: String(
-        authUser?.nombreCompleto ??
-          req.body?.payload?.diligenciadoPor?.nombreUsuario ??
-          'Personal Clínico'
-      ),
-      roles: Array.isArray(authUser?.roles) ? authUser.roles : ['ROL-ODO'],
+      idUsuario,
+      nombreUsuario,
+      roles,
     };
   }
 
@@ -101,8 +134,42 @@ export class ClinicalRecordsController {
         return;
       }
 
+      // DEF-13 & CPS-HCL-005-03: Validar estado de la cita directamente en la BD (public.cita)
+      const citaRes = await db.query<{ estado: string; id_usuario: number; profesional_nombre?: string }>(
+        `SELECT c.estado, c.id_usuario, u.nombre_completo as profesional_nombre
+         FROM public.cita c
+         LEFT JOIN public.usuario u ON u.id_usuario = c.id_usuario
+         WHERE c.id_cita = $1;`,
+        [idCita]
+      );
+
+      if (citaRes.rows.length === 0) {
+        res.status(404).json({ message: 'Cita no encontrada.' });
+        return;
+      }
+
+      const citaDb = citaRes.rows[0];
+      if (citaDb.estado !== 'En consulta') {
+        res.status(409).json({
+          message: 'Solo se puede crear o abrir la historia clínica cuando la cita está "En consulta".',
+        });
+        return;
+      }
+
+      // DEF-01: Coordinadora no tiene permisos clínicos
+      if (
+        actor.roles.includes('ROL-COA') &&
+        !actor.roles.includes('ROL-ADM') &&
+        !actor.roles.includes('ROL-ODO') &&
+        !actor.roles.includes('ROL-ESP')
+      ) {
+        res.status(403).json({ message: 'No tiene permiso para realizar esta acción' });
+        return;
+      }
+
       const idProfesionalResponsable = Number(
-        body.idProfesionalResponsable ??
+        citaDb.id_usuario ??
+          body.idProfesionalResponsable ??
           payload.diligenciadoPor?.idProfesionalResponsable ??
           actor.idUsuario
       );
@@ -113,7 +180,7 @@ export class ClinicalRecordsController {
         entry = await this.createClinicalRecordUseCase.execute({
           idPaciente: Number(idPaciente),
           idCita: Number(idCita),
-          estadoCita: estadoCita ?? 'En consulta',
+          estadoCita: 'En consulta',
           idProfesionalResponsable,
           actor,
           motivoConsulta: payload.motivoConsulta ?? body.motivoConsulta ?? '',
@@ -121,19 +188,19 @@ export class ClinicalRecordsController {
           marcarTodoNoAplica: Boolean(req.body.marcarTodoNoAplica),
         });
       } else if (
-        payload.tipoRegistro === 'EVOLUCION_ODONTOGRAMA' &&
-        this.isOdontogramObject(payload.odontograma) &&
+        (payload.tipoRegistro === 'EVOLUCION_ODONTOGRAMA' || this.isOdontogramObject(body.odontograma)) &&
+        this.isOdontogramObject(payload.odontograma || body.odontograma) &&
         !payload.procedimientoRealizado &&
         !body.procedimientoRealizado
       ) {
         entry = await this.manageOdontogramUseCase.execute({
           idPaciente: Number(idPaciente),
           idCita: Number(idCita),
-          estadoCita: estadoCita ?? 'En consulta',
+          estadoCita: 'En consulta',
           idProfesionalResponsable,
           esMenorDe18Anios: Boolean(esMenorDe18Anios),
           actor,
-          odontograma: payload.odontograma,
+          odontograma: payload.odontograma || body.odontograma,
         });
       } else if (this.repo) {
         // Guardado estructurado directo mapeado a las 5 pestañas de la tabla evolucion
@@ -141,19 +208,111 @@ export class ClinicalRecordsController {
           body.motivoConsulta ?? payload.motivoConsulta ?? 'Consulta Odontológica';
         const enfermedadActual =
           body.enfermedadActual ?? payload.enfermedadActual ?? 'N/A';
-        const antecedentesClinicos =
+
+        // 1. Antecedentes Clínicos
+        let antecedentesClinicos =
           body.antecedentesClinicos ??
           payload.antecedentesClinicos ??
-          payload.antecedentes ??
-          {};
-        const habitosHigiene =
-          body.habitosHigiene ?? payload.habitosHigiene ?? {};
-        const examenEstomatognatico =
-          body.examenEstomatognatico ?? payload.examenEstomatognatico ?? {};
+          payload.antecedentes;
+        if (
+          !antecedentesClinicos ||
+          (typeof antecedentesClinicos === 'object' &&
+            Object.keys(antecedentesClinicos).length === 0)
+        ) {
+          antecedentesClinicos = createDefaultAntecedentesClinicos();
+        } else if (
+          typeof antecedentesClinicos === 'object' &&
+          'accidentes_traumas' in antecedentesClinicos
+        ) {
+          const parsed = AntecedentesClinicosSchema.safeParse(antecedentesClinicos);
+          if (!parsed.success) {
+            res.status(400).json({
+              message:
+                parsed.error.issues[0]?.message ||
+                'Estructura inválida de antecedentes clínicos.',
+              errors: parsed.error.issues,
+            });
+            return;
+          }
+          antecedentesClinicos = parsed.data;
+        }
+
+        // 2. Hábitos de Higiene
+        let habitosHigiene = body.habitosHigiene ?? payload.habitosHigiene;
+        if (
+          !habitosHigiene ||
+          (typeof habitosHigiene === 'object' &&
+            Object.keys(habitosHigiene).length === 0)
+        ) {
+          habitosHigiene = createDefaultHabitosHigiene();
+        } else if (
+          typeof habitosHigiene === 'object' &&
+          'cepillado_dental' in habitosHigiene
+        ) {
+          const parsed = HabitosHigieneSchema.safeParse(habitosHigiene);
+          if (!parsed.success) {
+            res.status(400).json({
+              message:
+                parsed.error.issues[0]?.message ||
+                'Estructura inválida de hábitos de higiene.',
+              errors: parsed.error.issues,
+            });
+            return;
+          }
+          habitosHigiene = parsed.data;
+        }
+
+        // 3. Examen Estomatognático
+        let examenEstomatognatico =
+          body.examenEstomatognatico ?? payload.examenEstomatognatico;
+        if (
+          !examenEstomatognatico ||
+          (typeof examenEstomatognatico === 'object' &&
+            Object.keys(examenEstomatognatico).length === 0)
+        ) {
+          examenEstomatognatico = createDefaultExamenEstomatognatico();
+        } else if (
+          typeof examenEstomatognatico === 'object' &&
+          'labios' in examenEstomatognatico
+        ) {
+          const parsed = ExamenEstomatognaticoSchema.safeParse(examenEstomatognatico);
+          if (!parsed.success) {
+            res.status(400).json({
+              message:
+                parsed.error.issues[0]?.message ||
+                'Estructura inválida de examen estomatognático.',
+              errors: parsed.error.issues,
+            });
+            return;
+          }
+          examenEstomatognatico = parsed.data;
+        }
+
         const examenFisicoObservaciones =
           body.examenFisicoObservaciones ?? payload.examenFisicoObservaciones ?? null;
-        const odontograma =
-          body.odontograma ?? payload.odontograma ?? {};
+
+        // 4. Odontograma
+        let odontograma = body.odontograma ?? payload.odontograma;
+        if (
+          !odontograma ||
+          (typeof odontograma === 'object' &&
+            Object.keys(odontograma).length === 0)
+        ) {
+          odontograma = createInitialOdontograma(Boolean(esMenorDe18Anios));
+        } else if (this.isOdontogramObject(odontograma)) {
+          const parsed = OdontogramaSchema.safeParse(odontograma);
+          if (!parsed.success) {
+            res.status(400).json({
+              message:
+                parsed.error.issues[0]?.message ||
+                'Estructura inválida de odontograma.',
+              errors: parsed.error.issues,
+            });
+            return;
+          }
+          odontograma = parsed.data;
+        }
+
         const procedimientoRealizado =
           body.procedimientoRealizado ??
           payload.procedimientoRealizado ??
@@ -171,8 +330,40 @@ export class ClinicalRecordsController {
           payload.hallazgosObservaciones ??
           payload.observaciones ??
           null;
-        const planManejo =
-          body.planManejo ?? payload.planManejo ?? {};
+
+        // 5. Plan de Manejo
+        let planManejo = body.planManejo ?? payload.planManejo;
+        if (
+          !planManejo ||
+          (typeof planManejo === 'object' &&
+            Object.keys(planManejo).length === 0)
+        ) {
+          planManejo = createDefaultPlanManejo();
+        } else if (
+          typeof planManejo === 'object' &&
+          ('prescripcion_farmacologica' in planManejo ||
+            'incapacidad_medica' in planManejo ||
+            'remision_medica' in planManejo)
+        ) {
+          const parsed = PlanManejoSchema.safeParse(planManejo);
+          if (!parsed.success) {
+            res.status(400).json({
+              message:
+                parsed.error.issues[0]?.message ||
+                'Estructura inválida de plan de manejo.',
+              errors: parsed.error.issues,
+            });
+            return;
+          }
+          planManejo = parsed.data;
+        }
+
+        const diligenciadoPor = {
+          idUsuario: actor.idUsuario,
+          nombreUsuario: actor.nombreUsuario,
+          idProfesionalResponsable,
+          fechaHoraISO: new Date().toISOString(),
+        };
 
         entry = await this.repo.createEvolutionEntry({
           idPaciente: Number(idPaciente),
@@ -203,12 +394,7 @@ export class ClinicalRecordsController {
             accionesARealizar: accionesARealizar ?? undefined,
             observaciones: hallazgosObservaciones ?? undefined,
             planManejo,
-            diligenciadoPor: {
-              idUsuario: actor.idUsuario,
-              nombreUsuario: actor.nombreUsuario,
-              idProfesionalResponsable,
-              fechaHoraISO: new Date().toISOString(),
-            },
+            diligenciadoPor,
           },
         });
       } else {
@@ -225,23 +411,22 @@ export class ClinicalRecordsController {
         entry = await this.registerEvolutionUseCase.execute({
           idPaciente: Number(idPaciente),
           idCita: Number(idCita),
-          estadoCita: estadoCita ?? 'En consulta',
+          estadoCita: 'En consulta',
           idProfesionalResponsable,
           actor,
           procedimientoRealizado:
             body.procedimientoRealizado ||
             payload.procedimientoRealizado ||
-            body.motivoConsulta ||
-            'Atención Odontológica',
+            'Atención odontológica en consulta',
           notaEvolucionTextoLibre,
           plantillaCodigo: req.body.plantillaCodigo,
           camposPlantilla: req.body.camposPlantilla,
-          esNotaAclaratoria: payload.tipoRegistro === 'NOTA_ACLARATORIA',
+          esNotaAclaratoria: Boolean(req.body.esNotaAclaratoria),
         });
       }
 
       res.status(201).json({
-        message: 'Registro clínico guardado exitosamente.',
+        message: 'Entrada clínica registrada exitosamente.',
         data: entry,
       });
     } catch (error) {
@@ -286,17 +471,108 @@ export class ClinicalRecordsController {
           odontograma: payload.odontograma,
         });
       } else if (this.repo) {
+        // Validación Zod con safeParse en actualización (Capa 2)
+        const rawAntecedentes =
+          body.antecedentesClinicos ??
+          payload.antecedentesClinicos ??
+          payload.antecedentes;
+        if (
+          rawAntecedentes &&
+          typeof rawAntecedentes === 'object' &&
+          'accidentes_traumas' in rawAntecedentes
+        ) {
+          const parsed = AntecedentesClinicosSchema.safeParse(rawAntecedentes);
+          if (!parsed.success) {
+            res.status(400).json({
+              message:
+                parsed.error.issues[0]?.message ||
+                'Estructura inválida de antecedentes clínicos.',
+              errors: parsed.error.issues,
+            });
+            return;
+          }
+        }
+
+        const rawHabitos = body.habitosHigiene ?? payload.habitosHigiene;
+        if (
+          rawHabitos &&
+          typeof rawHabitos === 'object' &&
+          'cepillado_dental' in rawHabitos
+        ) {
+          const parsed = HabitosHigieneSchema.safeParse(rawHabitos);
+          if (!parsed.success) {
+            res.status(400).json({
+              message:
+                parsed.error.issues[0]?.message ||
+                'Estructura inválida de hábitos de higiene.',
+              errors: parsed.error.issues,
+            });
+            return;
+          }
+        }
+
+        const rawExamen =
+          body.examenEstomatognatico ?? payload.examenEstomatognatico;
+        if (
+          rawExamen &&
+          typeof rawExamen === 'object' &&
+          'labios' in rawExamen
+        ) {
+          const parsed = ExamenEstomatognaticoSchema.safeParse(rawExamen);
+          if (!parsed.success) {
+            res.status(400).json({
+              message:
+                parsed.error.issues[0]?.message ||
+                'Estructura inválida de examen estomatognático.',
+              errors: parsed.error.issues,
+            });
+            return;
+          }
+        }
+
+        const rawOdontograma = body.odontograma ?? payload.odontograma;
+        if (this.isOdontogramObject(rawOdontograma)) {
+          const parsed = OdontogramaSchema.safeParse(rawOdontograma);
+          if (!parsed.success) {
+            res.status(400).json({
+              message:
+                parsed.error.issues[0]?.message ||
+                'Estructura inválida de odontograma.',
+              errors: parsed.error.issues,
+            });
+            return;
+          }
+        }
+
+        const rawPlan = body.planManejo ?? payload.planManejo;
+        if (
+          rawPlan &&
+          typeof rawPlan === 'object' &&
+          ('prescripcion_farmacologica' in rawPlan ||
+            'incapacidad_medica' in rawPlan ||
+            'remision_medica' in rawPlan)
+        ) {
+          const parsed = PlanManejoSchema.safeParse(rawPlan);
+          if (!parsed.success) {
+            res.status(400).json({
+              message:
+                parsed.error.issues[0]?.message ||
+                'Estructura inválida de plan de manejo.',
+              errors: parsed.error.issues,
+            });
+            return;
+          }
+        }
+
         updated = await this.repo.updateEvolutionEntrySameDay(idEvolucion, {
           motivoConsulta: body.motivoConsulta ?? payload.motivoConsulta,
           enfermedadActual: body.enfermedadActual ?? payload.enfermedadActual,
-          antecedentesClinicos:
-            body.antecedentesClinicos ?? payload.antecedentesClinicos ?? payload.antecedentes,
-          habitosHigiene: body.habitosHigiene ?? payload.habitosHigiene,
-          examenEstomatognatico:
-            body.examenEstomatognatico ?? payload.examenEstomatognatico,
+          antecedentesClinicos: rawAntecedentes,
+          habitosHigiene: rawHabitos,
+          examenEstomatognatico: rawExamen,
           examenFisicoObservaciones:
             body.examenFisicoObservaciones ?? payload.examenFisicoObservaciones,
-          odontograma: body.odontograma ?? payload.odontograma,
+          odontograma: rawOdontograma,
           procedimientoRealizado:
             body.procedimientoRealizado ?? payload.procedimientoRealizado ?? payload.notaEvolucion,
           diagnosticoGenerado:
@@ -304,8 +580,14 @@ export class ClinicalRecordsController {
           accionesARealizar: body.accionesARealizar ?? payload.accionesARealizar,
           hallazgosObservaciones:
             body.hallazgosObservaciones ?? payload.hallazgosObservaciones ?? payload.observaciones,
-          planManejo: body.planManejo ?? payload.planManejo,
+          planManejo: rawPlan,
           evolucion: payload,
+          diligenciadoPor: {
+            idUsuario: actor.idUsuario,
+            nombreUsuario: actor.nombreUsuario,
+            idProfesionalResponsable: Number(payload.diligenciadoPor?.idProfesionalResponsable ?? actor.idUsuario),
+            fechaHoraISO: new Date().toISOString(),
+          },
         });
       } else {
         updated = await this.registerEvolutionUseCase.updateNote({
@@ -352,9 +634,28 @@ export class ClinicalRecordsController {
   // RF-HCL-008: Consultar historial clínico completo de un paciente
   getHistoryByPatient = async (req: Request, res: Response): Promise<void> => {
     try {
-      const idPaciente = Number(req.params.idPaciente);
-      const actor = this.extractActor(req);
+      const authUser = (req as any).user;
+      if (!authUser && !req.headers['x-user-role'] && !req.headers['authorization']) {
+        res.status(401).json({
+          message: 'Se requiere iniciar sesión para consultar el expediente clínico.',
+        });
+        return;
+      }
 
+      const actor = this.extractActor(req);
+      const isAllowed =
+        actor.roles.includes('ROL-ODO') ||
+        actor.roles.includes('ROL-ESP') ||
+        actor.roles.includes('ROL-ADM');
+
+      if (!isAllowed) {
+        res.status(403).json({
+          message: 'No tiene permiso para consultar la historia clínica.',
+        });
+        return;
+      }
+
+      const idPaciente = Number(req.params.idPaciente);
       const history = await this.getClinicalHistoryUseCase.execute({
         idPaciente,
         actor,

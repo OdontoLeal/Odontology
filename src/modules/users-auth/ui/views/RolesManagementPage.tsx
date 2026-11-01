@@ -30,6 +30,7 @@ export interface RolesManagementPageProps {
     permisos: string[];
   }) => Promise<{ message: string; data: RoleDTO }>;
   onDeleteRole?: (idRol: number) => Promise<{ message: string }>;
+  canCreateRole?: boolean;
 }
 
 const INITIAL_ROLES_SEED: RoleExtendedViewDTO[] = [
@@ -165,6 +166,7 @@ export const RolesManagementPage: React.FC<RolesManagementPageProps> = ({
   onCreateRole,
   onUpdateRole,
   onDeleteRole,
+  canCreateRole = true,
 }) => {
   const [roles, setRoles] = useState<RoleExtendedViewDTO[]>(initialRoles);
 
@@ -195,8 +197,15 @@ export const RolesManagementPage: React.FC<RolesManagementPageProps> = ({
   // Modal de confirmación de eliminación
   const [roleToDelete, setRoleToDelete] = useState<RoleExtendedViewDTO | null>(null);
 
-  const isInitialProtectedRole = (code: string): boolean =>
-    INITIAL_ROLE_CODES.includes(code.trim().toUpperCase() as any);
+  const isInitialProtectedRole = (roleOrCode: string | RoleExtendedViewDTO): boolean => {
+    if (typeof roleOrCode === 'string') {
+      return INITIAL_ROLE_CODES.includes(roleOrCode.trim().toUpperCase() as any);
+    }
+    return (
+      Boolean(roleOrCode.es_inicial) ||
+      INITIAL_ROLE_CODES.includes(roleOrCode.codigo?.trim().toUpperCase() as any)
+    );
+  };
 
   // Reset de página al cambiar filtros
   useEffect(() => {
@@ -216,7 +225,7 @@ export const RolesManagementPage: React.FC<RolesManagementPageProps> = ({
 
     return roles.filter((role) => {
       // Filtro por tipo
-      const isProtected = isInitialProtectedRole(role.codigo);
+      const isProtected = isInitialProtectedRole(role);
       if (tipoFilter === 'SYSTEM' && !isProtected) return false;
       if (tipoFilter === 'CUSTOM' && isProtected) return false;
 
@@ -315,7 +324,7 @@ export const RolesManagementPage: React.FC<RolesManagementPageProps> = ({
           setRoles((prev) => [...prev, newEntry]);
           setSuccessMessage(result.message || 'Rol creado exitosamente.');
         } else {
-          const res = await fetch('/api/v1/auth/roles', {
+          const res = await fetch('/api/v1/roles', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -363,6 +372,19 @@ export const RolesManagementPage: React.FC<RolesManagementPageProps> = ({
           );
           setSuccessMessage(result.message || 'Rol actualizado exitosamente.');
         } else {
+          const res = await fetch(`/api/v1/roles/${editingRole.id_rol}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              idRol: editingRole.id_rol,
+              nombreRol: cleanName,
+              descripcion: cleanDesc,
+              permisos,
+            }),
+          });
+          const body = await res.json();
+          if (!res.ok) throw new Error(body.message);
+
           setRoles((prev) =>
             prev.map((r) =>
               r.id_rol === editingRole.id_rol
@@ -375,7 +397,7 @@ export const RolesManagementPage: React.FC<RolesManagementPageProps> = ({
                 : r
             )
           );
-          setSuccessMessage('Rol actualizado exitosamente.');
+          setSuccessMessage(body.message || 'Rol actualizado exitosamente.');
         }
         setIsModalOpen(false);
       }
@@ -392,7 +414,7 @@ export const RolesManagementPage: React.FC<RolesManagementPageProps> = ({
     setErrorMessage(null);
     setSuccessMessage(null);
 
-    if (isInitialProtectedRole(roleToDelete.codigo)) {
+    if (isInitialProtectedRole(roleToDelete)) {
       setErrorMessage(
         `El rol ${roleToDelete.codigo} (${roleToDelete.nombre_rol}) pertenece a la configuración inicial y no puede eliminarse.`
       );
@@ -414,7 +436,7 @@ export const RolesManagementPage: React.FC<RolesManagementPageProps> = ({
         const res = await onDeleteRole(roleToDelete.id_rol);
         setSuccessMessage(res.message);
       } else {
-        const res = await fetch(`/api/v1/auth/roles/${roleToDelete.id_rol}`, {
+        const res = await fetch(`/api/v1/roles/${roleToDelete.id_rol}`, {
           method: 'DELETE',
         });
         const body = await res.json();
@@ -450,16 +472,18 @@ export const RolesManagementPage: React.FC<RolesManagementPageProps> = ({
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={handleOpenCreateModal}
-            className="min-h-[44px] self-start sm:self-end inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-[#DDB93E] to-[#C9A227] px-5 py-2.5 text-[14px] font-bold text-[#111111] shadow-[0_2px_6px_rgba(184,148,42,0.35)] hover:bg-[#B8942A] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#111111] transition-colors"
-          >
-            <span className="text-lg leading-none font-normal" aria-hidden="true">
-              +
-            </span>
-            <span>Nuevo Rol</span>
-          </button>
+          {canCreateRole && (
+            <button
+              type="button"
+              onClick={handleOpenCreateModal}
+              className="min-h-[44px] self-start sm:self-end inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-[#DDB93E] to-[#C9A227] px-5 py-2.5 text-[14px] font-bold text-[#111111] shadow-[0_2px_6px_rgba(184,148,42,0.35)] hover:bg-[#B8942A] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#111111] transition-colors"
+            >
+              <span className="text-lg leading-none font-normal" aria-hidden="true">
+                +
+              </span>
+              <span>Nuevo Rol</span>
+            </button>
+          )}
         </header>
 
         {/* Mensajes de retroalimentación semánticos */}
@@ -580,7 +604,7 @@ export const RolesManagementPage: React.FC<RolesManagementPageProps> = ({
             </div>
           ) : (
             paginatedRoles.map((role) => {
-              const isProtected = isInitialProtectedRole(role.codigo);
+              const isProtected = isInitialProtectedRole(role);
 
               return (
                 <article
