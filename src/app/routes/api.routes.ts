@@ -2,6 +2,7 @@
 import { Router } from 'express';
 import { db } from '../../shared/infrastructure/database/database';
 import { authMiddleware } from '../../shared/infrastructure/security/auth.middleware';
+import { requirePermission } from '../../shared/infrastructure/security/auth.middleware';
 
 import { UserRepository } from '../../modules/users-auth/infrastructure/user.repository';
 import { UsersAuthController } from '../../modules/users-auth/infrastructure/users-auth.controller';

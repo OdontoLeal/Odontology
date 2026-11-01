@@ -1,6 +1,7 @@
 // src/shared/infrastructure/security/auth.middleware.ts
 import { Request, Response, NextFunction } from 'express';
 import { JwtTokenService, TokenPayload } from './token.service';
+import { db } from '../database/database';
 
 export interface AuthenticatedRequest extends Request {
   user?: TokenPayload;
@@ -56,3 +57,47 @@ export function authMiddleware(
   (req as any).user = payload;
   next();
 }
+
+/**
+ * Middleware para requerir un permiso específico (RBAC - RQNF-SEG-003)
+ */
+export function requirePermission(rfCode: string) {
+  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    const user = (req as any).user as TokenPayload | undefined;
+    if (!user) {
+      res.status(401).json({
+        message: 'No tiene permiso para realizar esta acción. Sesión no iniciada',
+      });
+      return;
+    }
+
+    // Verificar si el usuario tiene el permiso en su token o roles
+    const permisos = user.permisos ?? [];
+    const hasPerm = permisos.includes(rfCode);
+
+    if (!hasPerm) {
+      // Registrar intento no autorizado en auditoría (RQNF-SEG-009)
+      try {
+        await db.query(
+          `INSERT INTO log_auditoria (usuario, accion, registro_afectado, detalle) VALUES ($1, $2, $3, $4)`,
+          [
+            user.correo || user.nombreCompleto || 'Desconocido',
+            `Intento no autorizado de acceso a ${rfCode}`,
+            'rbac:security',
+            JSON.stringify({ ruta: req.originalUrl, metodo: req.method, rfRequerido: rfCode })
+          ]
+        );
+      } catch (auditErr) {
+        console.error('Error al registrar auditoría de RBAC:', auditErr);
+      }
+
+      res.status(403).json({
+        message: 'No tiene permiso para realizar esta acción',
+      });
+      return;
+    }
+
+    next();
+  };
+}
+
