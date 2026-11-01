@@ -18,6 +18,8 @@ export interface PatientProfilePageProps {
   onViewClinicalHistoryDetail: (idHistoria: number) => void;
   onSignConsent: (templateOrId: any) => void;
   onUpdatePatient: (id: number, data: PatientFormData) => Promise<void> | void;
+  canScheduleAppointment?: boolean;
+  canStartAttention?: boolean;
 }
 
 interface PatientAppointment {
@@ -38,11 +40,28 @@ export const PatientProfilePage: React.FC<PatientProfilePageProps> = ({
   onViewClinicalHistoryDetail,
   onSignConsent,
   onUpdatePatient,
+  canScheduleAppointment = true,
+  canStartAttention = true,
 }) => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedEvolutionForView, setSelectedEvolutionForView] = useState<ClinicalEvolutionEntry | null>(null);
   const [appointments, setAppointments] = useState<PatientAppointment[]>([]);
   const [isAppointmentsLoading, setIsAppointmentsLoading] = useState(false);
+
+  // DEF-17 & CPS-HCL-004-02: Detectar si el usuario activo es Coordinadora (ROL-COA)
+  const isCoordinator = React.useMemo(() => {
+    try {
+      const saved = window.sessionStorage.getItem('odontoleal_active_session_v1');
+      if (!saved) return false;
+      const parsed = JSON.parse(saved);
+      const roles: any[] = parsed?.usuario?.roles || [];
+      const roleCodes = roles.map((r) => (typeof r === 'string' ? r : r.codigoRol || r.nombreRol));
+      const hasClinicalRole = roleCodes.some((rc) => ['ROL-ODO', 'ROL-ESP', 'ROL-ADM'].includes(rc));
+      return roleCodes.includes('ROL-COA') && !hasClinicalRole;
+    } catch {
+      return false;
+    }
+  }, []);
 
   // Historias clínicas reales
   const { history, isLoading: isHistoryLoading } = useClinicalRecord(patient.idPaciente);
@@ -68,15 +87,17 @@ export const PatientProfilePage: React.FC<PatientProfilePageProps> = ({
 
   useEffect(() => {
     fetchPatientAppointments();
-    fetchPatientConsents(patient.idPaciente);
-  }, [fetchPatientAppointments, fetchPatientConsents, patient.idPaciente]);
+    if (!isCoordinator) {
+      fetchPatientConsents(patient.idPaciente);
+    }
+  }, [fetchPatientAppointments, fetchPatientConsents, patient.idPaciente, isCoordinator]);
 
   // Citas próximas / activas vs pasadas
   const upcomingAppointments = appointments.filter(
     (a) => a.estado === 'Confirmada' || a.estado === 'En consulta' || a.estado === 'Pendiente de confirmación'
   );
   const pastAppointments = appointments.filter(
-    (a) => a.estado === 'Completada' || a.estado === 'Cancelada' || a.estado === 'No asistió'
+    (a) => a.estado === 'Completada' || a.estado === 'Atendida' || a.estado === 'Cancelada' || a.estado === 'No asistió'
   );
 
   // Helper para formatear bloque horario
@@ -174,24 +195,27 @@ export const PatientProfilePage: React.FC<PatientProfilePageProps> = ({
                 Citas Agendadas e Historial
               </h3>
             </div>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => onScheduleAppointment(patient)}
-              leftIcon={
-                <svg className="h-4 w-4 text-[#D4AF37]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-              }
-            >
-              Agendar Cita
-            </Button>
+            {canScheduleAppointment && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => onScheduleAppointment(patient)}
+                leftIcon={
+                  <svg className="h-4 w-4 text-[#D4AF37]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                }
+              >
+                Agendar Cita
+              </Button>
+            )}
           </div>
 
           {/* Próxima Cita Activa */}
           {isAppointmentsLoading ? (
-            <div className="p-4 rounded-2xl bg-[#F8F9FA] text-center text-xs text-[#687380]">
-              Cargando citas del paciente...
+            <div className="p-8 rounded-2xl bg-[#F8F9FA] border border-[#E2E6EA] text-center space-y-2">
+              <div className="w-5 h-5 mx-auto border-2 border-[#D4AF37] border-t-transparent rounded-full animate-spin" />
+              <p className="text-xs font-bold text-[#1E242B]">Cargando citas del paciente...</p>
             </div>
           ) : upcomingAppointments.length > 0 ? (
             (() => {
@@ -222,13 +246,19 @@ export const PatientProfilePage: React.FC<PatientProfilePageProps> = ({
                     </p>
                   </div>
                   <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#EAD89B]/40">
-                    <Button
-                      size="sm"
-                      variant="primary"
-                      onClick={() => onOpenConsultation(patient, nextAppt.idCita)}
-                    >
-                      Iniciar Atención Odontológica →
-                    </Button>
+                    {!isCoordinator && canStartAttention ? (
+                      <Button
+                        size="sm"
+                        variant="primary"
+                        onClick={() => onOpenConsultation(patient, nextAppt.idCita)}
+                      >
+                        Iniciar Atención Odontológica →
+                      </Button>
+                    ) : (
+                      <span className="text-xs text-[#687380] italic">
+                        Atención clínica a cargo del profesional asignado
+                      </span>
+                    )}
                   </div>
                 </div>
               );
@@ -267,7 +297,7 @@ export const PatientProfilePage: React.FC<PatientProfilePageProps> = ({
                   </div>
                   <Badge
                     label={appt.estado}
-                    variant={appt.estado === 'Completada' ? 'success' : appt.estado === 'Cancelada' ? 'danger' : 'warning'}
+                    variant={appt.estado === 'Completada' || appt.estado === 'Atendida' ? 'success' : appt.estado === 'Cancelada' ? 'danger' : 'warning'}
                     size="sm"
                   />
                 </div>
@@ -292,9 +322,20 @@ export const PatientProfilePage: React.FC<PatientProfilePageProps> = ({
             <span className="text-xs text-[#8F99A3]">Seguimiento por procedimiento</span>
           </div>
 
-          {isHistoryLoading ? (
-            <div className="p-4 rounded-2xl bg-[#F8F9FA] text-center text-xs text-[#687380]">
-              Cargando historial clínico...
+          {isCoordinator ? (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-center space-y-2">
+              <span className="text-2xl">🔒</span>
+              <p className="text-xs font-bold text-amber-800">
+                Acceso clínico restringido a profesionales de la salud
+              </p>
+              <p className="text-[11px] text-amber-700">
+                El perfil de Coordinadora de Atención (ROL-COA) no tiene permisos para consultar o auditar evoluciones clínicas (Ley 1581 / Res. 1995 de 1999).
+              </p>
+            </div>
+          ) : isHistoryLoading ? (
+            <div className="p-8 rounded-2xl bg-[#F8F9FA] border border-[#E2E6EA] text-center space-y-2">
+              <div className="w-5 h-5 mx-auto border-2 border-[#D4AF37] border-t-transparent rounded-full animate-spin" />
+              <p className="text-xs font-bold text-[#1E242B]">Cargando historial clínico...</p>
             </div>
           ) : history.length > 0 ? (
             <div className="space-y-3">
@@ -366,7 +407,17 @@ export const PatientProfilePage: React.FC<PatientProfilePageProps> = ({
           </div>
         </div>
 
-        {isConsentsLoading ? (
+        {isCoordinator ? (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-center space-y-2">
+            <span className="text-2xl">🔒</span>
+            <p className="text-xs font-bold text-amber-800">
+              Gestión de consentimientos clínicos restringida
+            </p>
+            <p className="text-[11px] text-amber-700">
+              Solo el personal asistencial y odontólogos tratantes pueden visualizar y suscribir consentimientos informados médicos.
+            </p>
+          </div>
+        ) : isConsentsLoading ? (
           <div className="p-4 rounded-2xl bg-[#F8F9FA] text-center text-xs text-[#687380]">
             Cargando consentimientos...
           </div>

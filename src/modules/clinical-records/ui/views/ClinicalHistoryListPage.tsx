@@ -58,8 +58,12 @@ export const ClinicalHistoryListPage: React.FC<ClinicalHistoryListPageProps> = (
       {/* Timeline de Evoluciones e Inasistencias (RF-HCL-008) */}
       <div className="space-y-4">
         {isLoading ? (
-          <div className="p-8 rounded-3xl bg-white border border-[#E2E6EA] text-center text-xs text-[#687380]">
-            Cargando historial clínico...
+          <div className="p-12 rounded-3xl bg-white border border-[#E2E6EA] text-center space-y-4 shadow-2xs">
+            <div className="h-12 w-12 mx-auto rounded-2xl bg-[#FFFBEB] text-[#D4AF37] flex items-center justify-center border border-[#FDE68A]">
+              <div className="w-5 h-5 border-2 border-[#D4AF37] border-t-transparent rounded-full animate-spin" />
+            </div>
+            <p className="text-sm font-bold text-[#1E242B]">Cargando historial clínico...</p>
+            <p className="text-xs text-[#687380]">Consultando notas de evolución y odontogramas del paciente...</p>
           </div>
         ) : history.length > 0 ? (
           history.map((entry) => (

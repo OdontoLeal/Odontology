@@ -1,5 +1,5 @@
 // src/modules/consents/ui/views/TabletSigningPage.tsx
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { SignaturePadCanvas } from '../components/SignaturePadCanvas';
 import { Button } from '../../../../shared/ui/components/Button';
 import { Badge } from '../../../../shared/ui/components/Badge';
@@ -22,6 +22,7 @@ export interface TabletSigningPageProps {
   nombrePaciente?: string;
   documentoPaciente?: string;
   isMinor?: boolean;
+  token?: string;
   onConsentSigned?: (result: string | ConsentSignPayload) => void;
   onConsentRejected?: (motivo: string) => void;
   onExit?: () => void;
@@ -33,10 +34,30 @@ export const TabletSigningPage: React.FC<TabletSigningPageProps> = ({
   nombrePaciente = 'Paciente Titular',
   documentoPaciente = '',
   isMinor = false,
+  token,
   onConsentSigned,
   onConsentRejected,
   onExit,
 }) => {
+  const [tokenFromUrl] = useState<string | null>(() => {
+    if (token) return token;
+    if (typeof window !== 'undefined') {
+      const match = window.location.pathname.match(/\/tablet-sign\/(.+)/);
+      if (match && match[1]) return match[1].split('?')[0];
+      const p = new URLSearchParams(window.location.search).get('token');
+      if (p) return p;
+    }
+    return null;
+  });
+
+  const [activeTitle, setActiveTitle] = useState(tituloConsentimiento);
+  const [activeBody, setActiveBody] = useState(cuerpoTexto);
+  const [activePatientName, setActivePatientName] = useState(nombrePaciente);
+  const [activePatientDoc, setActivePatientDoc] = useState(documentoPaciente);
+  const [activeIsMinor, setActiveIsMinor] = useState(isMinor);
+  const [isLoadingToken, setIsLoadingToken] = useState(false);
+  const [tokenError, setTokenError] = useState<string | null>(null);
+
   const [signatureData, setSignatureData] = useState<string | null>(null);
   const [hasAcceptedTerms, setHasAcceptedTerms] = useState(false);
   const [isGuardianSigning, setIsGuardianSigning] = useState<boolean>(Boolean(isMinor));
@@ -46,14 +67,49 @@ export const TabletSigningPage: React.FC<TabletSigningPageProps> = ({
   const [isSuccess, setIsSuccess] = useState(false);
   const { showAlert, AlertModalComponent } = useAlertModal();
 
+  useEffect(() => {
+    if (!tokenFromUrl) return;
+    setIsLoadingToken(true);
+    fetch(`/api/v1/consents/tablet-session/${tokenFromUrl}`)
+      .then(async (res) => {
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.message || 'El enlace de firma en tablet ha expirado o no es válido (vigencia 15 min).');
+        }
+        return res.json();
+      })
+      .then((json) => {
+        const d = json.data;
+        if (d) {
+          if (d.nombrePlantilla) setActiveTitle(d.nombrePlantilla);
+          if (d.textoPlantilla) setActiveBody(d.textoPlantilla);
+          if (d.nombrePaciente) setActivePatientName(d.nombrePaciente);
+          if (d.documentoPaciente) setActivePatientDoc(d.documentoPaciente);
+          if (typeof d.esMenorDeEdad === 'boolean') {
+            setActiveIsMinor(d.esMenorDeEdad);
+            setIsGuardianSigning(d.esMenorDeEdad);
+          }
+          if (d.acudiente?.nombreCompleto) {
+            setGuardianNameAndDoc(`${d.acudiente.nombreCompleto} - Doc: ${d.acudiente.documentoIdentidad || ''}`);
+          }
+        }
+      })
+      .catch((err) => {
+        setTokenError(err.message);
+      })
+      .finally(() => {
+        setIsLoadingToken(false);
+      });
+  }, [tokenFromUrl]);
+
   const interpolatedText = useMemo(() => {
-    return interpolateConsentTemplate(cuerpoTexto, {
-      nombrePaciente,
-      documentoPaciente,
+    return interpolateConsentTemplate(activeBody, {
+      nombrePaciente: activePatientName,
+      documentoPaciente: activePatientDoc,
       firmaPorAcudiente: isGuardianSigning,
       nombreDocumentoAcudiente: isGuardianSigning ? guardianNameAndDoc : null,
     });
-  }, [cuerpoTexto, nombrePaciente, documentoPaciente, isGuardianSigning, guardianNameAndDoc]);
+  }, [activeBody, activePatientName, activePatientDoc, isGuardianSigning, guardianNameAndDoc]);
 
   const handleFinishSigning = () => {
     if (!signatureData) {
@@ -81,6 +137,40 @@ export const TabletSigningPage: React.FC<TabletSigningPageProps> = ({
       return;
     }
 
+    if (tokenFromUrl) {
+      fetch(`/api/v1/consents/tablet-sign/${tokenFromUrl}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          firmaBase64: signatureData,
+          firmaPorAcudiente: isGuardianSigning,
+          nombreDocumentoAcudiente: isGuardianSigning ? guardianNameAndDoc.trim() : null,
+          textoFirmado: interpolatedText,
+        }),
+      })
+        .then(async (res) => {
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.message || 'Error al registrar la firma en el servidor.');
+          }
+          onConsentSigned?.({
+            firmaBase64: signatureData,
+            firmaPorAcudiente: isGuardianSigning,
+            nombreDocumentoAcudiente: isGuardianSigning ? guardianNameAndDoc.trim() : null,
+            textoFirmado: interpolatedText,
+          });
+          setIsSuccess(true);
+        })
+        .catch((err) => {
+          showAlert({
+            title: 'Error de Envío',
+            message: err.message,
+            type: 'error',
+          });
+        });
+      return;
+    }
+
     onConsentSigned?.({
       firmaBase64: signatureData,
       firmaPorAcudiente: isGuardianSigning,
@@ -102,6 +192,40 @@ export const TabletSigningPage: React.FC<TabletSigningPageProps> = ({
     onConsentRejected?.(rejectReason.trim());
     setIsSuccess(true);
   };
+
+  if (isLoadingToken) {
+    return (
+      <div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center p-6 text-center">
+        <div className="space-y-3">
+          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-[#D4AF37] border-r-transparent" />
+          <p className="text-xs font-bold text-[#687380]">Cargando sesión segura de firma en tablet...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (tokenError) {
+    return (
+      <div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center p-6 text-center">
+        <div className="max-w-md w-full rounded-3xl bg-white border border-[#DC2626] border-t-4 border-t-[#DC2626] p-8 shadow-xl space-y-4">
+          <div className="h-16 w-16 rounded-full bg-[#FEF2F2] text-[#DC2626] flex items-center justify-center text-3xl mx-auto">
+            ⚠️
+          </div>
+          <h2 className="text-xl font-extrabold text-[#1E242B]">
+            Enlace de Firma No Disponible
+          </h2>
+          <p className="text-xs text-[#687380] leading-relaxed">
+            {tokenError}
+          </p>
+          <div className="pt-4">
+            <Button variant="primary" className="w-full min-h-[48px]" onClick={onExit || (() => { window.location.href = '/'; })}>
+              Regresar al Inicio
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (isSuccess) {
     return (
@@ -145,7 +269,7 @@ export const TabletSigningPage: React.FC<TabletSigningPageProps> = ({
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {isMinor && <Badge label="Menor de Edad (Acudiente Obligatorio)" variant="neutral" size="sm" />}
+          {activeIsMinor && <Badge label="Menor de Edad (Acudiente Obligatorio)" variant="neutral" size="sm" />}
           <Badge label="Dispositivo Seguro" variant="gold" size="sm" />
         </div>
       </header>
@@ -159,19 +283,19 @@ export const TabletSigningPage: React.FC<TabletSigningPageProps> = ({
               Paciente Titular
             </span>
             <p className="text-sm font-extrabold text-[#1E242B]">
-              {nombrePaciente}
+              {activePatientName}
             </p>
             <p className="text-xs text-[#687380]">
-              Documento de Identidad: {documentoPaciente}
+              Documento de Identidad: {activePatientDoc}
             </p>
           </div>
-          <Badge label={isMinor ? 'Menor de 18 años' : 'Adulto'} variant="neutral" />
+          <Badge label={activeIsMinor ? 'Menor de 18 años' : 'Adulto'} variant="neutral" />
         </div>
 
         {/* Texto Legal del Consentimiento */}
         <div className="rounded-3xl border border-[#E2E6EA] bg-white p-6 shadow-xs space-y-4">
           <h2 className="text-base font-extrabold text-[#1E242B]">
-            {tituloConsentimiento}
+            {activeTitle}
           </h2>
           <div className="max-h-60 overflow-y-auto rounded-2xl bg-[#F8F9FA] border border-[#E2E6EA] p-4 text-xs leading-relaxed text-[#1E242B] space-y-3">
             <div className="whitespace-pre-line">{interpolatedText}</div>
@@ -186,9 +310,9 @@ export const TabletSigningPage: React.FC<TabletSigningPageProps> = ({
               <input
                 type="checkbox"
                 checked={isGuardianSigning}
-                disabled={isMinor}
+                disabled={activeIsMinor}
                 onChange={(e) => {
-                  if (!isMinor) {
+                  if (!activeIsMinor) {
                     setIsGuardianSigning(e.target.checked);
                   }
                 }}
@@ -196,7 +320,7 @@ export const TabletSigningPage: React.FC<TabletSigningPageProps> = ({
               />
               <span className="text-xs font-bold text-[#1E242B]">
                 Firma en calidad de acudiente / representante legal
-                {isMinor && ' (Obligatorio para menores de 18 años - RF-CON-005)'}
+                {activeIsMinor && ' (Obligatorio para menores de 18 años - RF-CON-005)'}
               </span>
             </label>
 
@@ -233,7 +357,7 @@ export const TabletSigningPage: React.FC<TabletSigningPageProps> = ({
               <div>
                 <h3 className="text-xs font-extrabold uppercase tracking-wider text-[#1E242B]">
                   {isGuardianSigning
-                    ? `Firma del acudiente / representante legal del paciente ${nombrePaciente}`
+                    ? `Firma del acudiente / representante legal del paciente ${activePatientName}`
                     : 'Firma del paciente'}
                 </h3>
                 <p className="text-[11px] text-[#8F99A3]">
@@ -270,16 +394,46 @@ export const TabletSigningPage: React.FC<TabletSigningPageProps> = ({
       </main>
 
       {/* Botones de Acción Táctiles (mínimo 44px de alto) */}
-      <footer className="max-w-4xl w-full mx-auto pt-4 border-t border-[#E2E6EA] flex items-center justify-between gap-4">
-        {!isRejecting ? (
-          <>
+      <footer className="max-w-4xl w-full mx-auto pt-4 border-t border-[#E2E6EA] flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <Button
+            type="button"
+            variant="outline"
+            className="min-h-[48px] px-6 text-xs font-extrabold text-[#687380] border-[#CBD2D9] hover:bg-[#F8F9FA] hover:text-[#1E242B]"
+            onClick={() => {
+              if (onExit) {
+                onExit();
+              } else if (typeof window !== 'undefined') {
+                window.history.back();
+              }
+            }}
+            leftIcon={<span>←</span>}
+          >
+            Salir
+          </Button>
+
+          {!isRejecting ? (
             <button
               type="button"
               onClick={() => setIsRejecting(true)}
-              className="min-h-[48px] px-5 py-2.5 rounded-xl border border-[#DC2626] text-xs font-extrabold text-[#DC2626] hover:bg-[#FEF2F2] transition-colors"
+              className="min-h-[48px] px-5 py-2.5 rounded-xl border border-[#DC2626] text-xs font-extrabold text-[#DC2626] hover:bg-[#FEF2F2] transition-colors cursor-pointer"
             >
               Rechazar Procedimiento (No Acepto)
             </button>
+          ) : (
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-[48px]"
+              onClick={() => setIsRejecting(false)}
+            >
+              ← Volver a Firma
+            </Button>
+          )}
+        </div>
+
+        <div>
+          {!isRejecting ? (
             <Button
               variant="primary"
               size="lg"
@@ -290,16 +444,7 @@ export const TabletSigningPage: React.FC<TabletSigningPageProps> = ({
             >
               Guardar Consentimiento Firmado
             </Button>
-          </>
-        ) : (
-          <>
-            <Button
-              variant="outline"
-              className="min-h-[48px]"
-              onClick={() => setIsRejecting(false)}
-            >
-              ← Volver a Firma
-            </Button>
+          ) : (
             <Button
               variant="danger"
               size="lg"
@@ -308,8 +453,8 @@ export const TabletSigningPage: React.FC<TabletSigningPageProps> = ({
             >
               Confirmar Disentimiento (No Aceptado)
             </Button>
-          </>
-        )}
+          )}
+        </div>
       </footer>
     </div>
   );

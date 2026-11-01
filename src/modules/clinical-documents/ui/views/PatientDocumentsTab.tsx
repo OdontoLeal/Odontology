@@ -6,7 +6,6 @@ import { SickLeaveFormModal } from '../components/SickLeaveFormModal';
 import { ReferralFormModal } from '../components/ReferralFormModal';
 import { Button } from '../../../../shared/ui/components/Button';
 import { Badge } from '../../../../shared/ui/components/Badge';
-import { Modal } from '../../../../shared/ui/components/Modal';
 import { useAlertModal } from '../../../../shared/ui/hooks/useAlertModal';
 import { printClinicalDocument } from '../../application/print-clinical-document.service';
 
@@ -27,7 +26,6 @@ export const PatientDocumentsTab: React.FC<PatientDocumentsTabProps> = ({
   const [isPrescriptionModalOpen, setIsPrescriptionModalOpen] = useState(false);
   const [isSickLeaveModalOpen, setIsSickLeaveModalOpen] = useState(false);
   const [isReferralModalOpen, setIsReferralModalOpen] = useState(false);
-  const [selectedDocForView, setSelectedDocForView] = useState<ClinicalDocumentItem | null>(null);
 
   const handlePrintItem = (doc: ClinicalDocumentItem) => {
     if (doc.tipoDocumento === 'FORMULA') {
@@ -155,14 +153,6 @@ export const PatientDocumentsTab: React.FC<PatientDocumentsTabProps> = ({
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => setSelectedDocForView(doc)}
-                leftIcon={<span>👁️</span>}
-              >
-                Visualizar
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
                 onClick={() => handlePrintItem(doc)}
                 leftIcon={<span>🖨️</span>}
               >
@@ -241,53 +231,6 @@ export const PatientDocumentsTab: React.FC<PatientDocumentsTabProps> = ({
         }}
       />
 
-      {/* Visor de Documento */}
-      <Modal
-        isOpen={Boolean(selectedDocForView)}
-        onClose={() => setSelectedDocForView(null)}
-        title={selectedDocForView?.titulo}
-        subtitle={`Emitido por ${selectedDocForView?.profesionalNombre} • ${selectedDocForView?.fechaEmision}`}
-        maxWidth="2xl"
-        footer={
-          <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={() => setSelectedDocForView(null)}>
-              Cerrar
-            </Button>
-            <Button
-              variant="primary"
-              onClick={() => selectedDocForView && handlePrintItem(selectedDocForView)}
-              leftIcon={<span>🖨️</span>}
-            >
-              Imprimir Documento
-            </Button>
-          </div>
-        }
-      >
-        <div className="rounded-2xl border border-[#CBD2D9] bg-[#F8F9FA] p-6 space-y-4 text-xs">
-          <div className="text-center pb-3 border-b border-[#E2E6EA]">
-            <span className="font-extrabold text-[#D4AF37] uppercase block">
-              CONSULTORIO ODONTOLEAL
-            </span>
-            <p className="text-[11px] text-[#8F99A3]">Dr. Eduar Leal Álvarez • Dirección Médica</p>
-          </div>
-
-          <div>
-            <p className="font-bold text-[#1E242B]">Paciente: {patientName}</p>
-            <p className="text-[#687380]">Fecha de expedición: {selectedDocForView?.fechaEmision}</p>
-          </div>
-
-          <div className="rounded-xl bg-white border border-[#E2E6EA] p-4 space-y-2">
-            <pre className="whitespace-pre-wrap font-sans text-xs text-[#1E242B]">
-              {JSON.stringify(selectedDocForView?.detalle, null, 2)}
-            </pre>
-          </div>
-
-          <div className="pt-4 border-t border-[#E2E6EA] text-right">
-            <p className="font-bold text-[#1E242B]">{selectedDocForView?.profesionalNombre}</p>
-            <p className="text-[11px] text-[#8F99A3]">Firma Digital Validada (Flatten AES-256)</p>
-          </div>
-        </div>
-      </Modal>
     </div>
   );
 };

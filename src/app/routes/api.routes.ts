@@ -2,7 +2,6 @@
 import { Router } from 'express';
 import { db } from '../../shared/infrastructure/database/database';
 import { authMiddleware } from '../../shared/infrastructure/security/auth.middleware';
-import { requirePermission } from '../../shared/infrastructure/security/auth.middleware';
 
 import { UserRepository } from '../../modules/users-auth/infrastructure/user.repository';
 import { UsersAuthController } from '../../modules/users-auth/infrastructure/users-auth.controller';
@@ -87,24 +86,34 @@ router.patch('/appointments/:id/state', authMiddleware, appointmentsController.c
 router.get('/appointments/agenda', authMiddleware, appointmentsController.getAgenda);
 
 // 3. Rutas Módulo C (Parte 1): Pacientes (RQNF-SEG-003)
+// DEF-15 & CPS-HCL-010-01: Rutas de datos de titular registradas ANTES de /patients/:id para evitar colisión
+router.get('/patients/holder/:documento', authMiddleware, patientsController.exportHolderData);
+router.get('/patients/holder', authMiddleware, patientsController.exportHolderData);
+router.get('/patients/holder-data/:documento', authMiddleware, patientsController.exportHolderData);
+router.get('/patients/holder-data', authMiddleware, patientsController.exportHolderData);
+
 router.post('/patients', authMiddleware, patientsController.createPatient);
-router.get('/patients/holder-data/:documento', authMiddleware, patientsController.exportHolderData);
-router.get('/patients/holder-data', authMiddleware, patientsController.exportHolderData);
-
-router.put('/patients/:id', authMiddleware, patientsController.updatePatient);
 router.get('/patients', authMiddleware, patientsController.searchPatients);
-router.get('/clinical-records/odontogram/latest/:idPaciente', authMiddleware, clinicalRecordsController.getLatestOdontogram);
-
-router.get('/patients/holder-data/:documento', authMiddleware, patientsController.exportHolderData);
-router.get('/patients/holder-data', authMiddleware, patientsController.exportHolderData);
+router.put('/patients/:id', authMiddleware, patientsController.updatePatient);
 router.get('/patients/:id', authMiddleware, patientsController.getPatientProfile);
 
 // 4. Rutas Módulo C (Parte 2): Historia Clínica, Odontograma y Evolución (RQNF-SEG-003)
+// DEF-15 & CPS-HCL-007-03: Ruta publicada del último odontograma
+router.get('/clinical-records/odontogram/latest/:idPaciente', authMiddleware, clinicalRecordsController.getLatestOdontogram);
+router.get('/clinical-records/odontogram/latest', authMiddleware, clinicalRecordsController.getLatestOdontogram);
+
+router.post('/clinical-records', authMiddleware, clinicalRecordsController.createEntry);
+router.put('/clinical-records/:idEvolucion', authMiddleware, clinicalRecordsController.updateEntry);
 router.post('/clinical-records/evolutions', authMiddleware, clinicalRecordsController.createEntry);
 router.put('/clinical-records/evolutions/:idEvolucion', authMiddleware, clinicalRecordsController.updateEntry);
 router.get('/clinical-records/patient/:idPaciente', authMiddleware, clinicalRecordsController.getHistoryByPatient);
 
 // 5. Rutas Módulo D: Consentimientos Informados (ERS v1.2)
+// DEF-21 & CPS-CON-002-02, CPS-CON-006-01: Rutas de token y sesión para firma en Tablet
+router.post('/consents/tablet-token', authMiddleware, consentsController.createTabletToken);
+router.get('/consents/tablet-session/:token', consentsController.getTabletSession);
+router.post('/consents/tablet-sign/:token', consentsController.submitTabletSigning);
+
 // 5.1 Firma de consentimiento dentro de la sesión clínica (RF-CON-001, RF-CON-002, RF-CON-005)
 router.post('/consents/sign', authMiddleware, consentsController.signConsent);
 

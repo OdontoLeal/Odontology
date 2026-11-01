@@ -29,6 +29,10 @@ export const PublicBookingPage: React.FC<PublicBookingPageProps> = ({
   const [correo, setCorreo] = useState('');
   const [motivoConsulta, setMotivoConsulta] = useState('');
 
+
+  // DEF-07 & CPS-AGE-003-03, CPS-AGE-003-05: Autorización de tratamiento de datos personales (Ley 1581)
+  const [autorizacionDatos, setAutorizacionDatos] = useState(false);
+
   // Fecha y Horario Dinámicos desde Base de Datos (estado = true AND ocupacion = false)
   const defaultDate = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
   const [selectedDate, setSelectedDate] = useState(defaultDate);
@@ -89,7 +93,7 @@ export const PublicBookingPage: React.FC<PublicBookingPageProps> = ({
       });
   };
 
-  // Consulta dinámica de bloques disponibles al cambiar la fecha
+  // Consulta dinámica de bloques disponibles al cambiar la fecha seleccionada
   useEffect(() => {
     loadSlots(selectedDate);
   }, [selectedDate]);
@@ -104,6 +108,7 @@ export const PublicBookingPage: React.FC<PublicBookingPageProps> = ({
     setTelefono('');
     setCorreo('');
     setMotivoConsulta('');
+    setAutorizacionDatos(false);
     setSelectedSlot(null);
     if (selectedDate) {
       loadSlots(selectedDate);
@@ -120,6 +125,17 @@ export const PublicBookingPage: React.FC<PublicBookingPageProps> = ({
       });
       return;
     }
+
+    // DEF-07: Validación obligatoria de Ley 1581
+    if (!autorizacionDatos) {
+      showAlert({
+        title: 'Autorización Requerida (Ley 1581)',
+        message: 'Debe autorizar el tratamiento de sus datos personales conforme a la Ley 1581 de 2012 para continuar con la solicitud.',
+        type: 'warning',
+      });
+      return;
+    }
+
     if (!selectedSlot) {
       showAlert({
         title: 'Horario Requerido',
@@ -143,8 +159,8 @@ export const PublicBookingPage: React.FC<PublicBookingPageProps> = ({
         fechaNacimiento: fechaNacimiento.trim() || undefined,
         sexo: genero,
         bloqueSolicitado: selectedSlot.rawInicio,
-        descripcion: motivoConsulta.trim() || 'Solicitud de valoración general',
-        idProfesional: 1, // Dr. Eduar Leal Álvarez
+        descripcion: motivoConsulta.trim() || 'Solicitud de valoración odontológica',
+        autorizacionDatos: true,
       };
 
       if (onSubmitPublicBooking) {
@@ -227,7 +243,7 @@ export const PublicBookingPage: React.FC<PublicBookingPageProps> = ({
             Solicitud de Cita Odontológica
           </h1>
           <p className="text-xs sm:text-sm text-[#687380] max-w-xl mx-auto">
-            Agenda tu valoración o tratamiento dental con el Dr. Eduar Leal de forma rápida y sin registros previos.
+            Agenda tu valoración o tratamiento dental con nuestro equipo de profesionales de forma rápida y sin registros previos.
           </p>
         </div>
 
@@ -321,13 +337,13 @@ export const PublicBookingPage: React.FC<PublicBookingPageProps> = ({
               </div>
             </div>
 
-            {/* Columna 2: Fecha y Horario */}
+            {/* Columna 2: Fecha y Horario Deseado */}
             <div className="space-y-4">
               <h3 className="text-sm font-extrabold uppercase tracking-wider text-[#1E242B] flex items-center gap-2 pb-2 border-b border-[#E2E6EA]">
                 <span className="h-6 w-6 rounded-full bg-[#111111] text-[#D4AF37] text-xs flex items-center justify-center font-bold">
                   2
                 </span>
-                Fecha y Horario
+                Fecha y Horario Deseado
               </h3>
 
               {/* Selector de Fecha */}
@@ -369,7 +385,7 @@ export const PublicBookingPage: React.FC<PublicBookingPageProps> = ({
                   <div className="rounded-2xl border border-dashed border-[#E2E6EA] bg-[#F8F9FA] p-6 text-center space-y-1">
                     <span className="text-xl">📅</span>
                     <p className="text-xs font-bold text-[#687380]">
-                      No hay horarios disponibles para este día
+                      No hay horarios disponibles en esta fecha
                     </p>
                     <p className="text-[11px] text-[#8F99A3]">
                       Por favor seleccione otra fecha en el calendario.
@@ -399,11 +415,26 @@ export const PublicBookingPage: React.FC<PublicBookingPageProps> = ({
                 )}
               </div>
 
-              <div className="pt-6">
+              {/* DEF-07 & CPS-AGE-003-03, CPS-AGE-003-05: Checkbox de Autorización Ley 1581 (ui_03) */}
+              <div className="pt-2 border-t border-[#E2E6EA]">
+                <label className="flex items-start gap-2.5 text-xs text-[#687380] cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={autorizacionDatos}
+                    onChange={(e) => setAutorizacionDatos(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 rounded border-[#E2E6EA] text-[#D4AF37] focus:ring-[#D4AF37]"
+                  />
+                  <span>
+                    Autorizo de manera previa, expresa e informada el tratamiento de mis datos personales conforme a la <strong>Ley 1581 de 2012</strong> y la Política de Privacidad de OdontoLeal. <span className="text-[#DC2626]">*</span>
+                  </span>
+                </label>
+              </div>
+
+              <div className="pt-4">
                 <Button
                   type="submit"
                   variant="primary"
-                  disabled={availableHours.length === 0 || !selectedSlot || isLoadingSlots}
+                  disabled={availableHours.length === 0 || !selectedSlot || isLoadingSlots || !autorizacionDatos}
                   className="w-full text-base py-3"
                   rightIcon={<span>→</span>}
                 >
@@ -472,7 +503,7 @@ export const PublicBookingPage: React.FC<PublicBookingPageProps> = ({
       >
         <div className="space-y-4 text-xs">
           <div className="rounded-2xl border border-[#E2E6EA] p-3.5 bg-[#F8F9FA] space-y-1">
-            <span className="text-[10px] font-extrabold uppercase text-[#8F99A3]">Fecha y Hora</span>
+            <span className="text-[10px] font-extrabold uppercase text-[#8F99A3]">Fecha y Horario Solicitado</span>
             <p className="font-extrabold text-[#1E242B] text-sm">
               {selectedDate} • {selectedSlot?.label || ''}
             </p>
@@ -487,7 +518,7 @@ export const PublicBookingPage: React.FC<PublicBookingPageProps> = ({
 
           <div className="rounded-2xl border border-[#E2E6EA] p-3.5 space-y-1">
             <span className="text-[10px] font-extrabold uppercase text-[#8F99A3]">Motivo</span>
-            <p className="italic text-[#1E242B]">&ldquo;{motivoConsulta || 'Valoración odontológica general'}&rdquo;</p>
+            <p className="italic text-[#1E242B]">&ldquo;{motivoConsulta || 'Valoración odontológica'}&rdquo;</p>
           </div>
         </div>
       </Modal>
@@ -504,7 +535,7 @@ export const PublicBookingPage: React.FC<PublicBookingPageProps> = ({
             <span className="text-xl font-extrabold text-[#1E242B]">¡Solicitud Confirmada!</span>
           </div>
         }
-        subtitle="Hemos recibido tu solicitud de cita odontológica. Se ha enviado un comprobante a tu correo y te notificaremos cuando sea aprobada formalmente."
+        subtitle="Hemos recibido tu solicitud de cita odontológica. La coordinación de agendamiento revisará tus datos, te asignará el doctor correspondiente y te enviará la confirmación formal por correo electrónico."
         maxWidth="md"
         footer={
           <Button
@@ -523,7 +554,7 @@ export const PublicBookingPage: React.FC<PublicBookingPageProps> = ({
 
           <div className="rounded-2xl border border-[#E2E6EA] p-4 bg-[#F8F9FA] space-y-2">
             <div>
-              <span className="text-[10px] font-bold text-[#8F99A3]">FECHA Y HORA</span>
+              <span className="text-[10px] font-bold text-[#8F99A3]">FECHA Y HORA SOLICITADA</span>
               <p className="font-bold text-[#1E242B]">{selectedDate} • {selectedSlot?.label || ''}</p>
             </div>
             <div>

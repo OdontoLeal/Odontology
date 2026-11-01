@@ -1,4 +1,6 @@
 // src/modules/users-auth/infrastructure/user.repository.ts
+import fs from 'fs';
+import path from 'path';
 import { db } from '../../../shared/infrastructure/database/database';
 import { OneTimeTokenVO } from '../domain/one-time-token.vo';
 import {
@@ -151,7 +153,44 @@ export class UserRepository implements IUserRepository {
     ],
   ]);
 
+  private static readonly METADATA_FILE = path.join(process.cwd(), 'storage', 'users_metadata.json');
   private static readonly userExtendedMetaStore = new Map<number, UserExtendedMeta>();
+  private static userMetaLoaded = false;
+  private static ensureUserMetaLoaded(): void {
+    if (UserRepository.userMetaLoaded) return;
+    try {
+      const storageDir = path.dirname(UserRepository.METADATA_FILE);
+      if (!fs.existsSync(storageDir)) {
+        fs.mkdirSync(storageDir, { recursive: true });
+      }
+      if (fs.existsSync(UserRepository.METADATA_FILE)) {
+        const raw = fs.readFileSync(UserRepository.METADATA_FILE, 'utf8');
+        const parsed = JSON.parse(raw);
+        for (const [key, value] of Object.entries(parsed)) {
+          UserRepository.userExtendedMetaStore.set(Number(key), value as UserExtendedMeta);
+        }
+      }
+    } catch {
+      // Ignorar fallback
+    }
+    UserRepository.userMetaLoaded = true;
+  }
+
+  private static persistUserMetadata(): void {
+    try {
+      const storageDir = path.dirname(UserRepository.METADATA_FILE);
+      if (!fs.existsSync(storageDir)) {
+        fs.mkdirSync(storageDir, { recursive: true });
+      }
+      const obj: Record<number, UserExtendedMeta> = {};
+      for (const [key, value] of UserRepository.userExtendedMetaStore.entries()) {
+        obj[key] = value;
+      }
+      fs.writeFileSync(UserRepository.METADATA_FILE, JSON.stringify(obj, null, 2), 'utf8');
+    } catch {
+      // Ignorar
+    }
+  }
   private static rolesTableSynced = false;
 
   private async ensureRolesTableSync(): Promise<void> {
@@ -395,6 +434,7 @@ export class UserRepository implements IUserRepository {
         firmaUrl: dto.firmaUrl ?? null,
       });
 
+      UserRepository.persistUserMetadata();
       const created = await this.findById(idUsuario, client);
       if (!created) throw new Error('Error al recuperar el usuario creado.');
       return created;
@@ -463,6 +503,7 @@ export class UserRepository implements IUserRepository {
           dto.firmaUrl !== undefined ? dto.firmaUrl : prevMeta?.firmaUrl ?? null,
       });
 
+      UserRepository.persistUserMetadata();
       const updated = await this.findById(dto.idUsuario, client);
       if (!updated) throw new Error('Error al recuperar el usuario actualizado.');
       return updated;
@@ -632,11 +673,13 @@ export class UserRepository implements IUserRepository {
       `UPDATE public.usuario SET contrasena_hash = $1 WHERE id_usuario = $2;`,
       [nuevoHash, idUsuario]
     );
+    UserRepository.ensureUserMetaLoaded();
     const prev = UserRepository.userExtendedMetaStore.get(idUsuario);
     UserRepository.userExtendedMetaStore.set(idUsuario, {
       esContrasenaTemporal,
       firmaUrl: prev?.firmaUrl ?? null,
     });
+    UserRepository.persistUserMetadata();
   }
 
   async findActiveAppointmentsByProfessional(
@@ -681,6 +724,7 @@ export class UserRepository implements IUserRepository {
   }
 
   private enrichUserWithMeta(user: UserWithRolesDomainDTO): UserWithRolesDomainDTO {
+    UserRepository.ensureUserMetaLoaded();
     const userMeta = UserRepository.userExtendedMetaStore.get(user.idUsuario);
     const enrichedRoles = (user.roles ?? []).map((r) => {
       const roleMeta = UserRepository.roleMetadataStore.get(

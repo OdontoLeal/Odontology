@@ -19,8 +19,10 @@ if (typeof window !== 'undefined') {
       }
     }
 
+    init = init || {};
+    init.credentials = init.credentials || 'include';
+
     if (token) {
-      init = init || {};
       const headers = new Headers(init.headers || {});
       if (!headers.has('Authorization')) {
         headers.set('Authorization', `Bearer ${token}`);

@@ -54,6 +54,14 @@ export class PatientsController {
         creadoDesdeSolicitud,
       } = req.body;
 
+      if (!autorizacionDatos) {
+        res.status(400).json({
+          field: 'autorizacionDatos',
+          message: 'La autorización de datos personales (Ley 1581) es obligatoria.',
+        });
+        return;
+      }
+
       const user = (req as any).user;
 
       const result = await this.createPatientUseCase.execute({
@@ -65,12 +73,7 @@ export class PatientsController {
         sexo,
         contactoRespaldo,
         acudiente,
-        autorizacionDatos: autorizacionDatos ?? {
-          autorizado: true,
-          medio: 'CONSULTORIO_WEB',
-          versionAvisoPrivacidad: '1.0',
-          idUsuarioRegistro: user?.idUsuario ?? null,
-        },
+        autorizacionDatos,
         creadoDesdeSolicitud,
       });
 
@@ -124,9 +127,6 @@ export class PatientsController {
         data: result.data || [],
         message: result.message,
       });
-      return;
-
-      res.json({ data: result.data });
     } catch (error: any) {
       this.handleError(res, error, 500);
     }

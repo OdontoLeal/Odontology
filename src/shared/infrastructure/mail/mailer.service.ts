@@ -814,4 +814,115 @@ export class MailerService implements IMailerPort {
       return { previewUrl: null };
     }
   }
+
+  /**
+   * Envía correo de cancelación de cita al paciente o al profesional asignado (DEF-11 / CPS-AGE-007-01).
+   */
+  async sendAppointmentCancellationEmail(params: {
+    to: string;
+    recipientName: string;
+    patientName: string;
+    doctorName: string;
+    fecha: string;
+    hora: string;
+    motivo: string;
+    idCita?: number;
+    isDoctor?: boolean;
+  }): Promise<{ messageId?: string; previewUrl?: string | null }> {
+    const { to, recipientName, patientName, doctorName, fecha, hora, motivo, idCita, isDoctor } = params;
+
+    const htmlContent = `
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Cancelación de Cita Odontológica - OdontoLeal</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #F8F9FA; margin: 0; padding: 24px; color: #1E242B; }
+    .card { max-width: 560px; margin: 0 auto; background: #FFFFFF; border-radius: 16px; border: 1px solid #E2E6EA; border-top: 5px solid #DC2626; padding: 32px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+    .logo-badge { display: inline-block; background-color: #111111; color: #D4AF37; font-size: 12px; font-weight: bold; letter-spacing: 0.08em; text-transform: uppercase; padding: 6px 14px; border-radius: 999px; }
+    h1 { font-size: 20px; font-weight: 800; color: #DC2626; margin: 16px 0 8px 0; }
+    .details { background-color: #FEF2F2; border: 1px solid #FECACA; border-radius: 12px; padding: 18px; margin: 20px 0; }
+    .detail-item { margin: 8px 0; font-size: 14px; }
+    .label { font-weight: bold; color: #991B1B; }
+    .value { font-weight: 600; color: #1E242B; }
+    .footer { text-align: center; font-size: 12px; color: #8F99A3; margin-top: 24px; border-top: 1px solid #E2E6EA; padding-top: 16px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div style="text-align: center;">
+      <span class="logo-badge">CONSULTORIO ODONTOLEAL</span>
+      <h1>Aviso de Cancelación de Cita</h1>
+    </div>
+
+    <p>Estimado(a) <strong>${recipientName}</strong>,</p>
+    <p>Le informamos que la cita odontológica programada ha sido <strong>cancelada</strong>.</p>
+
+    <div class="details">
+      <div class="detail-item"><span class="label">👤 Paciente:</span> <span class="value">${patientName}</span></div>
+      <div class="detail-item"><span class="label">👨‍⚕️ Profesional:</span> <span class="value">${doctorName}</span></div>
+      <div class="detail-item"><span class="label">📅 Fecha:</span> <span class="value">${fecha}</span></div>
+      <div class="detail-item"><span class="label">⏰ Hora:</span> <span class="value">${hora}</span></div>
+      <div class="detail-item"><span class="label">📝 Motivo de Cancelación:</span> <span class="value">${motivo}</span></div>
+      ${idCita ? `<div class="detail-item"><span class="label">🔢 Cita N°:</span> <span class="value">#${idCita}</span></div>` : ''}
+    </div>
+
+    <p style="font-size: 13px; color: #687380;">
+      ${isDoctor ? 'El bloque horario ha sido liberado en su agenda médica.' : 'Si requiere reagendar su cita, puede comunicarse al WhatsApp +57 300 123 4567 o agendar en línea a través de nuestro portal web.'}
+    </p>
+
+    <div class="footer">
+      © 2026 Consultorio Odontológico Dr. Eduar Leal Álvarez • Bogotá, Colombia
+    </div>
+  </div>
+</body>
+</html>
+    `;
+
+    try {
+      const transporter = await this.getTransporter();
+      const info = await transporter.sendMail({
+        from: this.fromAddress,
+        to,
+        subject: `Cancelación de Cita Odontológica - ${fecha} (${patientName})`,
+        text: `Hola ${recipientName}.\n\nSe ha cancelado la cita con fecha ${fecha} a las ${hora}.\nMotivo: ${motivo}.\nN° Cita: #${idCita || ''}`,
+        html: htmlContent,
+      });
+
+      const previewUrl = nodemailer.getTestMessageUrl(info) || null;
+      console.log(`📧 Notificación de cancelación enviada a ${to}. Mensaje ID: ${info.messageId}`);
+      return { messageId: info.messageId, previewUrl };
+    } catch (err: any) {
+      console.error('❌ Error enviando correo de cancelación de cita:', err?.message);
+      return { previewUrl: null };
+    }
+  }
+
+  /**
+   * Envía correo genérico (para digests, notificaciones administrativas, etc.)
+   */
+  async sendGenericEmail(params: {
+    to: string;
+    subject: string;
+    html: string;
+    text?: string;
+  }): Promise<{ messageId?: string; previewUrl?: string | null }> {
+    const { to, subject, html, text } = params;
+    try {
+      const transporter = await this.getTransporter();
+      const info = await transporter.sendMail({
+        from: this.fromAddress,
+        to,
+        subject,
+        text: text || 'Notificación del sistema OdontoLeal.',
+        html,
+      });
+      const previewUrl = nodemailer.getTestMessageUrl(info) || null;
+      return { messageId: info.messageId, previewUrl };
+    } catch (err: any) {
+      console.error('❌ Error enviando correo genérico:', err?.message);
+      return { previewUrl: null };
+    }
+  }
 }

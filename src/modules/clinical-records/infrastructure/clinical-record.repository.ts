@@ -20,7 +20,7 @@ function isNonEmptyObject(val: unknown): boolean {
   return Boolean(val && typeof val === 'object' && Object.keys(val).length > 0);
 }
 
-function mapEvolucionRowToEntity(row: any): EvolutionRecordRow {
+function mapEvolucionRowToEntity(row: any, fallbackDiligenciadoPor?: any): EvolutionRecordRow {
   const motivoConsulta =
     row.motivo_consulta ?? row.motivoConsulta ?? 'Consulta Odontológica';
   const enfermedadActual =
@@ -56,6 +56,16 @@ function mapEvolucionRowToEntity(row: any): EvolutionRecordRow {
     ? rawPlan
     : createDefaultPlanManejo();
 
+  const diligenciadoPor = fallbackDiligenciadoPor ?? {
+    idUsuario: Number(row.id_usuario ?? row.idUsuario ?? 1),
+    nombreUsuario: String(
+      row.profesionalResponsable ?? row.profesional_responsable ?? 'Personal Clínico'
+    ),
+    idProfesionalResponsable: Number(row.id_usuario ?? row.idUsuario ?? 1),
+    firmaBase64: row.profesionalFirma ?? row.firma_base64 ?? null,
+    fechaHoraISO: row.fecha ? new Date(row.fecha).toISOString() : new Date().toISOString(),
+  };
+
   const sintetizadaEvolucion: ClinicalEvolutionPayload = {
     tipoRegistro: 'EVOLUCION_ODONTOGRAMA',
     motivoConsulta,
@@ -74,15 +84,7 @@ function mapEvolucionRowToEntity(row: any): EvolutionRecordRow {
     observaciones: hallazgosObservaciones ?? undefined,
     hallazgosObservaciones: hallazgosObservaciones ?? undefined,
     planManejo,
-    diligenciadoPor: {
-      idUsuario: Number(row.id_usuario ?? row.idUsuario ?? 1),
-      nombreUsuario: String(
-        row.profesionalResponsable ?? row.profesional_responsable ?? 'Dr. Eduar Leal Álvarez'
-      ),
-      idProfesionalResponsable: Number(row.id_usuario ?? row.idUsuario ?? 1),
-      firmaBase64: row.profesionalFirma ?? row.firma_base64 ?? null,
-      fechaHoraISO: row.fecha ? new Date(row.fecha).toISOString() : new Date().toISOString(),
-    },
+    diligenciadoPor,
   };
 
   return {
@@ -103,6 +105,7 @@ function mapEvolucionRowToEntity(row: any): EvolutionRecordRow {
     hallazgosObservaciones,
     planManejo,
     evolucion: sintetizadaEvolucion,
+    diligenciadoPor,
   };
 }
 
@@ -251,7 +254,7 @@ export class ClinicalRecordRepository implements IClinicalRecordRepository {
       dto.fecha ?? null,
     ]);
 
-    return mapEvolucionRowToEntity(rows[0]);
+    return mapEvolucionRowToEntity(rows[0], dto.payload?.diligenciadoPor);
   }
 
   // RF-HCL-006 & RQNF-FUN-001: Editar registro clínico solo hasta las 23:59 del mismo día en Colombia
@@ -262,15 +265,26 @@ export class ClinicalRecordRepository implements IClinicalRecordRepository {
     const checkSql = `
       SELECT 
         id_evolucion,
+        id_historia,
+        id_cita,
         fecha,
+        motivo_consulta,
+        enfermedad_actual,
+        antecedentes_clinicos,
+        habitos_higiene,
+        examen_estomatognatico,
+        examen_fisico_observaciones,
+        odontograma,
+        procedimiento_realizado,
+        diagnostico_generado,
+        acciones_a_realizar,
+        hallazgos_observaciones,
+        plan_manejo,
         ((fecha AT TIME ZONE 'America/Bogota')::date = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Bogota')::date) AS "esMismoDia"
       FROM public.evolucion
       WHERE id_evolucion = $1;
     `;
-    const { rows } = await db.query<{ id_evolucion: number; esMismoDia: boolean }>(
-      checkSql,
-      [idEvolucion]
-    );
+    const { rows } = await db.query(checkSql, [idEvolucion]);
     if (rows.length === 0) {
       throw new Error('Registro de evolución no encontrado.');
     }
@@ -278,6 +292,22 @@ export class ClinicalRecordRepository implements IClinicalRecordRepository {
     if (!rows[0].esMismoDia) {
       throw new Error('La historia clínica solo se puede editar el día en que fue creada');
     }
+
+    const previousRow = rows[0];
+    const valorAnterior = {
+      motivoConsulta: previousRow.motivo_consulta,
+      enfermedadActual: previousRow.enfermedad_actual,
+      antecedentesClinicos: previousRow.antecedentes_clinicos,
+      habitosHigiene: previousRow.habitos_higiene,
+      examenEstomatognatico: previousRow.examen_estomatognatico,
+      examenFisicoObservaciones: previousRow.examen_fisico_observaciones,
+      odontograma: previousRow.odontograma,
+      procedimientoRealizado: previousRow.procedimiento_realizado,
+      diagnosticoGenerado: previousRow.diagnostico_generado,
+      accionesARealizar: previousRow.acciones_a_realizar,
+      hallazgosObservaciones: previousRow.hallazgos_observaciones,
+      planManejo: previousRow.plan_manejo,
+    };
 
     const payload = nuevoPayload as any;
     const motivoConsulta = payload.motivoConsulta ?? null;
@@ -332,7 +362,46 @@ export class ClinicalRecordRepository implements IClinicalRecordRepository {
       idEvolucion,
     ]);
 
-    return mapEvolucionRowToEntity(updated.rows[0]);
+    const updatedRow = updated.rows[0];
+    const valorNuevo = {
+      motivoConsulta: updatedRow.motivo_consulta,
+      enfermedadActual: updatedRow.enfermedad_actual,
+      antecedentesClinicos: updatedRow.antecedentes_clinicos,
+      habitosHigiene: updatedRow.habitos_higiene,
+      examenEstomatognatico: updatedRow.examen_estomatognatico,
+      examenFisicoObservaciones: updatedRow.examen_fisico_observaciones,
+      odontograma: updatedRow.odontograma,
+      procedimientoRealizado: updatedRow.procedimiento_realizado,
+      diagnosticoGenerado: updatedRow.diagnostico_generado,
+      accionesARealizar: updatedRow.acciones_a_realizar,
+      hallazgosObservaciones: updatedRow.hallazgos_observaciones,
+      planManejo: updatedRow.plan_manejo,
+    };
+
+    // Intentar registrar en auditoria_historia_clinica (no fallar si tabla aún no creada en BD)
+    try {
+      await db.query(
+        `INSERT INTO public.auditoria_historia_clinica (
+          id_evolucion, id_usuario_modificador, campo_modificado, valor_anterior, valor_nuevo, fecha_modificacion
+        ) VALUES ($1, $2, $3, $4::jsonb, $5::jsonb, CURRENT_TIMESTAMP)`,
+        [
+          idEvolucion,
+          payload.diligenciadoPor?.idUsuario ?? 1,
+          'evolucion_completa',
+          JSON.stringify(valorAnterior),
+          JSON.stringify(valorNuevo),
+        ]
+      );
+    } catch {
+      // Operación resiliente: no falla la actualización clínica principal
+    }
+
+    const entity = mapEvolucionRowToEntity(updatedRow, payload.diligenciadoPor);
+    return {
+      ...entity,
+      valorAnterior,
+      valorNuevo,
+    };
   }
 
   // RF-HCL-008: Consultar historial clínico completo de un paciente (orden cronológico inverso por fecha)
@@ -349,7 +418,6 @@ export class ClinicalRecordRepository implements IClinicalRecordRepository {
         c.estado AS "estadoCita",
         u.nombre_completo AS "profesionalResponsable",
         u.id_usuario AS "idUsuario",
-        u.firma_base64 AS "profesionalFirma",
         u.firma_base64 AS "profesionalFirma",
         e.motivo_consulta AS "motivoConsulta",
         e.enfermedad_actual AS "enfermedadActual",

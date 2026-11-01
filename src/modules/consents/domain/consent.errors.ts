@@ -33,3 +33,11 @@ export class InactiveConsentTemplateError extends ConsentDomainError {
     );
   }
 }
+
+export class ConsentConflictError extends ConsentDomainError {
+  public readonly statusCode = 409;
+
+  constructor(message: string) {
+    super(message);
+  }
+}

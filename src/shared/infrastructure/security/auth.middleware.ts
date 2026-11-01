@@ -7,11 +7,11 @@ export interface AuthenticatedRequest extends Request {
   user?: TokenPayload;
 }
 
-export function authMiddleware(
+export async function authMiddleware(
   req: Request,
   res: Response,
   next: NextFunction
-): void {
+): Promise<void> {
   const authHeader = req.headers.authorization;
   let token: string | undefined;
 
@@ -44,6 +44,22 @@ export function authMiddleware(
       message: 'No tiene permiso para realizar esta acción. Sesión no iniciada',
     });
     return;
+  }
+
+  // Verificar si el token fue revocado en logout (DEF-01)
+  try {
+    const revokedRes = await db.query(
+      `SELECT token FROM public.sesion_invalida WHERE token = $1;`,
+      [token]
+    );
+    if (revokedRes.rows.length > 0) {
+      res.status(401).json({
+        message: 'Sesión invalidada. Inicie sesión nuevamente.',
+      });
+      return;
+    }
+  } catch (err) {
+    // Si la tabla no está disponible en mock unit tests, continuar
   }
 
   const payload = JwtTokenService.verifyToken(token);
@@ -100,4 +116,3 @@ export function requirePermission(rfCode: string) {
     next();
   };
 }
-

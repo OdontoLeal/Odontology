@@ -12,8 +12,14 @@ export interface MonthlyDaySummaryItem {
 }
 
 export function useRealtimeAgenda(apiBaseUrl = '/api/v1') {
-  // Fecha seleccionada en formato YYYY-MM-DD actual en lugar de fija
-  const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
+  // DEF-25 & CPS-AGE-008-04: Inicializar en la fecha actual de Colombia (America/Bogota) en lugar de fecha quemada o UTC
+  const [selectedDate, setSelectedDate] = useState(() => {
+    try {
+      return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota' }).format(new Date());
+    } catch {
+      return new Date().toISOString().split('T')[0];
+    }
+  });
   const [calendarYear, setCalendarYear] = useState(() => new Date().getFullYear());
   const [calendarMonth, setCalendarMonth] = useState(() => new Date().getMonth() + 1); // 1 = Enero ... 12 = Diciembre
   const [slots, setSlots] = useState<CalendarTimeSlot[]>([]);
@@ -26,6 +32,16 @@ export function useRealtimeAgenda(apiBaseUrl = '/api/v1') {
   const [doctorFilter, setDoctorFilter] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const handleSetSelectedDate = useCallback((newDate: string) => {
+    setSelectedDate((prevDate) => {
+      if (prevDate !== newDate) {
+        setIsLoading(true);
+        setSlots([]);
+      }
+      return newDate;
+    });
+  }, []);
 
   // Sincronizar automáticamente mes y año del calendario izquierdo al cambiar de fecha con Ayer/Mañana
   useEffect(() => {
@@ -277,12 +293,25 @@ export function useRealtimeAgenda(apiBaseUrl = '/api/v1') {
     liberarBloques?: boolean
   ) => {
     try {
+      let activeUserId: number | undefined;
+      if (typeof window !== 'undefined') {
+        const raw = window.sessionStorage.getItem('odontoleal_active_session_v1');
+        if (raw) {
+          try {
+            const parsed = JSON.parse(raw);
+            if (parsed.usuario?.idUsuario) {
+              activeUserId = Number(parsed.usuario.idUsuario);
+            }
+          } catch {}
+        }
+      }
+
       const res = await fetch(`${apiBaseUrl}/appointments/${idCita}/state`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           nuevoEstado,
-          idUsuarioGestor: 1,
+          idUsuarioGestor: activeUserId,
           motivo,
           liberarBloques,
         }),
@@ -300,20 +329,20 @@ export function useRealtimeAgenda(apiBaseUrl = '/api/v1') {
   };
 
   const startAttention = useCallback((idCita: number) => {
-    changeStateAPI(idCita, 'En consulta', 'Inicio de atención clínica');
-  }, []);
+    return changeStateAPI(idCita, 'En consulta', 'Inicio de atención clínica');
+  }, [changeStateAPI]);
 
   const endAttention = useCallback((idCita: number) => {
-    changeStateAPI(idCita, 'Completada', 'Atención finalizada con éxito');
-  }, []);
+    return changeStateAPI(idCita, 'Atendida', 'Atención finalizada con éxito');
+  }, [changeStateAPI]);
 
   const cancelAppointment = useCallback((idCita: number, motivo: string) => {
-    changeStateAPI(idCita, 'Cancelada', motivo, true);
-  }, []);
+    return changeStateAPI(idCita, 'Cancelada', motivo, true);
+  }, [changeStateAPI]);
 
   const markNoShow = useCallback((idCita: number, motivo: string) => {
-    changeStateAPI(idCita, 'No asistió', motivo, false);
-  }, []);
+    return changeStateAPI(idCita, 'No asistió', motivo, false);
+  }, [changeStateAPI]);
 
   const toggleSlotStatus = useCallback(
     async (slot: CalendarTimeSlot) => {
@@ -498,7 +527,7 @@ export function useRealtimeAgenda(apiBaseUrl = '/api/v1') {
 
   return {
     selectedDate,
-    setSelectedDate,
+    setSelectedDate: handleSetSelectedDate,
     calendarYear,
     setCalendarYear,
     calendarMonth,

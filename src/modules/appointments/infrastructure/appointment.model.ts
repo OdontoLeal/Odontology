@@ -16,6 +16,7 @@ export interface TimeSlotRow {
   final: string;
   estado: boolean;
   ocupacion: boolean;
+  id_profesional?: number;
 }
 
 export interface MonthlyDaySummary {
@@ -33,9 +34,11 @@ export interface CreateSolicitudCitaDTO {
   telefonoSolicitante?: string;
   fechaNacimiento?: string;
   sexo?: string;
-  bloqueSolicitado: string; 
+  bloqueSolicitado: string;
   descripcion?: string;
   idProfesional?: number;
+  servicio?: string;
+  autorizacionDatos?: boolean;
 }
 
 export interface CreateCitaDTO {
@@ -43,6 +46,6 @@ export interface CreateCitaDTO {
   descripcion?: string;
   idPaciente: number;
   idUsuarioProfesional: number;
-  idUsuarioGestor: number; 
-  bloques: string[];       
+  idUsuarioGestor: number;
+  bloques: string[];
 }

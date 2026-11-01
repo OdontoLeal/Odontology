@@ -12,6 +12,10 @@ export interface PatientRow {
   telefono: string | null;
   fecha_nacimiento: string | Date;
   sexo: PatientSex | null;
+  acudiente?: GuardianInfo | null;
+  contacto_respaldo?: BackupContactInfo | null;
+  autorizacion_datos?: any;
+  datos_incompletos?: boolean;
 }
 
 export interface CreatePatientDTO {

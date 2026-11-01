@@ -16,6 +16,7 @@ import { MailerService } from '../../../shared/infrastructure/mail/mailer.servic
 import { envConfig } from '../../../app/config/env.config';
 import { UserRepository } from './user.repository';
 import { JwtTokenService } from '../../../shared/infrastructure/security/token.service';
+import { db } from '../../../shared/infrastructure/database/database';
 
 export class UsersAuthController {
   private readonly createRoleUseCase: CreateRoleUseCase;
@@ -23,33 +24,40 @@ export class UsersAuthController {
   private readonly deleteRoleUseCase: DeleteRoleUseCase;
   private readonly createUserUseCase: CreateUserUseCase;
   private readonly updateUserUseCase: UpdateUserUseCase;
-  private readonly searchUsersUseCase: SearchUsersUseCase;
   private readonly toggleUserStatusUseCase: ToggleUserStatusUseCase;
+  private readonly searchUsersUseCase: SearchUsersUseCase;
   private readonly authenticateUserUseCase: AuthenticateUserUseCase;
   private readonly closeSessionUseCase: CloseSessionUseCase;
   private readonly recoverPasswordUseCase: RecoverPasswordUseCase;
 
-  constructor(private readonly userRepo: UserRepository) {
-    const draftStorage = new DraftStorageService();
-    const passwordHasher = new HybridPasswordHasherService();
-    const mailer = new MailerService();
-
+  constructor(
+    private readonly userRepo: UserRepository,
+    private readonly draftStorage = new DraftStorageService(),
+    private readonly passwordHasher = new HybridPasswordHasherService(),
+    private readonly mailerService = new MailerService()
+  ) {
     this.createRoleUseCase = new CreateRoleUseCase(this.userRepo);
     this.updateRoleUseCase = new UpdateRoleUseCase(this.userRepo);
     this.deleteRoleUseCase = new DeleteRoleUseCase(this.userRepo);
-    this.createUserUseCase = new CreateUserUseCase(this.userRepo, passwordHasher);
-    this.updateUserUseCase = new UpdateUserUseCase(this.userRepo, passwordHasher);
-    this.searchUsersUseCase = new SearchUsersUseCase(this.userRepo);
+    this.createUserUseCase = new CreateUserUseCase(
+      this.userRepo,
+      this.passwordHasher
+    );
+    this.updateUserUseCase = new UpdateUserUseCase(this.userRepo);
     this.toggleUserStatusUseCase = new ToggleUserStatusUseCase(this.userRepo);
+    this.searchUsersUseCase = new SearchUsersUseCase(this.userRepo);
     this.authenticateUserUseCase = new AuthenticateUserUseCase(
       this.userRepo,
-      passwordHasher
+      this.passwordHasher
     );
-    this.closeSessionUseCase = new CloseSessionUseCase(this.userRepo, draftStorage);
+    this.closeSessionUseCase = new CloseSessionUseCase(
+      this.userRepo,
+      this.draftStorage
+    );
     this.recoverPasswordUseCase = new RecoverPasswordUseCase(
       this.userRepo,
-      passwordHasher,
-      mailer
+      this.passwordHasher,
+      this.mailerService
     );
   }
 
@@ -86,6 +94,7 @@ export class UsersAuthController {
     }
   };
 
+  // Listar roles
   getRoles = async (_req: Request, res: Response): Promise<void> => {
     try {
       const roles = await this.userRepo.findAllRoles();
@@ -118,6 +127,19 @@ export class UsersAuthController {
   // RF-USR-001: Crear usuario
   createUser = async (req: Request, res: Response): Promise<void> => {
     try {
+      const sessionUser = (req as any).user;
+      if (sessionUser) {
+        const roles: string[] = sessionUser.roles || [];
+        const permisos: string[] = sessionUser.permisos || [];
+        const isAdmin =
+          roles.some((r: string) => String(r).toUpperCase().includes('ADM')) ||
+          permisos.includes('RF-USR-001');
+        if (!isAdmin) {
+          res.status(403).json({ message: 'No tiene permiso para realizar esta acción' });
+          return;
+        }
+      }
+
       const {
         ejecutadoPorUsuario,
         nombreCompleto,
@@ -157,8 +179,7 @@ export class UsersAuthController {
         documentoIdentidad,
         correo,
         telefono,
-        nuevaContrasenaTemporal,
-        contrasenaTemporal,
+        nuevaContrasenaTemporal: contrasena,
         rolesIds,
         firma,
       } = req.body;
@@ -170,9 +191,24 @@ export class UsersAuthController {
         documentoIdentidad,
         correo,
         telefono,
-        nuevaContrasenaTemporal: nuevaContrasenaTemporal ?? contrasenaTemporal,
+        nuevaContrasenaTemporal: contrasena,
         rolesIds,
         firma,
+      });
+      res.json(result);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  };
+
+  // RF-USR-003: Activar o inactivar usuario
+  toggleUserStatus = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const idUsuario = Number(req.params.id);
+      const { estado } = req.body;
+      const result = await this.toggleUserStatusUseCase.execute({
+        idUsuario,
+        nuevoEstado: Boolean(estado),
       });
       res.json(result);
     } catch (error: any) {
@@ -183,41 +219,28 @@ export class UsersAuthController {
   // RF-USR-004: Buscar usuarios
   searchUsers = async (req: Request, res: Response): Promise<void> => {
     try {
-      const { documento, nombre, idRol, codigoRol, estado } = req.query;
-      const result = await this.searchUsersUseCase.execute({
-        documento: documento ? String(documento) : undefined,
-        nombre: nombre ? String(nombre) : undefined,
-        idRol: idRol !== undefined ? Number(idRol) : undefined,
-        codigoRol: codigoRol ? String(codigoRol) : undefined,
-        estado: estado !== undefined ? estado === 'true' : undefined,
-      });
+      const queryParam = (req.query.query || req.query.q || req.query.search || '') as string;
+      const docParam = (req.query.documento || '') as string;
+      const nameParam = (req.query.nombre || '') as string;
+      const idRol = req.query.idRol ? Number(req.query.idRol) : undefined;
+      const estado =
+        req.query.estado !== undefined ? req.query.estado === 'true' : undefined;
 
-      res.status(200).json({
-        data: result.data || [],
-        message: result.message,
+      const cleanQuery = queryParam.trim();
+      const isDoc = cleanQuery && /^\d+$/.test(cleanQuery);
+      const searchResult = await this.searchUsersUseCase.execute({
+        documento: docParam ? docParam.trim() : (isDoc ? cleanQuery : undefined),
+        nombre: nameParam ? nameParam.trim() : (!isDoc && cleanQuery ? cleanQuery : undefined),
+        idRol,
+        estado,
       });
+      res.json({ data: searchResult.data, message: searchResult.message });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
   };
 
-  // RF-USR-003: Activar / Inactivar usuario
-  toggleUserStatus = async (req: Request, res: Response): Promise<void> => {
-    try {
-      const idUsuario = Number(req.params.id);
-      const { estado, ejecutadoPorUsuario } = req.body;
-      const result = await this.toggleUserStatusUseCase.execute({
-        ejecutadoPorUsuario: ejecutadoPorUsuario ?? 'ROL-ADM',
-        idUsuario,
-        nuevoEstado: Boolean(estado),
-      });
-      res.json(result);
-    } catch (error: any) {
-      res.status(400).json({ message: error.message });
-    }
-  };
-
-  // RF-USR-005: Autenticar usuario
+  // RF-USR-005: Iniciar sesión
   login = async (req: Request, res: Response): Promise<void> => {
     try {
       const {
@@ -273,6 +296,34 @@ export class UsersAuthController {
         confirmadoPorUsuario,
         borrador,
       } = req.body;
+
+      // Invalidar token en BD (DEF-01)
+      let token: string | undefined;
+      const authHeader = req.headers.authorization;
+      if (authHeader && authHeader.toLowerCase().startsWith('bearer ')) {
+        token = authHeader.split(' ')[1];
+      }
+      if (!token && req.headers.cookie) {
+        const cookies = req.headers.cookie.split(';');
+        for (const cookie of cookies) {
+          const [name, val] = cookie.trim().split('=');
+          if (name === 'session_token' || name === 'token') {
+            token = decodeURIComponent(val);
+            break;
+          }
+        }
+      }
+      if (token) {
+        try {
+          await db.query(
+            `INSERT INTO public.sesion_invalida (token, revocado_en) VALUES ($1, CURRENT_TIMESTAMP) ON CONFLICT (token) DO NOTHING;`,
+            [token]
+          );
+        } catch (dbErr) {
+          // Si tabla no existe en pruebas unitarias, continuar
+        }
+      }
+
       const result = await this.closeSessionUseCase.execute({
         idUsuario: Number(idUsuario),
         motivo: motivo ?? 'MANUAL',

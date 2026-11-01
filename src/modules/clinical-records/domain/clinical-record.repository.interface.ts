@@ -22,6 +22,9 @@ export interface EvolutionRecordRow {
   hallazgosObservaciones?: string | null;
   planManejo?: any;
   evolucion: ClinicalEvolutionPayload;
+  diligenciadoPor?: any;
+  valorAnterior?: any;
+  valorNuevo?: any;
 }
 
 export interface ClinicalHistoryRow {

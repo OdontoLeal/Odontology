@@ -33,6 +33,7 @@ export interface AppointmentDetailPageData {
     | 'Confirmada'
     | 'En consulta'
     | 'En espera'
+    | 'Atendida'
     | 'Completada'
     | 'Cancelada'
     | 'No asistió';
@@ -43,6 +44,7 @@ export interface AppointmentDetailPageProps {
   doctors?: DoctorOption[];
   onBack: () => void;
   onNavigateToPatientProfile?: (idPaciente: number) => void;
+  canStartAttention?: boolean;
   onStartAttention?: (idCita: number, idPaciente: number) => void;
   onMarkNoShow?: (idCita: number, motivo: string) => Promise<void> | void;
   onCancelAppointment?: (idCita: number, motivo: string) => Promise<void> | void;
@@ -74,6 +76,7 @@ export const AppointmentDetailPage: React.FC<AppointmentDetailPageProps> = ({
   doctors = [],
   onBack,
   onNavigateToPatientProfile,
+  canStartAttention = true,
   onStartAttention,
   onMarkNoShow,
   onCancelAppointment,
@@ -817,9 +820,9 @@ export const AppointmentDetailPage: React.FC<AppointmentDetailPageProps> = ({
                     <span>⏳</span> En espera
                   </span>
                 )}
-                {appointment.estado === 'Completada' && (
+                {(appointment.estado === 'Atendida' || appointment.estado === 'Completada') && (
                   <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-semibold bg-[#ECFDF5] text-[#059669] border border-[#A7F3D0]">
-                    <span>✓</span> Completada
+                    <span>✓</span> {appointment.estado}
                   </span>
                 )}
                 {appointment.estado === 'No asistió' && (
@@ -860,13 +863,15 @@ export const AppointmentDetailPage: React.FC<AppointmentDetailPageProps> = ({
           <div className="flex flex-wrap lg:flex-nowrap items-center gap-2.5 lg:self-start shrink-0">
             {appointment.estado === 'Confirmada' && (
               <>
-                <button
-                  type="button"
-                  onClick={() => onStartAttention?.(appointment.idCita, appointment.idPaciente)}
-                  className="px-4 py-2 rounded-xl bg-[#D4AF37] hover:bg-[#C29E2F] text-black text-xs font-extrabold flex items-center gap-1.5 shadow-xs transition-all cursor-pointer"
-                >
-                  <span>▶</span> Iniciar Cita
-                </button>
+                {canStartAttention && (
+                  <button
+                    type="button"
+                    onClick={() => onStartAttention?.(appointment.idCita, appointment.idPaciente)}
+                    className="px-4 py-2 rounded-xl bg-[#D4AF37] hover:bg-[#C29E2F] text-black text-xs font-extrabold flex items-center gap-1.5 shadow-xs transition-all cursor-pointer"
+                  >
+                    <span>▶</span> Iniciar Cita
+                  </button>
+                )}
 
                 <button
                   type="button"
@@ -897,7 +902,7 @@ export const AppointmentDetailPage: React.FC<AppointmentDetailPageProps> = ({
               </>
             )}
 
-            {appointment.estado === 'En consulta' && (
+            {appointment.estado === 'En consulta' && canStartAttention && (
               <button
                 type="button"
                 onClick={() => onStartAttention?.(appointment.idCita, appointment.idPaciente)}
@@ -919,9 +924,9 @@ export const AppointmentDetailPage: React.FC<AppointmentDetailPageProps> = ({
               </div>
             )}
 
-            {appointment.estado === 'Completada' && (
+            {(appointment.estado === 'Atendida' || appointment.estado === 'Completada') && (
               <div className="px-3 py-1.5 rounded-xl bg-[#ECFDF5] border border-[#A7F3D0] text-[11px] font-bold text-[#059669] flex items-center gap-1.5">
-                <span>✓</span> Atención finalizada
+                <span>✓</span> Atención finalizada ({appointment.estado})
               </div>
             )}
           </div>

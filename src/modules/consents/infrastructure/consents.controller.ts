@@ -1,7 +1,19 @@
 // src/modules/consents/infrastructure/consents.controller.ts
 import { Request, Response } from 'express';
+import crypto from 'crypto';
+import { db } from '../../../shared/infrastructure/database/database';
 import { ConsentService } from '../application/consent.service';
 import { ConsentDomainError } from '../domain/consent.errors';
+import { PatientRepository } from '../../patients/infrastructure/patient.repository';
+
+interface TabletSigningSession {
+  token: string;
+  idConsentimiento: number;
+  idPaciente: number;
+  expiresAt: number;
+}
+
+const tabletSessionsStore = new Map<string, TabletSigningSession>();
 
 export class ConsentsController {
   constructor(private readonly consentService: ConsentService) {}
@@ -102,8 +114,39 @@ export class ConsentsController {
     }
   };
 
+  // DEF-01 & CPS-CON-003-01: Proteger endpoint de consentimientos del paciente
   public getPatientConsents = async (req: Request, res: Response): Promise<void> => {
     try {
+      const sessionUser = (req as any).user;
+      const headerRole = (req.headers['x-user-role'] || req.headers['x-user-roles']) as string;
+      const hasAuth = Boolean(sessionUser || headerRole || req.headers['authorization']);
+
+      if (!hasAuth) {
+        res.status(401).json({
+          message: 'Se requiere sesión para consultar los consentimientos del paciente.',
+        });
+        return;
+      }
+
+      const roles: string[] = Array.isArray(sessionUser?.roles)
+        ? sessionUser.roles.map((r: any) => (typeof r === 'string' ? r : r.codigoRol || r.nombreRol))
+        : headerRole
+        ? headerRole.split(',').map((r) => r.trim())
+        : [];
+
+      const isAllowed =
+        roles.includes('ROL-ODO') ||
+        roles.includes('ROL-ESP') ||
+        roles.includes('ROL-ADM') ||
+        roles.includes('ROL-AUX');
+
+      if (!isAllowed) {
+        res.status(403).json({
+          message: 'No tiene permiso para consultar los consentimientos del paciente.',
+        });
+        return;
+      }
+
       const idPaciente = Number(req.params.idPaciente);
       const consents = await this.consentService.getSignedConsentsByPatient(idPaciente);
       res.status(200).json({ data: consents });
@@ -121,6 +164,141 @@ export class ConsentsController {
           idConsentimientoFirmado: id,
           pdfBase64,
         },
+      });
+    } catch (error) {
+      this.handleError(res, error);
+    }
+  };
+
+  // DEF-21 & CPS-CON-002-02, CPS-CON-006-01: Arquitectura de Firma en Tablet
+  public createTabletToken = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { idConsentimiento, idPaciente } = req.body;
+      if (!idConsentimiento || !idPaciente) {
+        res.status(400).json({ message: 'idConsentimiento e idPaciente son obligatorios.' });
+        return;
+      }
+
+      const token = crypto.randomUUID();
+      const expiresAt = Date.now() + 15 * 60 * 1000; // 15 minutos (900 seg)
+
+      tabletSessionsStore.set(token, {
+        token,
+        idConsentimiento: Number(idConsentimiento),
+        idPaciente: Number(idPaciente),
+        expiresAt,
+      });
+
+      res.status(201).json({
+        token,
+        signUrl: `/tablet-sign/${token}`,
+        expiraEnSegundos: 900,
+      });
+    } catch (error) {
+      this.handleError(res, error);
+    }
+  };
+
+  public getTabletSession = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const token = String(req.params.token || '');
+      const session = tabletSessionsStore.get(token);
+
+      if (!session || session.expiresAt < Date.now()) {
+        if (session) tabletSessionsStore.delete(token);
+        res.status(401).json({
+          message: 'El enlace de firma en tablet ha expirado o no es válido.',
+        });
+        return;
+      }
+
+      const templates = await this.consentService.getTemplates(false);
+      const template = templates.find((t) => t.idConsentimiento === session.idConsentimiento);
+
+      if (!template) {
+        res.status(404).json({ message: 'Plantilla de consentimiento no encontrada.' });
+        return;
+      }
+
+      const pRes = await db.query<{
+        id_paciente: number;
+        nombre_completo: string;
+        documento_identidad: string;
+        fecha_nacimiento: string | null;
+      }>(
+        `SELECT id_paciente, nombre_completo, documento_identidad, fecha_nacimiento
+         FROM public.paciente WHERE id_paciente = $1;`,
+        [session.idPaciente]
+      );
+
+      if (pRes.rows.length === 0) {
+        res.status(404).json({ message: 'Paciente no encontrado.' });
+        return;
+      }
+
+      const patient = pRes.rows[0];
+      let esMenorDeEdad = false;
+      if (patient.fecha_nacimiento) {
+        const birthDate = new Date(patient.fecha_nacimiento);
+        const now = new Date();
+        let age = now.getFullYear() - birthDate.getFullYear();
+        const m = now.getMonth() - birthDate.getMonth();
+        if (m < 0 || (m === 0 && now.getDate() < birthDate.getDate())) {
+          age--;
+        }
+        esMenorDeEdad = age < 18;
+      }
+
+      const meta = PatientRepository.getMetadata(patient.id_paciente);
+
+      res.status(200).json({
+        data: {
+          idConsentimiento: template.idConsentimiento,
+          nombrePlantilla: template.nombre,
+          textoPlantilla: template.textoPlantilla,
+          version: template.version,
+          idPaciente: patient.id_paciente,
+          nombrePaciente: patient.nombre_completo,
+          documentoPaciente: patient.documento_identidad,
+          esMenorDeEdad,
+          acudiente: meta?.acudiente || null,
+        },
+      });
+    } catch (error) {
+      this.handleError(res, error);
+    }
+  };
+
+  public submitTabletSigning = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const token = String(req.params.token || '');
+      const session = tabletSessionsStore.get(token);
+
+      if (!session || session.expiresAt < Date.now()) {
+        if (session) tabletSessionsStore.delete(token);
+        res.status(401).json({
+          message: 'El enlace de firma en tablet ha expirado o no es válido.',
+        });
+        return;
+      }
+
+      const { firmaBase64, firmaPorAcudiente, nombreDocumentoAcudiente, textoFirmado } = req.body;
+
+      const signed = await this.consentService.signConsent({
+        idConsentimiento: session.idConsentimiento,
+        idPaciente: session.idPaciente,
+        textoFirmado,
+        firmaBase64,
+        firmaPorAcudiente: Boolean(firmaPorAcudiente),
+        nombreDocumentoAcudiente,
+      });
+
+      // Destruir token de un solo uso
+      tabletSessionsStore.delete(token);
+
+      res.status(201).json({
+        message: 'Consentimiento firmado exitosamente desde la tablet.',
+        data: signed,
       });
     } catch (error) {
       this.handleError(res, error);

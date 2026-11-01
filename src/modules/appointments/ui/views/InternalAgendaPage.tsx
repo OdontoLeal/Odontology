@@ -18,12 +18,18 @@ export interface InternalAgendaPageProps {
   onStartAttention?: (idCita: number, idPaciente: number, doctorInfo?: { doctorName?: string; doctorSignature?: string | null }) => void;
   onOpenConsultationWorkspace?: (patientId: number, idCita: number, doctorInfo?: { doctorName?: string; doctorSignature?: string | null }) => void;
   onNavigateToPatientProfile?: (idPaciente: number) => void;
+  canManageSlots?: boolean;
+  canCreateAppointment?: boolean;
+  canStartAttention?: boolean;
 }
 
 export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
   onStartAttention,
   onOpenConsultationWorkspace,
   onNavigateToPatientProfile,
+  canManageSlots = true,
+  canCreateAppointment = true,
+  canStartAttention = true,
 }) => {
   const {
     selectedDate,
@@ -41,6 +47,7 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
     doctorFilter,
     setDoctorFilter,
     fetchAgenda,
+    isLoading,
     startAttention,
     cancelAppointment,
     markNoShow,
@@ -67,7 +74,13 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
     fetch('/api/v1/users')
       .then((res) => (res.ok ? res.json() : { data: [] }))
       .then((json) => {
-        const userList: any[] = json.data || [];
+        const userList: any[] = Array.isArray(json.data)
+          ? json.data
+          : Array.isArray(json.data?.data)
+          ? json.data.data
+          : Array.isArray(json)
+          ? json
+          : [];
         const doctorCandidates: DoctorCandidate[] = userList
           .filter((u) => u.estado !== false)
           .map((u) => ({
@@ -352,19 +365,28 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
       <AppointmentDetailPage
         appointment={activeAppointmentDetail}
         doctors={doctors}
+        canStartAttention={canStartAttention}
         onBack={() => setViewMode('AGENDA')}
         onNavigateToPatientProfile={onNavigateToPatientProfile}
         onUpdateAppointment={async (idCita, data) => {
           await updateAppointment(idCita, data);
           await fetchAgenda();
         }}
-        onStartAttention={(idCita, idPaciente) => {
-          startAttention(idCita);
-          onStartAttention?.(idCita, idPaciente, {
-            doctorName: activeAppointmentDetail.doctorNombre,
-            doctorSignature: activeAppointmentDetail.doctorFirma,
-          });
-          setViewMode('AGENDA');
+        onStartAttention={async (idCita, idPaciente) => {
+          try {
+            await startAttention(idCita);
+            onStartAttention?.(idCita, idPaciente, {
+              doctorName: activeAppointmentDetail.doctorNombre,
+              doctorSignature: activeAppointmentDetail.doctorFirma,
+            });
+            setViewMode('AGENDA');
+          } catch (err: any) {
+            showAlert({
+              title: 'Error al iniciar atención',
+              message: err.message || 'No se pudo iniciar la consulta clínica.',
+              type: 'error',
+            });
+          }
         }}
         onCancelAppointment={async (idCita, motivo) => {
           await cancelAppointment(idCita, motivo);
@@ -438,13 +460,15 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
         </div>
 
         {/* Botón Nueva Cita */}
-        <button
-          type="button"
-          onClick={() => setIsQuickScheduleOpen(true)}
-          className="px-4 py-2 rounded-xl bg-[#D4AF37] hover:bg-[#C29E2F] text-black text-xs font-extrabold flex items-center gap-1.5 shadow-xs transition-all ml-auto"
-        >
-          <span>+</span> Nueva Cita
-        </button>
+        {canCreateAppointment && (
+          <button
+            type="button"
+            onClick={() => setIsQuickScheduleOpen(true)}
+            className="px-4 py-2 rounded-xl bg-[#D4AF37] hover:bg-[#C29E2F] text-black text-xs font-extrabold flex items-center gap-1.5 shadow-xs transition-all ml-auto"
+          >
+            <span>+</span> Nueva Cita
+          </button>
+        )}
       </div>
 
       {/* Grid de 2 Columnas Principal (Imagen 3) */}
@@ -609,24 +633,27 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
             </div>
 
             {/* Botón Crear Bloques (ERS RF-AGE-001) */}
-            <button
-              type="button"
-              disabled={isPastDate}
-              onClick={handleGenerateDaySlots}
-              title={isPastDate ? 'No es posible crear bloques en fechas pasadas' : 'Crear bloques para este día'}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 shadow-2xs transition-colors ${
-                isPastDate
-                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200'
-                  : 'bg-[#111827] text-white hover:bg-black cursor-pointer'
-              }`}
-            >
-              <span className={isPastDate ? 'opacity-40' : 'text-[#D4AF37]'}>➕</span> Crear bloques
-            </button>
+            {canManageSlots && (
+              <button
+                type="button"
+                disabled={isPastDate || isLoading}
+                onClick={handleGenerateDaySlots}
+                title={isPastDate ? 'No es posible crear bloques en fechas pasadas' : 'Crear bloques para este día'}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 shadow-2xs transition-colors ${
+                  isPastDate || isLoading
+                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200'
+                    : 'bg-[#111827] text-white hover:bg-black cursor-pointer'
+                }`}
+              >
+                <span className={isPastDate || isLoading ? 'opacity-40' : 'text-[#D4AF37]'}>➕</span> Crear bloques
+              </button>
+            )}
           </div>
 
           {/* Grilla de Bloques con Citas y Estado Vacío si no hay bloques en BD (Imagen 3) */}
           <WeeklyCalendarGrid
             slots={slots}
+            isLoading={isLoading}
             filterMode={filterMode}
             isPastDate={isPastDate}
             onSelectSlot={handleSelectConfirmedSlot}
@@ -643,7 +670,7 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
               toggleSlotStatus(slot);
             }}
             onScheduleSlot={handleScheduleSlot}
-            onCreateBlocks={handleGenerateDaySlots}
+            onCreateBlocks={canManageSlots ? handleGenerateDaySlots : undefined}
           />
         </div>
       </div>

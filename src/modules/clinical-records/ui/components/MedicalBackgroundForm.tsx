@@ -47,49 +47,49 @@ const BACKGROUND_FIELDS: BackgroundFieldDef[] = [
     label: 'Accidentes o Traumas',
     icon: <BandageIcon size={18} color="#D4AF37" className="mt-0.5 shrink-0" />,
     descripcion: 'Trauma facial, luxación, fractura dental o maxilar.',
-    defaultNA: 'N/A - Niega traumas faciales o dentales previos',
+    defaultNA: 'N/A',
   },
   {
     key: 'cirugias',
     label: 'Cirugías',
     icon: <ScissorsIcon size={18} color="#D4AF37" className="mt-0.5 shrink-0" />,
     descripcion: 'Quirúrgicas, intervenciones previas, anestesia general.',
-    defaultNA: 'N/A - Niega cirugías previas',
+    defaultNA: 'N/A',
   },
   {
     key: 'patologicos',
     label: 'Patológicos',
     icon: <StethoscopeIcon size={18} color="#D4AF37" className="mt-0.5 shrink-0" />,
     descripcion: 'Hipertensión, diabetes, cardiopatías, asma, etc.',
-    defaultNA: 'N/A - Niega enfermedades crónicas o sistémicas',
+    defaultNA: 'N/A',
   },
   {
     key: 'farmacologicos',
     label: 'Farmacológicos',
     icon: <PillIcon size={18} color="#D4AF37" className="mt-0.5 shrink-0" />,
     descripcion: 'Medicamentos actuales, anticoagulantes, bifosfonatos, alergias.',
-    defaultNA: 'N/A - Sin medicamentos habituales ni alergias farmacológicas conocidas',
+    defaultNA: 'N/A',
   },
   {
     key: 'inmunologicos',
     label: 'Inmunológicos',
     icon: <ShieldIcon size={18} color="#D4AF37" className="mt-0.5 shrink-0" />,
     descripcion: 'Alergias a látex, inmunosupresión, condiciones inmunes.',
-    defaultNA: 'N/A - Tolerancia comprobada a látex y resinas',
+    defaultNA: 'N/A',
   },
   {
     key: 'familiares',
     label: 'Familiares',
     icon: <UsersIcon size={18} color="#D4AF37" className="mt-0.5 shrink-0" />,
     descripcion: 'Coagulopatías, diabetes familiar, periodontitis precoz.',
-    defaultNA: 'N/A - Niega antecedentes familiares de relevancia',
+    defaultNA: 'N/A',
   },
   {
     key: 'otros_habitos_practicas',
     label: 'Otros Hábitos / Prácticas',
     icon: <ToothIcon size={18} color="#D4AF37" className="mt-0.5 shrink-0" />,
     descripcion: 'Onicofagia, bruxismo, succión digital, respirador oral u otros.',
-    defaultNA: 'Sin registro de hábitos orales parafuncionales o perjudiciales reportados',
+    defaultNA: 'N/A',
   },
 ];
 
@@ -110,8 +110,8 @@ const HABIT_FIELDS: HabitFieldDef[] = [
     icon: <WineIcon size={18} color="#D4AF37" className="mt-0.5 shrink-0" />,
     descripcion: 'Consumo de bebidas alcohólicas o fermentadas.',
     options: ['No consume', 'Ocasional (social)', 'Semanal', 'Frecuente / Diario'],
-    defaultFrecuencia: 'Ocasional (social)',
-    defaultObservaciones: 'Consumo social esporádico',
+    defaultFrecuencia: 'No consume',
+    defaultObservaciones: '',
   },
   {
     key: 'fuma_tabaco_vapeo',
@@ -120,7 +120,7 @@ const HABIT_FIELDS: HabitFieldDef[] = [
     descripcion: 'Cigarrillo tradicional, pipa o vaporizadores.',
     options: ['No fuma', 'Ocasional', '1 a 5 al día', 'Más de 5 al día'],
     defaultFrecuencia: 'No fuma',
-    defaultObservaciones: 'No refiere tabaquismo ni cigarrillo electrónico',
+    defaultObservaciones: '',
   },
   {
     key: 'mastica_chicle_golosinas',
@@ -128,8 +128,8 @@ const HABIT_FIELDS: HabitFieldDef[] = [
     icon: <CandyIcon size={18} color="#D4AF37" className="mt-0.5 shrink-0" />,
     descripcion: 'Consumo recurrente de chicle, caramelos o dulces.',
     options: ['No consume', 'Ocasional', 'Frecuente / Diario'],
-    defaultFrecuencia: 'Ocasional',
-    defaultObservaciones: 'Goma de mascar sin azúcar (xilitol)',
+    defaultFrecuencia: 'No consume',
+    defaultObservaciones: '',
   },
   {
     key: 'cepillado_dental',
@@ -137,8 +137,8 @@ const HABIT_FIELDS: HabitFieldDef[] = [
     icon: <ToothbrushIcon size={18} color="#D4AF37" className="mt-0.5 shrink-0" />,
     descripcion: 'Frecuencia y técnica de cepillado diario.',
     options: ['1 vez al día', '2 veces al día', '3 veces o más al día'],
-    defaultFrecuencia: '3 veces o más al día',
-    defaultObservaciones: 'Cepillo cerdas suaves manual. Técnica correcta',
+    defaultFrecuencia: '2 veces al día',
+    defaultObservaciones: '',
   },
   {
     key: 'uso_seda_dental',
@@ -146,8 +146,8 @@ const HABIT_FIELDS: HabitFieldDef[] = [
     icon: <DentalFlossIcon size={18} color="#D4AF37" className="mt-0.5 shrink-0" />,
     descripcion: 'Limpieza interdental con hilo o cinta dental.',
     options: ['No utiliza', 'Ocasional', '1 vez al día (nocturno)', '2 o más veces al día'],
-    defaultFrecuencia: '1 vez al día (nocturno)',
-    defaultObservaciones: 'Seda encerada en la noche sin sangrado habitual',
+    defaultFrecuencia: 'No utiliza',
+    defaultObservaciones: '',
   },
   {
     key: 'chequeos_odontologicos_periodicos',
@@ -156,12 +156,18 @@ const HABIT_FIELDS: HabitFieldDef[] = [
     descripcion: 'Visitas preventivas y profilaxis dental.',
     options: ['Menos de 6 meses', 'Cada 6 meses', 'Cada año', 'Solo por dolor o urgencia'],
     defaultFrecuencia: 'Cada 6 meses',
-    defaultObservaciones: 'Última profilaxis hace 7 meses con buena respuesta',
+    defaultObservaciones: '',
   },
 ];
 
 function normalizeBackgrounds(raw: any): AntecedentesClinicosDTO {
-  const base = { ...DEFAULT_ANTECEDENTES_CLINICOS };
+  const base: any = {};
+  BACKGROUND_FIELDS.forEach(({ key }) => {
+    base[key] = {
+      presenta: false,
+      observaciones: '',
+    };
+  });
   if (!raw) return base;
 
   if (Array.isArray(raw)) {
@@ -186,11 +192,11 @@ function normalizeBackgrounds(raw: any): AntecedentesClinicosDTO {
     return base;
   }
 
-  BACKGROUND_FIELDS.forEach(({ key, defaultNA }) => {
+  BACKGROUND_FIELDS.forEach(({ key }) => {
     if (raw[key]) {
       base[key] = {
         presenta: Boolean(raw[key].presenta),
-        observaciones: raw[key].observaciones ?? (raw[key].presenta ? '' : defaultNA),
+        observaciones: raw[key].observaciones ?? '',
       };
     }
   });
@@ -199,7 +205,14 @@ function normalizeBackgrounds(raw: any): AntecedentesClinicosDTO {
 }
 
 function normalizeHabits(raw: any): HabitosHigieneDTO {
-  const base = { ...DEFAULT_HABITOS_HIGIENE };
+  const base: any = {};
+  HABIT_FIELDS.forEach(({ key, defaultFrecuencia }) => {
+    base[key] = {
+      aplica: false,
+      frecuencia_cantidad: defaultFrecuencia,
+      observaciones: '',
+    };
+  });
   if (!raw) return base;
 
   if (Array.isArray(raw)) {
@@ -224,17 +237,12 @@ function normalizeHabits(raw: any): HabitosHigieneDTO {
     return base;
   }
 
-  HABIT_FIELDS.forEach(({ key, defaultFrecuencia, defaultObservaciones }) => {
+  HABIT_FIELDS.forEach(({ key, defaultFrecuencia }) => {
     if (raw[key]) {
       base[key] = {
         aplica: Boolean(raw[key].aplica),
-        frecuencia_cantidad:
-          raw[key].frecuencia_cantidad ??
-          raw[key].frecuencia ??
-          defaultFrecuencia,
-        observaciones:
-          raw[key].observaciones ??
-          defaultObservaciones,
+        frecuencia_cantidad: raw[key].frecuencia_cantidad || defaultFrecuencia,
+        observaciones: raw[key].observaciones ?? '',
       };
     }
   });

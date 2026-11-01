@@ -30,6 +30,7 @@ export interface RolesManagementPageProps {
     permisos: string[];
   }) => Promise<{ message: string; data: RoleDTO }>;
   onDeleteRole?: (idRol: number) => Promise<{ message: string }>;
+  canCreateRole?: boolean;
 }
 
 const INITIAL_ROLES_SEED: RoleExtendedViewDTO[] = [
@@ -165,6 +166,7 @@ export const RolesManagementPage: React.FC<RolesManagementPageProps> = ({
   onCreateRole,
   onUpdateRole,
   onDeleteRole,
+  canCreateRole = true,
 }) => {
   const [roles, setRoles] = useState<RoleExtendedViewDTO[]>(initialRoles);
 
@@ -470,16 +472,18 @@ export const RolesManagementPage: React.FC<RolesManagementPageProps> = ({
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={handleOpenCreateModal}
-            className="min-h-[44px] self-start sm:self-end inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-[#DDB93E] to-[#C9A227] px-5 py-2.5 text-[14px] font-bold text-[#111111] shadow-[0_2px_6px_rgba(184,148,42,0.35)] hover:bg-[#B8942A] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#111111] transition-colors"
-          >
-            <span className="text-lg leading-none font-normal" aria-hidden="true">
-              +
-            </span>
-            <span>Nuevo Rol</span>
-          </button>
+          {canCreateRole && (
+            <button
+              type="button"
+              onClick={handleOpenCreateModal}
+              className="min-h-[44px] self-start sm:self-end inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-[#DDB93E] to-[#C9A227] px-5 py-2.5 text-[14px] font-bold text-[#111111] shadow-[0_2px_6px_rgba(184,148,42,0.35)] hover:bg-[#B8942A] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#111111] transition-colors"
+            >
+              <span className="text-lg leading-none font-normal" aria-hidden="true">
+                +
+              </span>
+              <span>Nuevo Rol</span>
+            </button>
+          )}
         </header>
 
         {/* Mensajes de retroalimentación semánticos */}

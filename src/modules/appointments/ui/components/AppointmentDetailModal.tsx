@@ -24,6 +24,7 @@ export interface AppointmentDetailData {
     | 'Confirmada'
     | 'En consulta'
     | 'En espera'
+    | 'Atendida'
     | 'Completada'
     | 'Cancelada'
     | 'No asistió';
@@ -111,7 +112,7 @@ export const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
           <Badge
             label={appointment.estado}
             variant={
-              appointment.estado === 'Completada'
+              appointment.estado === 'Atendida' || appointment.estado === 'Completada'
                 ? 'success'
                 : appointment.estado === 'En consulta'
                 ? 'gold'

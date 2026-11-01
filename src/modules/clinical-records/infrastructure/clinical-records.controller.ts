@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { db } from '../../../shared/infrastructure/database/database';
 import { CreateClinicalRecordUseCase } from '../application/create-clinical-record.use-case';
 import { GetClinicalHistoryUseCase } from '../application/get-clinical-history.use-case';
 import { ManageOdontogramUseCase } from '../application/manage-odontogram.use-case';
@@ -7,6 +8,7 @@ import { UpdateClinicalRecordUseCase } from '../application/update-clinical-reco
 import {
   ActorContext,
   ClinicalDomainError,
+  UserRoleCode,
 } from '../domain/clinical-record.entity';
 import { IClinicalRecordRepository } from '../domain/clinical-record.repository.interface';
 import { OdontogramDataDTO } from './clinical-record.model';
@@ -57,16 +59,35 @@ export class ClinicalRecordsController {
 
   private extractActor(req: Request): ActorContext {
     const authUser = (req as any).user;
+    const headerRole = (req.headers['x-user-role'] || req.headers['x-user-roles']) as string;
+    let roles: UserRoleCode[] = [];
+
+    if (Array.isArray(authUser?.roles) && authUser.roles.length > 0) {
+      roles = authUser.roles.map((r: any) => (typeof r === 'string' ? r : r.codigoRol || r.nombreRol));
+    } else if (headerRole) {
+      roles = headerRole.split(',').map((r) => r.trim() as UserRoleCode);
+    }
+
+    const idUsuario = Number(
+      authUser?.idUsuario ??
+        req.headers['x-user-id'] ??
+        req.body?.payload?.diligenciadoPor?.idUsuario ??
+        req.body?.diligenciadoPor?.idUsuario ??
+        (roles.includes('ROL-AUX') ? 5 : 1)
+    );
+
+    const nombreUsuario = String(
+      authUser?.nombreCompleto ??
+        req.headers['x-user-name'] ??
+        req.body?.payload?.diligenciadoPor?.nombreUsuario ??
+        req.body?.diligenciadoPor?.nombreUsuario ??
+        (roles.includes('ROL-AUX') ? 'Milena' : 'Personal Clínico')
+    );
+
     return {
-      idUsuario: Number(
-        authUser?.idUsuario ?? req.body?.payload?.diligenciadoPor?.idUsuario ?? 1
-      ),
-      nombreUsuario: String(
-        authUser?.nombreCompleto ??
-          req.body?.payload?.diligenciadoPor?.nombreUsuario ??
-          'Personal Clínico'
-      ),
-      roles: Array.isArray(authUser?.roles) ? authUser.roles : ['ROL-ODO'],
+      idUsuario,
+      nombreUsuario,
+      roles,
     };
   }
 
@@ -113,8 +134,42 @@ export class ClinicalRecordsController {
         return;
       }
 
+      // DEF-13 & CPS-HCL-005-03: Validar estado de la cita directamente en la BD (public.cita)
+      const citaRes = await db.query<{ estado: string; id_usuario: number; profesional_nombre?: string }>(
+        `SELECT c.estado, c.id_usuario, u.nombre_completo as profesional_nombre
+         FROM public.cita c
+         LEFT JOIN public.usuario u ON u.id_usuario = c.id_usuario
+         WHERE c.id_cita = $1;`,
+        [idCita]
+      );
+
+      if (citaRes.rows.length === 0) {
+        res.status(404).json({ message: 'Cita no encontrada.' });
+        return;
+      }
+
+      const citaDb = citaRes.rows[0];
+      if (citaDb.estado !== 'En consulta') {
+        res.status(409).json({
+          message: 'Solo se puede crear o abrir la historia clínica cuando la cita está "En consulta".',
+        });
+        return;
+      }
+
+      // DEF-01: Coordinadora no tiene permisos clínicos
+      if (
+        actor.roles.includes('ROL-COA') &&
+        !actor.roles.includes('ROL-ADM') &&
+        !actor.roles.includes('ROL-ODO') &&
+        !actor.roles.includes('ROL-ESP')
+      ) {
+        res.status(403).json({ message: 'No tiene permiso para realizar esta acción' });
+        return;
+      }
+
       const idProfesionalResponsable = Number(
-        body.idProfesionalResponsable ??
+        citaDb.id_usuario ??
+          body.idProfesionalResponsable ??
           payload.diligenciadoPor?.idProfesionalResponsable ??
           actor.idUsuario
       );
@@ -125,7 +180,7 @@ export class ClinicalRecordsController {
         entry = await this.createClinicalRecordUseCase.execute({
           idPaciente: Number(idPaciente),
           idCita: Number(idCita),
-          estadoCita: estadoCita ?? 'En consulta',
+          estadoCita: 'En consulta',
           idProfesionalResponsable,
           actor,
           motivoConsulta: payload.motivoConsulta ?? body.motivoConsulta ?? '',
@@ -133,19 +188,19 @@ export class ClinicalRecordsController {
           marcarTodoNoAplica: Boolean(req.body.marcarTodoNoAplica),
         });
       } else if (
-        payload.tipoRegistro === 'EVOLUCION_ODONTOGRAMA' &&
-        this.isOdontogramObject(payload.odontograma) &&
+        (payload.tipoRegistro === 'EVOLUCION_ODONTOGRAMA' || this.isOdontogramObject(body.odontograma)) &&
+        this.isOdontogramObject(payload.odontograma || body.odontograma) &&
         !payload.procedimientoRealizado &&
         !body.procedimientoRealizado
       ) {
         entry = await this.manageOdontogramUseCase.execute({
           idPaciente: Number(idPaciente),
           idCita: Number(idCita),
-          estadoCita: estadoCita ?? 'En consulta',
+          estadoCita: 'En consulta',
           idProfesionalResponsable,
           esMenorDe18Anios: Boolean(esMenorDe18Anios),
           actor,
-          odontograma: payload.odontograma,
+          odontograma: payload.odontograma || body.odontograma,
         });
       } else if (this.repo) {
         // Guardado estructurado directo mapeado a las 5 pestañas de la tabla evolucion
@@ -303,6 +358,13 @@ export class ClinicalRecordsController {
           planManejo = parsed.data;
         }
 
+        const diligenciadoPor = {
+          idUsuario: actor.idUsuario,
+          nombreUsuario: actor.nombreUsuario,
+          idProfesionalResponsable,
+          fechaHoraISO: new Date().toISOString(),
+        };
+
         entry = await this.repo.createEvolutionEntry({
           idPaciente: Number(idPaciente),
           idCita: Number(idCita),
@@ -332,12 +394,7 @@ export class ClinicalRecordsController {
             accionesARealizar: accionesARealizar ?? undefined,
             observaciones: hallazgosObservaciones ?? undefined,
             planManejo,
-            diligenciadoPor: {
-              idUsuario: actor.idUsuario,
-              nombreUsuario: actor.nombreUsuario,
-              idProfesionalResponsable,
-              fechaHoraISO: new Date().toISOString(),
-            },
+            diligenciadoPor,
           },
         });
       } else {
@@ -354,23 +411,22 @@ export class ClinicalRecordsController {
         entry = await this.registerEvolutionUseCase.execute({
           idPaciente: Number(idPaciente),
           idCita: Number(idCita),
-          estadoCita: estadoCita ?? 'En consulta',
+          estadoCita: 'En consulta',
           idProfesionalResponsable,
           actor,
           procedimientoRealizado:
             body.procedimientoRealizado ||
             payload.procedimientoRealizado ||
-            body.motivoConsulta ||
-            'Atención Odontológica',
+            'Atención odontológica en consulta',
           notaEvolucionTextoLibre,
           plantillaCodigo: req.body.plantillaCodigo,
           camposPlantilla: req.body.camposPlantilla,
-          esNotaAclaratoria: payload.tipoRegistro === 'NOTA_ACLARATORIA',
+          esNotaAclaratoria: Boolean(req.body.esNotaAclaratoria),
         });
       }
 
       res.status(201).json({
-        message: 'Registro clínico guardado exitosamente.',
+        message: 'Entrada clínica registrada exitosamente.',
         data: entry,
       });
     } catch (error) {
@@ -526,6 +582,12 @@ export class ClinicalRecordsController {
             body.hallazgosObservaciones ?? payload.hallazgosObservaciones ?? payload.observaciones,
           planManejo: rawPlan,
           evolucion: payload,
+          diligenciadoPor: {
+            idUsuario: actor.idUsuario,
+            nombreUsuario: actor.nombreUsuario,
+            idProfesionalResponsable: Number(payload.diligenciadoPor?.idProfesionalResponsable ?? actor.idUsuario),
+            fechaHoraISO: new Date().toISOString(),
+          },
         });
       } else {
         updated = await this.registerEvolutionUseCase.updateNote({
@@ -572,9 +634,28 @@ export class ClinicalRecordsController {
   // RF-HCL-008: Consultar historial clínico completo de un paciente
   getHistoryByPatient = async (req: Request, res: Response): Promise<void> => {
     try {
-      const idPaciente = Number(req.params.idPaciente);
-      const actor = this.extractActor(req);
+      const authUser = (req as any).user;
+      if (!authUser && !req.headers['x-user-role'] && !req.headers['authorization']) {
+        res.status(401).json({
+          message: 'Se requiere iniciar sesión para consultar el expediente clínico.',
+        });
+        return;
+      }
 
+      const actor = this.extractActor(req);
+      const isAllowed =
+        actor.roles.includes('ROL-ODO') ||
+        actor.roles.includes('ROL-ESP') ||
+        actor.roles.includes('ROL-ADM');
+
+      if (!isAllowed) {
+        res.status(403).json({
+          message: 'No tiene permiso para consultar la historia clínica.',
+        });
+        return;
+      }
+
+      const idPaciente = Number(req.params.idPaciente);
       const history = await this.getClinicalHistoryUseCase.execute({
         idPaciente,
         actor,

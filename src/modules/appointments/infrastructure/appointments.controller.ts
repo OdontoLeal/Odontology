@@ -10,8 +10,13 @@ export class AppointmentsController {
 
   upsertTimeSlot = async (req: Request, res: Response): Promise<void> => {
     try {
-      const { inicio, final, estado } = req.body;
-      const slot = await this.appointmentRepo.upsertTimeSlot(inicio, final, estado ?? true);
+      const { inicio, final, estado, idProfesional } = req.body;
+      const slot = await this.appointmentRepo.upsertTimeSlot(
+        inicio,
+        final,
+        estado ?? true,
+        idProfesional ? Number(idProfesional) : 1
+      );
       res.status(201).json({ message: 'Bloque de horario actualizado.', data: slot });
     } catch (error: any) {
       res.status(400).json({ message: error.message });
@@ -21,6 +26,7 @@ export class AppointmentsController {
   generateDaySlots = async (req: Request, res: Response): Promise<void> => {
     try {
       const fecha = (req.body.fecha || req.query.fecha || '').toString();
+      const idProfesional = req.body.idProfesional || req.query.idProfesional;
       if (!fecha) {
         res.status(400).json({ message: 'El parámetro fecha es obligatorio en formato YYYY-MM-DD.' });
         return;
@@ -41,7 +47,10 @@ export class AppointmentsController {
         return;
       }
 
-      const result = await this.appointmentRepo.generateDaySlots(fecha);
+      const result = await this.appointmentRepo.generateDaySlots(
+        fecha,
+        idProfesional ? Number(idProfesional) : 1
+      );
       res.status(201).json({
         message: `Se generaron ${result.totalGenerados} bloques de horario para la fecha ${result.fecha} (06:00 a 20:00).`,
         data: result,
@@ -54,11 +63,12 @@ export class AppointmentsController {
   getAvailableSlots = async (req: Request, res: Response): Promise<void> => {
     try {
       const fecha = (req.query.fecha || '').toString();
+      const idProfesional = req.query.idProfesional ? Number(req.query.idProfesional) : undefined;
       if (!fecha) {
         res.status(400).json({ message: 'El parámetro fecha es obligatorio en formato YYYY-MM-DD.' });
         return;
       }
-      const slots = await this.appointmentRepo.getAvailableSlots(fecha);
+      const slots = await this.appointmentRepo.getAvailableSlots(fecha, idProfesional);
       res.json({ data: slots });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
@@ -67,12 +77,15 @@ export class AppointmentsController {
 
   toggleSlotStatus = async (req: Request, res: Response): Promise<void> => {
     try {
-      const { inicio } = req.body;
+      const { inicio, idProfesional } = req.body;
       if (!inicio) {
         res.status(400).json({ message: 'El parámetro inicio es obligatorio.' });
         return;
       }
-      const slot = await this.appointmentRepo.toggleSlotStatus(inicio);
+      const slot = await this.appointmentRepo.toggleSlotStatus(
+        inicio,
+        idProfesional ? Number(idProfesional) : 1
+      );
       res.json({
         message: `Bloque ${slot.inicio} ${slot.estado ? 'habilitado' : 'deshabilitado'} exitosamente.`,
         data: slot,
@@ -84,10 +97,11 @@ export class AppointmentsController {
 
   getTimeSlots = async (req: Request, res: Response): Promise<void> => {
     try {
-      const { desde, hasta } = req.query;
+      const { desde, hasta, idProfesional } = req.query;
       const slots = await this.appointmentRepo.getTimeSlots(
         desde ? String(desde) : undefined,
-        hasta ? String(hasta) : undefined
+        hasta ? String(hasta) : undefined,
+        idProfesional ? Number(idProfesional) : undefined
       );
       res.json({ data: slots });
     } catch (error: any) {
@@ -141,11 +155,21 @@ export class AppointmentsController {
         bloqueSolicitado,
         descripcion,
         idProfesional,
+        servicio,
+        autorizacionDatos,
       } = req.body;
 
       if (!nombreSolicitante || !documentoSolicitante || !correoSolicitante || !bloqueSolicitado) {
         res.status(400).json({
           message: 'Nombre, documento, correo y horario son campos obligatorios para la solicitud.',
+        });
+        return;
+      }
+
+      // Validar obligatoriedad de Ley 1581 (DEF-07 / CPS-AGE-003-03)
+      if (!autorizacionDatos) {
+        res.status(400).json({
+          message: 'Debe aceptar la autorización de tratamiento de datos personales (Ley 1581 de 2012) para solicitar la cita.',
         });
         return;
       }
@@ -174,7 +198,9 @@ export class AppointmentsController {
         sexo,
         bloqueSolicitado,
         descripcion,
-        idProfesional,
+        idProfesional: idProfesional ? Number(idProfesional) : undefined,
+        servicio,
+        autorizacionDatos,
       });
 
       // Envío de correo de confirmación de solicitud recibida (RF-AGE-003, RQNF-FIA-004)
@@ -189,7 +215,7 @@ export class AppointmentsController {
           nombreSolicitante: nombreSolicitante.trim(),
           fecha,
           hora,
-          doctor: 'Dr. Eduar Leal Álvarez',
+          doctor: 'Por asignar por Coordinación',
           motivo: descripcion || 'Valoración odontológica solicitada',
           idSolicitud: solId,
         });
@@ -197,7 +223,7 @@ export class AppointmentsController {
         console.error('RQNF-FIA-004: Falla en envío de correo al registrar solicitud:', mailError?.message);
       }
 
-      // Notificación por correo a coordinadores de agendamiento o administrador (RF-AGE-004)
+      // Notificación por correo con escalado COA -> AUX -> ADM (RF-AGE-004, DEF-09)
       try {
         const staffToNotify = await this.appointmentRepo.getStaffForNewRequestNotification();
         for (const staff of staffToNotify) {
@@ -217,7 +243,7 @@ export class AppointmentsController {
           }
         }
       } catch (coordMailError: any) {
-        console.error('RQNF-FIA-004: Falla en notificación a coordinación:', coordMailError?.message);
+        console.error('RQNF-FIA-004: Falla en notificación a personal:', coordMailError?.message);
       }
 
       res.status(201).json({
@@ -233,17 +259,24 @@ export class AppointmentsController {
     try {
       const idSolicitud = Number(req.params.id);
       const { idUsuarioGestor, aprobar, motivo, idPaciente, idProfesional, selectedBlocks } = req.body;
+
+      if (aprobar === false) {
+        if (!motivo || !String(motivo).trim()) {
+          res.status(400).json({ message: 'El motivo de rechazo de la solicitud es obligatorio.' });
+          return;
+        }
+      }
+
       const result: any = await this.appointmentRepo.reviewRequest({
         idSolicitud,
         idUsuarioGestor: idUsuarioGestor || 1,
         aprobar: aprobar !== false,
-        motivo: motivo || (aprobar ? 'Solicitud aprobada y confirmada en agenda médica' : 'Solicitud rechazada'),
+        motivo: motivo || (aprobar ? 'Solicitud aprobada y confirmada en agenda médica' : ''),
         idPaciente,
         idProfesional,
         selectedBlocks,
       });
 
-      // Notificación por correo al solicitante al aprobar (RF-AGE-005, RQNF-FIA-004)
       if (result?.correoPaciente && (aprobar !== false)) {
         try {
           const fecha = result.fecha || String(result.fechaHora || '').split(' ')[0] || 'Por confirmar';
@@ -258,12 +291,10 @@ export class AppointmentsController {
             motivo: result.titulo || result.descripcion || 'Valoración Odontológica Confirmada',
             idCita: result.id_cita || result.idCita,
           });
-          console.log(`📧 Correo de confirmación enviado exitosamente a ${result.correoPaciente}`);
         } catch (mailError: any) {
-          console.error('RQNF-FIA-004: Falla en envío de correo de revisión de solicitud al paciente:', mailError?.message);
+          console.error('RQNF-FIA-004: Error enviando correo al paciente:', mailError?.message);
         }
 
-        // Notificación por correo al doctor asignado (RF-AGE-005, RQNF-FIA-004)
         if (result?.correoDoctor) {
           try {
             const fecha = result.fecha || String(result.fechaHora || '').split(' ')[0] || 'Por confirmar';
@@ -279,15 +310,14 @@ export class AppointmentsController {
               idCita: result.id_cita || result.idCita,
               telefonoPaciente: result.telefonoPaciente,
             });
-            console.log(`📧 Notificación de cita enviada exitosamente al doctor ${result.correoDoctor}`);
           } catch (docMailError: any) {
-            console.error('RQNF-FIA-004: Falla en envío de correo de revisión al doctor:', docMailError?.message);
+            console.error('RQNF-FIA-004: Error enviando correo al doctor:', docMailError?.message);
           }
         }
       }
 
       res.json({
-        message: aprobar
+        message: aprobar !== false
           ? 'Cita creada y confirmada exitosamente. Se ha enviado el correo de confirmación al paciente.'
           : 'Solicitud rechazada correctamente.',
         data: result,
@@ -329,7 +359,6 @@ export class AppointmentsController {
         bloques,
       });
 
-      // Envío de correo de confirmación al paciente (RF-AGE-002, RQNF-FIA-004)
       if (cita?.correoPaciente) {
         try {
           await this.mailerService.sendAppointmentConfirmationEmail({
@@ -341,13 +370,11 @@ export class AppointmentsController {
             motivo: cita.titulo || 'Consulta Odontológica Confirmada',
             idCita: cita.id_cita,
           });
-          console.log(`📧 Confirmación de nueva cita enviada al paciente ${cita.correoPaciente}`);
         } catch (mailError: any) {
           console.error('Error enviando correo de confirmación al paciente:', mailError?.message);
         }
       }
 
-      // Envío de correo de notificación al doctor (RF-AGE-002, RQNF-FIA-004)
       if (cita?.correoDoctor) {
         try {
           await this.mailerService.sendDoctorAppointmentNotificationEmail({
@@ -360,7 +387,6 @@ export class AppointmentsController {
             idCita: cita.id_cita,
             telefonoPaciente: cita.telefonoPaciente,
           });
-          console.log(`📧 Notificación de nueva cita enviada al doctor ${cita.correoDoctor}`);
         } catch (docMailError: any) {
           console.error('Error enviando correo de nueva cita al doctor:', docMailError?.message);
         }
@@ -386,7 +412,6 @@ export class AppointmentsController {
         motivo,
       });
 
-      // Envío de correo de reprogramación / modificación al paciente (RF-AGE-006, RQNF-FIA-004)
       if (updated?.correoPaciente) {
         try {
           await this.mailerService.sendAppointmentRescheduledEmail({
@@ -399,13 +424,11 @@ export class AppointmentsController {
             idCita: updated.id_cita,
             notas: updated.descripcion,
           });
-          console.log(`📧 Notificación de cita modificada enviada al paciente ${updated.correoPaciente}`);
         } catch (mailError: any) {
           console.error('Error enviando correo de modificación al paciente:', mailError?.message);
         }
       }
 
-      // Envío de correo de notificación de reprogramación al doctor (RF-AGE-006, RQNF-FIA-004)
       if (updated?.correoDoctor) {
         try {
           await this.mailerService.sendDoctorAppointmentRescheduledEmail({
@@ -419,7 +442,6 @@ export class AppointmentsController {
             telefonoPaciente: updated.telefonoPaciente,
             notas: updated.descripcion,
           });
-          console.log(`📧 Notificación de cita modificada enviada al doctor ${updated.correoDoctor}`);
         } catch (docMailError: any) {
           console.error('Error enviando correo de modificación al doctor:', docMailError?.message);
         }
@@ -437,17 +459,69 @@ export class AppointmentsController {
   changeState = async (req: Request, res: Response): Promise<void> => {
     try {
       const idCita = Number(req.params.id);
+      const authUser = (req as any).user;
       const { nuevoEstado, idUsuarioGestor, motivo, liberarBloques } = req.body;
-      const updated = await this.appointmentRepo.changeAppointmentState({
+      const roles: string[] = (authUser?.roles || []).map((r: any) =>
+        typeof r === 'string' ? r : r.codigoRol || r.nombreRol
+      );
+      const isAdmin = roles.includes('ROL-ADM');
+      const effectiveUserId =
+        (idUsuarioGestor ? Number(idUsuarioGestor) : undefined) ??
+        authUser?.idUsuario ??
+        authUser?.id ??
+        1;
+
+      const updated: any = await this.appointmentRepo.changeAppointmentState({
         idCita,
         nuevoEstado,
-        idUsuarioGestor,
+        idUsuarioGestor: effectiveUserId,
         motivo,
         liberarBloques,
+        isAdmin,
       });
+
+      // Envío de correo de cancelación al paciente y al doctor (DEF-11 / CPS-AGE-007-01)
+      if (nuevoEstado === 'Cancelada') {
+        if (updated?.correoPaciente) {
+          try {
+            await this.mailerService.sendAppointmentCancellationEmail({
+              to: updated.correoPaciente,
+              recipientName: updated.nombrePaciente || 'Paciente',
+              patientName: updated.nombrePaciente || 'Paciente',
+              doctorName: updated.nombreDoctor || 'Doctor Tratante',
+              fecha: updated.fecha || 'Por confirmar',
+              hora: updated.hora || 'Por confirmar',
+              motivo: motivo || 'Cancelación de cita médica',
+              idCita,
+            });
+          } catch (mErr: any) {
+            console.error('Error enviando correo de cancelación al paciente:', mErr?.message);
+          }
+        }
+
+        if (updated?.correoDoctor) {
+          try {
+            await this.mailerService.sendAppointmentCancellationEmail({
+              to: updated.correoDoctor,
+              recipientName: updated.nombreDoctor || 'Doctor',
+              patientName: updated.nombrePaciente || 'Paciente',
+              doctorName: updated.nombreDoctor || 'Doctor Tratante',
+              fecha: updated.fecha || 'Por confirmar',
+              hora: updated.hora || 'Por confirmar',
+              motivo: motivo || 'Cancelación de cita médica',
+              idCita,
+              isDoctor: true,
+            });
+          } catch (mErr: any) {
+            console.error('Error enviando correo de cancelación al doctor:', mErr?.message);
+          }
+        }
+      }
+
       res.json({ message: `Cita actualizada a estado ${nuevoEstado}.`, data: updated });
     } catch (error: any) {
-      res.status(400).json({ message: error.message });
+      const status = error.status || (error.message.includes('403') || error.message.includes('responsable') ? 403 : 400);
+      res.status(status).json({ message: error.message });
     }
   };
 
