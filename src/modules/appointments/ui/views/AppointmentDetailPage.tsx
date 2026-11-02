@@ -27,6 +27,7 @@ export interface AppointmentDetailPageData {
   horaInicio: string;
   horaFin: string;
   sillon?: string;
+  agendadoPor?: string;
   estado:
     | 'Confirmada'
     | 'En consulta'

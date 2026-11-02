@@ -124,14 +124,16 @@ export function useRealtimeAgenda(apiBaseUrl = '/api/v1') {
         idCita: r.idCita || null,
         nombrePaciente: r.nombrePaciente,
         documentoIdentidad: r.documentoIdentidad,
-        telefono: r.telefono || '+57 318 459 2011',
-        correo: r.correo,
+        telefono: r.telefono || '',
+        correo: r.correo || '',
         fechaSolicitada: r.fechaSolicitada,
         horaSolicitada: r.horaSolicitada,
         motivoConsulta: r.motivoConsulta,
         fechaSolicitud: r.fechaSolicitud,
-        sexo: r.sexo || 'Femenino',
-        edad: 29,
+        sexo: r.sexo || undefined,
+        edad: r.fechaNacimiento
+          ? Math.max(0, Math.floor((Date.now() - new Date(r.fechaNacimiento).getTime()) / (365.25 * 24 * 60 * 60 * 1000)))
+          : undefined,
         esPacienteNuevo: r.esPacienteNuevo !== false,
         doctorAsignado: r.doctorAsignado || 'Dr. Mateo Gómez',
       }));

@@ -20,6 +20,7 @@ export interface AppointmentDetailData {
   horaInicio: string;
   horaFin: string;
   sillon?: string;
+  agendadoPor?: string;
   estado:
     | 'Confirmada'
     | 'En consulta'
@@ -124,7 +125,7 @@ export const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
           />
         </div>
       }
-      subtitle={`📅 ${appointment.fecha} • ${appointment.horaInicio} - ${appointment.horaFin} • Sillón: ${appointment.sillon || 'Gabinete 02'}`}
+      subtitle={`📅 ${appointment.fecha} • ${appointment.horaInicio} - ${appointment.horaFin} • Sillón: ${appointment.sillon || 'Gabinete 02'} • Agendado por: ${appointment.agendadoPor || 'Portal Web'}`}
       maxWidth="4xl"
       footer={
         <div className="flex items-center gap-3">

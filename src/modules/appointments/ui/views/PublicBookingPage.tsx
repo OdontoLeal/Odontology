@@ -23,7 +23,7 @@ export const PublicBookingPage: React.FC<PublicBookingPageProps> = ({
   // Datos del Paciente
   const [nombreCompleto, setNombreCompleto] = useState('');
   const [documentoIdentidad, setDocumentoIdentidad] = useState('');
-  const [genero, setGenero] = useState<'Femenino' | 'Masculino' | 'Indeterminado'>('Femenino');
+  const [genero, setGenero] = useState<string>('');
   const [fechaNacimiento, setFechaNacimiento] = useState('');
   const [telefono, setTelefono] = useState('');
   const [correo, setCorreo] = useState('');
@@ -157,7 +157,7 @@ export const PublicBookingPage: React.FC<PublicBookingPageProps> = ({
         correoSolicitante: correo.trim().toLowerCase(),
         telefonoSolicitante: telefono.trim(),
         fechaNacimiento: fechaNacimiento.trim() || undefined,
-        sexo: genero,
+        sexo: genero ? (genero as any) : undefined,
         bloqueSolicitado: selectedSlot.rawInicio,
         descripcion: motivoConsulta.trim() || 'Solicitud de valoración odontológica',
         autorizacionDatos: true,
@@ -277,13 +277,14 @@ export const PublicBookingPage: React.FC<PublicBookingPageProps> = ({
 
                 <div>
                   <label className="block text-xs font-extrabold uppercase tracking-wider text-[#687380] mb-1.5">
-                    Género <span className="text-[#DC2626]">*</span>
+                    Género (Opcional)
                   </label>
                   <select
                     value={genero}
-                    onChange={(e) => setGenero(e.target.value as any)}
+                    onChange={(e) => setGenero(e.target.value)}
                     className="w-full min-h-[44px] rounded-xl border border-[#E2E6EA] bg-white px-3 py-2 text-xs font-semibold text-[#1E242B] focus:border-[#D4AF37] focus:outline-none"
                   >
+                    <option value="">Seleccione género...</option>
                     <option value="Femenino">Femenino</option>
                     <option value="Masculino">Masculino</option>
                     <option value="Indeterminado">Indeterminado</option>

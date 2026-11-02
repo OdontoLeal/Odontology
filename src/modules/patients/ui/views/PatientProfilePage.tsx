@@ -31,6 +31,7 @@ interface PatientAppointment {
   idProfesional: number;
   nombreProfesional: string;
   bloques: string[];
+  agendadoPor?: string;
 }
 
 export const PatientProfilePage: React.FC<PatientProfilePageProps> = ({
@@ -257,6 +258,10 @@ export const PatientProfilePage: React.FC<PatientProfilePageProps> = ({
                     <p className="text-xs text-[#687380] mt-0.5">
                       👨‍⚕️ {nextAppt.nombreProfesional || 'Dr. Eduar Leal Álvarez'}
                     </p>
+                    <p className="text-[11px] text-[#687380] mt-0.5">
+                      <span className="font-semibold text-[#1E242B]">Agendado por:</span>{' '}
+                      {nextAppt.agendadoPor || 'Portal Web'}
+                    </p>
                   </div>
                   <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#EAD89B]/40">
                     {!isCoordinator && canStartAttention ? (
@@ -307,6 +312,10 @@ export const PatientProfilePage: React.FC<PatientProfilePageProps> = ({
                   <div>
                     <p className="font-bold text-[#1E242B]">{formatSlot(appt.bloques)}</p>
                     <p className="text-[#687380]">{appt.titulo} • {appt.nombreProfesional}</p>
+                    <p className="text-[11px] text-[#8F99A3] mt-0.5">
+                      <span className="font-semibold text-[#687380]">Agendado por:</span>{' '}
+                      {appt.agendadoPor || 'Portal Web'}
+                    </p>
                   </div>
                   <Badge
                     label={appt.estado}

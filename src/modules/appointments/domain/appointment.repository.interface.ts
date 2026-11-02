@@ -74,7 +74,7 @@ export interface PatientSummaryDTO {
   documentoIdentidad: string;
   correo: string | null;
   telefono: string | null;
-  fechaNacimiento: Date;
+  fechaNacimiento?: Date | null;
   sexo: string | null;
   datosIncompletos?: boolean;
   acudienteNombre?: string | null;
@@ -189,7 +189,7 @@ export interface IAppointmentRepository {
     documentoIdentidad: string;
     correo?: string;
     telefono?: string;
-    fechaNacimiento: Date;
+    fechaNacimiento?: Date | null;
     sexo?: string;
     datosIncompletos: boolean;
     autorizacionDatos: boolean;

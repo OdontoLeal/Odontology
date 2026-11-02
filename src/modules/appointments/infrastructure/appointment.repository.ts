@@ -397,7 +397,7 @@ export class AppointmentRepository {
       fecha: timeRange.fecha,
       hora: timeRange.hora,
       nombreDoctor: docRes.rows[0]?.nombre_completo || 'Dr. Eduar Leal Álvarez',
-      correoDoctor: docRes.rows[0]?.correo || 'eduard.leal@gmail.com',
+      correoDoctor: docRes.rows[0]?.correo || null,
       telefonoPaciente: solicitud.telefono_solicitante,
       esPacienteNuevo: esNuevo,
     };
@@ -764,8 +764,8 @@ export class AppointmentRepository {
         p.id_paciente AS "idPaciente",
         COALESCE(sc.nombre_solicitante, p.nombre_completo) AS "nombrePaciente",
         COALESCE(sc.documento_solicitante, p.documento_identidad) AS "documentoPaciente",
-        COALESCE(sc.telefono_solicitante, p.telefono, '+57 318 459 2011') AS "telefonoPaciente",
-        COALESCE(sc.correo_solicitante, p.correo, 'paciente@odontoleal.com') AS "correoPaciente",
+        COALESCE(sc.telefono_solicitante, p.telefono) AS "telefonoPaciente",
+        COALESCE(sc.correo_solicitante, p.correo) AS "correoPaciente",
         sc.id_solicitud AS "idSolicitud",
         sc.fecha_solicitud AS "fechaSolicitud",
         COALESCE(sc.fecha_nacimiento::text, p.fecha_nacimiento::text) AS "fechaNacimiento",
@@ -774,6 +774,17 @@ export class AppointmentRepository {
         u.id_usuario AS "idProfesional",
         u.nombre_completo AS "nombreProfesional",
         u.firma_base64 AS "firmaProfesional",
+        COALESCE(
+          (
+            SELECT ug.nombre_completo
+            FROM public.historial_cita hc_first
+            JOIN public.usuario ug ON ug.id_usuario = hc_first.id_usuario_gestor
+            WHERE hc_first.id_cita = c.id_cita
+            ORDER BY hc_first.id_cambio_cita ASC
+            LIMIT 1
+          ),
+          'Portal Web'
+        ) AS "agendadoPor",
         COALESCE(json_agg(DISTINCT to_char(bc.id_bloque, 'YYYY-MM-DD HH24:MI:SS')) FILTER (WHERE bc.id_bloque IS NOT NULL), '[]') AS bloques,
         COALESCE(
           json_agg(
@@ -852,7 +863,7 @@ export class AppointmentRepository {
         sc.nombre_solicitante AS "nombrePaciente",
         sc.documento_solicitante AS "documentoIdentidad",
         sc.correo_solicitante AS "correo",
-        COALESCE(sc.telefono_solicitante, p.telefono, '+57 318 459 2011') AS "telefono",
+        COALESCE(sc.telefono_solicitante, p.telefono) AS "telefono",
         to_char(sc.bloque_solicitado, 'YYYY-MM-DD') AS "fechaSolicitada",
         to_char(sc.bloque_solicitado, 'HH24:MI') AS "horaSolicitada",
         sc.bloque_solicitado AS "bloqueSolicitado",

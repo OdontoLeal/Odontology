@@ -99,6 +99,12 @@ export function validateStateChangeRules(params: {
     }
   }
 
+  if (nuevoEstado === 'Rechazada') {
+    if (!motivo || !motivo.trim()) {
+      throw new Error('El motivo de rechazo de la cita es obligatorio.');
+    }
+  }
+
   if (nuevoEstado === 'En consulta') {
     if (
       idUsuarioGestor &&

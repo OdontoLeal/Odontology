@@ -483,6 +483,17 @@ export class AppointmentsController {
       let estadoCanonico = nuevoEstado.trim();
       if (estadoCanonico === 'No asistió') estadoCanonico = 'Inasistencia';
       if (estadoCanonico === 'Completada') estadoCanonico = 'Atendida';
+
+      // DEF-04 (CPS-AGE-007-02): Exigir obligatoriedad estricta de motivo al cancelar cita
+      if (estadoCanonico === 'Cancelada' && (!motivo || !String(motivo).trim())) {
+        res.status(400).json({ message: 'El motivo de cancelación de la cita es obligatorio (RF-AGE-007).' });
+        return;
+      }
+      if (estadoCanonico === 'Rechazada' && (!motivo || !String(motivo).trim())) {
+        res.status(400).json({ message: 'El motivo de rechazo de la cita es obligatorio.' });
+        return;
+      }
+
       const roles: string[] = (authUser?.roles || []).map((r: any) =>
         typeof r === 'string' ? r : r.codigoRol || r.nombreRol
       );

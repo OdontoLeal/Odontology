@@ -9,6 +9,7 @@
     "heroku-postbuild": "npm run build",
     "start": "node dist/app/server.js",
     "test": "tsx --test src/**/__tests__/*.test.ts",
+    "db:init": "tsx src/shared/infrastructure/database/init-db.ts",
     "lint": "eslint src",
     "lint:fix": "eslint src --fix",
     "format": "prettier --write \"src/**/*.{ts,tsx,css,json,md}\"",
