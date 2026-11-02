@@ -2,6 +2,8 @@
 import React, { useState } from 'react';
 import { UserWithRolesDomainDTO } from '../../modules/users-auth/domain/user.repository.interface';
 import { InactivityWarningModal } from '../../modules/users-auth/ui/components/InactivityWarningModal';
+import { TopPatientSearchBar } from '../../modules/patients/ui/components/TopPatientSearchBar';
+import { PatientListItem } from '../../modules/patients/ui/hooks/usePatients';
 
 export type InternalNavigationView =
   | 'APPOINTMENTS'
@@ -24,6 +26,7 @@ export interface InternalDashboardLayoutProps {
   onContinueSession: () => void;
   onTimeoutCloseSession: () => void;
   onManualCloseSession: () => void;
+  onSelectPatientFromSearch?: (patient: PatientListItem) => void;
   children: React.ReactNode;
 }
 
@@ -41,10 +44,10 @@ export const InternalDashboardLayout: React.FC<InternalDashboardLayoutProps> = (
   onContinueSession,
   onTimeoutCloseSession,
   onManualCloseSession,
+  onSelectPatientFromSearch,
   children,
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [topSearchQuery, setTopSearchQuery] = useState('');
 
   const userHasAdmin = currentUser.roles?.some(
     (r) =>
@@ -217,35 +220,12 @@ export const InternalDashboardLayout: React.FC<InternalDashboardLayoutProps> = (
       <div className="flex-1 flex flex-col min-w-0">
         {/* Barra Superior Blanca según diseño adjunto */}
         <header className="w-full min-h-[72px] bg-white border-b border-[#E2E6EA] px-4 py-3 sm:px-8 flex flex-wrap items-center justify-between gap-4">
-          {/* Buscador superior izquierdo */}
-          <div className="relative w-full max-w-md">
-            <span
-              className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#D4AF37]"
-              aria-hidden="true"
-            >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35m1.85-5.15a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-            </span>
-            <input
-              type="text"
-              value={topSearchQuery}
-              onChange={(e) => setTopSearchQuery(e.target.value)}
-              placeholder="Buscar paciente por nombre o CC..."
-              aria-label="Buscar paciente por nombre o CC"
-              className="w-full min-h-[42px] rounded-xl border border-[#E2E6EA] bg-[#F8F9FA]/70 pl-10 pr-9 py-2 text-[13px] sm:text-sm text-[#1E242B] placeholder-[#94A3B8] focus:border-[#D4AF37] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/20 transition-colors"
-            />
-            {topSearchQuery && (
-              <button
-                type="button"
-                onClick={() => setTopSearchQuery('')}
-                aria-label="Limpiar búsqueda rápida"
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 flex h-6 w-6 items-center justify-center rounded-md text-[#94A3B8] hover:text-[#1E242B]"
-              >
-                ✕
-              </button>
-            )}
-          </div>
+          {/* Buscador superior izquierdo con sugerencias dinámicas */}
+          {onSelectPatientFromSearch ? (
+            <TopPatientSearchBar onSelectPatient={onSelectPatientFromSearch} />
+          ) : (
+            <div className="relative w-full max-w-md" />
+          )}
 
           {/* Perfil del usuario activo y botón Cerrar sesión (RF-USR-008) */}
           <div className="flex items-center gap-4 ml-auto">

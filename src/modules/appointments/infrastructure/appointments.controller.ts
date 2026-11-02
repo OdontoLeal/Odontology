@@ -1,3 +1,4 @@
+import { handleHttpError } from '../../../shared/infrastructure/http/http-error.handler';
 import { Request, Response } from 'express';
 import { AppointmentRepository } from './appointment.repository';
 import { MailerService } from '../../../shared/infrastructure/mail/mailer.service';
@@ -258,6 +259,16 @@ export class AppointmentsController {
   reviewRequest = async (req: Request, res: Response): Promise<void> => {
     try {
       const idSolicitud = Number(req.params.id);
+      if (isNaN(idSolicitud)) {
+        res.status(400).json({ message: 'El ID de solicitud debe ser numérico.' });
+        return;
+      }
+      if (!req.body || typeof req.body.aprobar !== 'boolean') {
+        res.status(400).json({
+          message: "El campo 'aprobar' es obligatorio y debe ser estrictamente de tipo booleano (true o false).",
+        });
+        return;
+      }
       const { idUsuarioGestor, aprobar, motivo, idPaciente, idProfesional, selectedBlocks } = req.body;
 
       if (aprobar === false) {
@@ -459,8 +470,19 @@ export class AppointmentsController {
   changeState = async (req: Request, res: Response): Promise<void> => {
     try {
       const idCita = Number(req.params.id);
+      if (isNaN(idCita)) {
+        res.status(400).json({ message: 'El ID de cita debe ser numérico.' });
+        return;
+      }
       const authUser = (req as any).user;
       const { nuevoEstado, idUsuarioGestor, motivo, liberarBloques } = req.body;
+      if (!nuevoEstado || typeof nuevoEstado !== 'string' || !nuevoEstado.trim()) {
+        res.status(400).json({ message: "El campo 'nuevoEstado' es obligatorio y debe ser una cadena válida." });
+        return;
+      }
+      let estadoCanonico = nuevoEstado.trim();
+      if (estadoCanonico === 'No asistió') estadoCanonico = 'Inasistencia';
+      if (estadoCanonico === 'Completada') estadoCanonico = 'Atendida';
       const roles: string[] = (authUser?.roles || []).map((r: any) =>
         typeof r === 'string' ? r : r.codigoRol || r.nombreRol
       );
@@ -473,7 +495,7 @@ export class AppointmentsController {
 
       const updated: any = await this.appointmentRepo.changeAppointmentState({
         idCita,
-        nuevoEstado,
+        nuevoEstado: estadoCanonico as any,
         idUsuarioGestor: effectiveUserId,
         motivo,
         liberarBloques,
@@ -518,10 +540,9 @@ export class AppointmentsController {
         }
       }
 
-      res.json({ message: `Cita actualizada a estado ${nuevoEstado}.`, data: updated });
+      res.json({ message: `Cita actualizada a estado ${estadoCanonico}.`, data: updated });
     } catch (error: any) {
-      const status = error.status || (error.message.includes('403') || error.message.includes('responsable') ? 403 : 400);
-      res.status(status).json({ message: error.message });
+      handleHttpError(res, error, 400);
     }
   };
 

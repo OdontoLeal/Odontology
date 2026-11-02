@@ -12,9 +12,12 @@ export interface TokenPayload {
 }
 
 export class JwtTokenService {
-  private static readonly SECRET =
-    process.env.JWT_SECRET ||
-    'odontoleal-production-jwt-security-hmac-sha256-signing-secret-key-2026';
+  private static get secret(): string {
+    return (
+      process.env.JWT_SECRET ||
+      'odontoleal-jwt-signing-secret-default-key-development-2026'
+    );
+  }
 
   public static generateToken(
     payload: Omit<TokenPayload, 'iat' | 'exp'>,
@@ -29,7 +32,7 @@ export class JwtTokenService {
     ).toString('base64url');
     const body = Buffer.from(JSON.stringify(fullPayload)).toString('base64url');
     const signature = crypto
-      .createHmac('sha256', this.SECRET)
+      .createHmac('sha256', this.secret)
       .update(`${header}.${body}`)
       .digest('base64url');
 
@@ -43,7 +46,7 @@ export class JwtTokenService {
 
     const [header, body, signature] = parts;
     const expectedSignature = crypto
-      .createHmac('sha256', this.SECRET)
+      .createHmac('sha256', this.secret)
       .update(`${header}.${body}`)
       .digest('base64url');
 

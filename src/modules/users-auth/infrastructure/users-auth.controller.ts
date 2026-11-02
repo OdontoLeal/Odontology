@@ -1,3 +1,4 @@
+import { handleHttpError } from '../../../shared/infrastructure/http/http-error.handler';
 // src/modules/users-auth/infrastructure/users-auth.controller.ts
 import { Request, Response } from 'express';
 import { AuthenticateUserUseCase } from '../application/authenticate-user.use-case';
@@ -64,7 +65,19 @@ export class UsersAuthController {
   // RF-USR-007: Crear rol
   createRole = async (req: Request, res: Response): Promise<void> => {
     try {
+      if (!req.body || typeof req.body !== 'object' || Object.keys(req.body).length === 0) {
+        res.status(400).json({ message: 'El cuerpo de la solicitud es obligatorio y no puede estar vacío.' });
+        return;
+      }
       const { codigo, nombreRol, descripcion, permisos } = req.body;
+      if (!codigo || typeof codigo !== 'string' || !codigo.trim()) {
+        res.status(400).json({ message: "El campo 'codigo' es obligatorio." });
+        return;
+      }
+      if (!nombreRol || typeof nombreRol !== 'string' || !nombreRol.trim()) {
+        res.status(400).json({ message: "El campo 'nombreRol' es obligatorio." });
+        return;
+      }
       const result = await this.createRoleUseCase.execute({
         codigo,
         nombreRol,
@@ -73,7 +86,7 @@ export class UsersAuthController {
       });
       res.status(201).json(result);
     } catch (error: any) {
-      res.status(400).json({ message: error.message });
+      handleHttpError(res, error, 400);
     }
   };
 
@@ -205,14 +218,24 @@ export class UsersAuthController {
   toggleUserStatus = async (req: Request, res: Response): Promise<void> => {
     try {
       const idUsuario = Number(req.params.id);
+      if (isNaN(idUsuario)) {
+        res.status(400).json({ message: 'El ID de usuario debe ser numérico.' });
+        return;
+      }
+      if (!req.body || typeof req.body.estado !== 'boolean') {
+        res.status(400).json({
+          message: "El campo 'estado' es obligatorio y debe ser estrictamente de tipo booleano (true o false).",
+        });
+        return;
+      }
       const { estado } = req.body;
       const result = await this.toggleUserStatusUseCase.execute({
         idUsuario,
-        nuevoEstado: Boolean(estado),
+        nuevoEstado: estado,
       });
       res.json(result);
     } catch (error: any) {
-      res.status(400).json({ message: error.message });
+      handleHttpError(res, error, 400);
     }
   };
 
@@ -243,12 +266,24 @@ export class UsersAuthController {
   // RF-USR-005: Iniciar sesión
   login = async (req: Request, res: Response): Promise<void> => {
     try {
+      if (!req.body || typeof req.body !== 'object' || Object.keys(req.body).length === 0) {
+        res.status(400).json({ message: 'El cuerpo de la solicitud es obligatorio y no puede estar vacío.' });
+        return;
+      }
       const {
         correo,
         contrasena,
         nuevaContrasena,
         confirmacionNuevaContrasena,
       } = req.body;
+      if (!correo || typeof correo !== 'string' || !correo.trim()) {
+        res.status(400).json({ message: "El campo 'correo' es obligatorio." });
+        return;
+      }
+      if (!contrasena || typeof contrasena !== 'string') {
+        res.status(400).json({ message: "El campo 'contrasena' es obligatorio." });
+        return;
+      }
       const result = await this.authenticateUserUseCase.execute({
         correo,
         contrasena,

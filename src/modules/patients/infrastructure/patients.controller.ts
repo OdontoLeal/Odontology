@@ -1,10 +1,10 @@
+import { handleHttpError } from '../../../shared/infrastructure/http/http-error.handler';
 import { Request, Response } from 'express';
 import { CreatePatientUseCase } from '../application/create-patient.use-case';
 import { ExportHolderDataUseCase } from '../application/export-holder-data.use-case';
 import { GetPatientProfileUseCase } from '../application/get-patient-profile.use-case';
 import { SearchPatientsUseCase } from '../application/search-patients.use-case';
 import { UpdatePatientUseCase } from '../application/update-patient.use-case';
-import { PatientDomainError } from '../domain/patient.entity';
 import { IPatientRepository } from '../domain/patient.repository.interface';
 
 export class PatientsController {
@@ -187,15 +187,6 @@ export class PatientsController {
     error: any,
     defaultStatus: number = 400
   ): void {
-    if (error instanceof PatientDomainError) {
-      res.status(error.statusCode).json({
-        field: error.field,
-        message: error.message,
-      });
-      return;
-    }
-    res.status(defaultStatus).json({
-      message: error?.message || 'Error interno procesando la solicitud.',
-    });
+    handleHttpError(res, error, defaultStatus);
   }
 }

@@ -47,7 +47,7 @@ export class CreateUserUseCase {
 
     if (existingByDoc) {
       throw new Error(
-        `Campo documentoIdentidad: El documento ${command.documentoIdentidad.trim()} ya está registrado por ${existingByDoc.nombreCompleto}.`
+        `Campo documentoIdentidad: El documento ${command.documentoIdentidad.trim()} ya está registrado en el sistema.`
       );
     }
 
