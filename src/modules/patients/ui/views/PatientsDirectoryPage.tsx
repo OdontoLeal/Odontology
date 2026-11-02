@@ -1,5 +1,5 @@
 // src/modules/patients/ui/views/PatientsDirectoryPage.tsx
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { usePatients, PatientListItem } from '../hooks/usePatients';
 import { PatientForm, PatientFormData } from '../components/PatientForm';
 import { PrivacyNoticeModal } from '../components/PrivacyNoticeModal';
@@ -24,6 +24,15 @@ export const PatientsDirectoryPage: React.FC<PatientsDirectoryPageProps> = ({
   const { patients, isLoading, createPatient, updatePatient } = usePatients();
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'name' | 'document' | 'date'>('name');
+
+  // Paginación (10 elementos por página idéntica a Doctores)
+  const ITEMS_PER_PAGE = 10;
+  const [currentPage, setCurrentPage] = useState<number>(1);
+
+  // Resetear a la página 1 cuando cualquier filtro o criterio cambie
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, sortBy]);
 
   // Modal de creación / edición
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
@@ -69,6 +78,18 @@ export const PatientsDirectoryPage: React.FC<PatientsDirectoryPageProps> = ({
     }
     return result;
   }, [patients, searchQuery, sortBy]);
+
+  // Cálculos de paginación para 10 elementos por página con scroll independiente
+  const totalPages = Math.max(1, Math.ceil(filteredPatients.length / ITEMS_PER_PAGE));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+
+  const paginatedPatients = useMemo(() => {
+    const startIndex = (safeCurrentPage - 1) * ITEMS_PER_PAGE;
+    return filteredPatients.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [filteredPatients, safeCurrentPage]);
+
+  const startIndex = filteredPatients.length === 0 ? 0 : (safeCurrentPage - 1) * ITEMS_PER_PAGE + 1;
+  const endIndex = Math.min(safeCurrentPage * ITEMS_PER_PAGE, filteredPatients.length);
 
   const handleOpenCreate = () => {
     setEditingPatient(null);
@@ -186,8 +207,8 @@ export const PatientsDirectoryPage: React.FC<PatientsDirectoryPageProps> = ({
         </div>
       </div>
 
-      {/* Lista de Tarjetas de Pacientes */}
-      <div className="space-y-3">
+      {/* Lista de Tarjetas de Pacientes con Scroll Independiente de Sección */}
+      <div className="max-h-[calc(100vh-320px)] min-h-[460px] overflow-y-auto pr-2 space-y-3">
         {isLoading ? (
           <div className="rounded-2xl border border-[#E2E6EA] bg-white p-12 text-center space-y-4 shadow-2xs">
             <div className="h-12 w-12 mx-auto rounded-2xl bg-[#FFFBEB] text-[#D4AF37] flex items-center justify-center border border-[#FDE68A]">
@@ -209,7 +230,7 @@ export const PatientsDirectoryPage: React.FC<PatientsDirectoryPageProps> = ({
             </p>
           </div>
         ) : (
-          filteredPatients.map((patient) => (
+          paginatedPatients.map((patient) => (
             <div
               key={patient.idPaciente}
               className="rounded-2xl border border-[#E2E6EA] bg-white p-5 shadow-xs hover:border-[#D4AF37]/60 hover:shadow-sm transition-all flex flex-col md:flex-row items-start md:items-center justify-between gap-4"
@@ -308,6 +329,63 @@ export const PatientsDirectoryPage: React.FC<PatientsDirectoryPageProps> = ({
         )}
       </div>
 
+      {/* Barra de Controles de Paginación (10 elementos por página idéntica a Doctores) */}
+      {!isLoading && filteredPatients.length > 0 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 rounded-2xl border border-[#E2E6EA] bg-white px-5 py-3.5 shadow-2xs mt-4">
+          <div className="text-[13px] text-[#687380]">
+            Mostrando <strong className="text-[#1E242B]">{startIndex}–{endIndex}</strong> de{' '}
+            <strong className="text-[#1E242B]">{filteredPatients.length}</strong>{' '}
+            {filteredPatients.length === 1 ? 'paciente registrado' : 'pacientes registrados'}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={safeCurrentPage === 1}
+              aria-label="Página anterior"
+              className="min-h-[36px] inline-flex items-center gap-1.5 rounded-xl border border-[#E2E6EA] bg-white px-3.5 py-1.5 text-[13px] font-bold text-[#1E242B] hover:border-[#D4AF37] hover:bg-[#FBF6E6]/40 disabled:opacity-35 disabled:cursor-not-allowed transition-colors"
+            >
+              <span aria-hidden="true">←</span>
+              <span>Anterior</span>
+            </button>
+
+            <div className="flex items-center gap-1">
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => {
+                const isPageActive = pageNum === safeCurrentPage;
+                return (
+                  <button
+                    key={pageNum}
+                    type="button"
+                    onClick={() => setCurrentPage(pageNum)}
+                    aria-label={`Ir a la página ${pageNum}`}
+                    aria-current={isPageActive ? 'page' : undefined}
+                    className={`min-h-[34px] min-w-[34px] rounded-xl px-2.5 py-1 text-[13px] font-bold transition-all ${
+                      isPageActive
+                        ? 'bg-[#111111] text-white shadow-xs'
+                        : 'border border-[#E2E6EA] bg-white text-[#1E242B] hover:border-[#D4AF37] hover:bg-[#FBF6E6]/40'
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              })}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={safeCurrentPage === totalPages}
+              aria-label="Página siguiente"
+              className="min-h-[36px] inline-flex items-center gap-1.5 rounded-xl border border-[#E2E6EA] bg-white px-3.5 py-1.5 text-[13px] font-bold text-[#1E242B] hover:border-[#D4AF37] hover:bg-[#FBF6E6]/40 disabled:opacity-35 disabled:cursor-not-allowed transition-colors"
+            >
+              <span>Siguiente</span>
+              <span aria-hidden="true">→</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Footer Ley 1581 Habeas Data */}
       <div className="flex items-center justify-between pt-4 border-t border-[#E2E6EA] text-[11px] text-[#8F99A3]">
         <div className="flex items-center gap-2">
@@ -315,11 +393,6 @@ export const PatientsDirectoryPage: React.FC<PatientsDirectoryPageProps> = ({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
           </svg>
           <span>Historias clínicas encriptadas conforme a la Ley de Protección de Datos Médicos (Habeas Data).</span>
-        </div>
-        <div className="flex items-center gap-1 font-bold">
-          <span className="h-6 w-6 rounded-lg bg-[#D4AF37] text-black flex items-center justify-center text-xs">
-            1
-          </span>
         </div>
       </div>
 

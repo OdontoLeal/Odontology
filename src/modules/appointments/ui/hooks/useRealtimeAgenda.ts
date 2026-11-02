@@ -341,7 +341,7 @@ export function useRealtimeAgenda(apiBaseUrl = '/api/v1') {
   }, [changeStateAPI]);
 
   const markNoShow = useCallback((idCita: number, motivo: string) => {
-    return changeStateAPI(idCita, 'No asistió', motivo, false);
+    return changeStateAPI(idCita, 'Inasistencia', motivo, false);
   }, [changeStateAPI]);
 
   const toggleSlotStatus = useCallback(

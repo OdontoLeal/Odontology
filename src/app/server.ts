@@ -12,7 +12,57 @@ const app = express();
 // Habilitar trust proxy para reconocer HTTPS y encabezados detrás del proxy inverso de Heroku
 app.set('trust proxy', 1);
 
-app.use(cors());
+// D-05: Restricción estricta de CORS compatible con Heroku y desarrollo local
+const allowedOrigins = [
+  envConfig.frontendUrl,
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+  'http://localhost:4000',
+  'http://127.0.0.1:4000',
+].filter(Boolean);
+
+app.use((req, res, next) => {
+  cors({
+    origin: (origin, callback) => {
+      // 1. Permitir peticiones sin origen (curl, pruebas, herramientas internas o mobile)
+      if (!origin) return callback(null, true);
+
+      // 2. Permitir desarrollo local
+      if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin)) {
+        return callback(null, true);
+      }
+
+      // 3. Permitir orígenes de Heroku (*.herokuapp.com)
+      try {
+        const parsed = new URL(origin);
+        if (parsed.hostname.endsWith('.herokuapp.com')) {
+          return callback(null, true);
+        }
+      } catch {
+        // En caso de formato de URL no estándar
+      }
+
+      // 4. Permitir si coincide con el host actual (monolito donde Express sirve el SPA en dist/public)
+      const host = req.get('host');
+      if (host && (origin === `https://${host}` || origin === `http://${host}`)) {
+        return callback(null, true);
+      }
+
+      // 5. Permitir si está en la lista blanca explícita de FRONTEND_URL
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      // Rechazar orígenes externos no autorizados sin romper la aplicación
+      return callback(null, false);
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  })(req, res, next);
+});
 app.use(express.json({ limit: '5mb' }));
 
 // DEF-22 & CPS-DOC-001-01: Servir binarios PDF reales de documentos clínicos

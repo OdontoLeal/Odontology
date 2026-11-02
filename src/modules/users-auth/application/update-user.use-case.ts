@@ -56,7 +56,7 @@ export class UpdateUserUseCase {
 
       if (userWithSameDoc && userWithSameDoc.idUsuario !== command.idUsuario) {
         throw new Error(
-          `El documento de identidad ya pertenece al usuario ${userWithSameDoc.nombreCompleto} (Documento: ${userWithSameDoc.documentoIdentidad}).`
+          `El documento de identidad ya está registrado en el sistema.`
         );
       }
     }
@@ -72,7 +72,7 @@ export class UpdateUserUseCase {
 
       if (userWithSameEmail && userWithSameEmail.idUsuario !== command.idUsuario) {
         throw new Error(
-          `El correo electrónico ya pertenece al usuario ${userWithSameEmail.nombreCompleto} (Documento: ${userWithSameEmail.documentoIdentidad}).`
+          `El correo electrónico ya está registrado en el sistema.`
         );
       }
     }

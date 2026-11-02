@@ -328,6 +328,12 @@ export const App: React.FC = () => {
       canAccessUsersModule={canAccessUsersModule}
       canAccessRolesModule={canAccessRolesModule}
       canAccessConsents={canAccessConsents}
+      onSelectPatientFromSearch={(patient) => {
+        const matched = patients.find((p) => p.idPaciente === patient.idPaciente);
+        setSelectedPatient(matched || patient);
+        setPatientSubView('PROFILE');
+        setInternalView('PATIENTS');
+      }}
       onSelectView={(view) => {
         setInternalView(view);
         // Si cambia de vista principal, resetea sub-vistas
