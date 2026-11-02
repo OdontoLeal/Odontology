@@ -60,6 +60,7 @@ const INITIAL_ROLES_SEED: RoleExtendedViewDTO[] = [
       'RF-CON-008',
     ],
     usuariosAsignadosCount: 1,
+    es_inicial: true,
   },
   {
     id_rol: 2,
@@ -78,6 +79,7 @@ const INITIAL_ROLES_SEED: RoleExtendedViewDTO[] = [
       ...CLINICAL_PERMISSIONS,
     ],
     usuariosAsignadosCount: 1,
+    es_inicial: true,
   },
   {
     id_rol: 3,
@@ -96,6 +98,7 @@ const INITIAL_ROLES_SEED: RoleExtendedViewDTO[] = [
       ...CLINICAL_PERMISSIONS,
     ],
     usuariosAsignadosCount: 1,
+    es_inicial: true,
   },
   {
     id_rol: 4,
@@ -119,6 +122,7 @@ const INITIAL_ROLES_SEED: RoleExtendedViewDTO[] = [
       'RF-HCL-010',
     ],
     usuariosAsignadosCount: 1,
+    es_inicial: true,
   },
   {
     id_rol: 5,
@@ -147,6 +151,7 @@ const INITIAL_ROLES_SEED: RoleExtendedViewDTO[] = [
       'RF-DOC-005',
     ],
     usuariosAsignadosCount: 1,
+    es_inicial: true,
   },
   {
     id_rol: 6,
@@ -156,6 +161,7 @@ const INITIAL_ROLES_SEED: RoleExtendedViewDTO[] = [
       'Rol público sin cuenta ni inicio de sesión para solicitar citas y firmar consentimientos en tablet.',
     permisos: [],
     usuariosAsignadosCount: 0,
+    es_inicial: true,
   },
 ];
 
@@ -199,11 +205,36 @@ export const RolesManagementPage: React.FC<RolesManagementPageProps> = ({
 
   const isInitialProtectedRole = (roleOrCode: string | RoleExtendedViewDTO): boolean => {
     if (typeof roleOrCode === 'string') {
-      return INITIAL_ROLE_CODES.includes(roleOrCode.trim().toUpperCase() as any);
+      const upper = roleOrCode.trim().toUpperCase();
+      return (
+        INITIAL_ROLE_CODES.includes(upper as any) ||
+        [
+          'ADMINISTRADOR DEL SISTEMA',
+          'ODONTÓLOGO GENERAL',
+          'ODONTOLOGO GENERAL',
+          'ESPECIALISTA EN ORTODONCIA',
+          'COORDINADORA DE AGENDAMIENTO',
+          'AUXILIAR DE ODONTOLOGÍA',
+          'AUXILIAR DE ODONTOLOGIA',
+          'PACIENTE',
+        ].includes(upper)
+      );
     }
+    const codeUpper = (roleOrCode.codigo ?? (roleOrCode as any).codigo_rol ?? '').trim().toUpperCase();
+    const nameUpper = (roleOrCode.nombre_rol ?? '').trim().toUpperCase();
     return (
       Boolean(roleOrCode.es_inicial) ||
-      INITIAL_ROLE_CODES.includes(roleOrCode.codigo?.trim().toUpperCase() as any)
+      INITIAL_ROLE_CODES.includes(codeUpper as any) ||
+      [
+        'ADMINISTRADOR DEL SISTEMA',
+        'ODONTÓLOGO GENERAL',
+        'ODONTOLOGO GENERAL',
+        'ESPECIALISTA EN ORTODONCIA',
+        'COORDINADORA DE AGENDAMIENTO',
+        'AUXILIAR DE ODONTOLOGÍA',
+        'AUXILIAR DE ODONTOLOGIA',
+        'PACIENTE',
+      ].includes(nameUpper)
     );
   };
 
@@ -211,6 +242,33 @@ export const RolesManagementPage: React.FC<RolesManagementPageProps> = ({
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery, tipoFilter]);
+
+  const fetchRolesList = React.useCallback(async () => {
+    try {
+      const res = await fetch('/api/v1/roles');
+      if (res.ok) {
+        const body = await res.json();
+        if (Array.isArray(body.data) && body.data.length > 0) {
+          const mapped: RoleExtendedViewDTO[] = body.data.map((r: any) => ({
+            id_rol: r.id_rol,
+            codigo: r.codigo ?? r.codigo_rol ?? `ROL-${String(r.nombre_rol).substring(0, 3).toUpperCase()}`,
+            nombre_rol: r.nombre_rol,
+            descripcion: r.descripcion ?? '',
+            permisos: Array.isArray(r.permisos) ? r.permisos : ['RF-AGE-008'],
+            es_inicial: Boolean(r.es_inicial),
+            usuariosAsignadosCount: Number(r.usuariosAsignadosCount ?? 0),
+          }));
+          setRoles(mapped);
+        }
+      }
+    } catch {
+      // Ignorar fallback
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchRolesList();
+  }, [fetchRolesList]);
 
   // Actualizar roles si las props iniciales cambian
   useEffect(() => {
@@ -323,6 +381,7 @@ export const RolesManagementPage: React.FC<RolesManagementPageProps> = ({
           };
           setRoles((prev) => [...prev, newEntry]);
           setSuccessMessage(result.message || 'Rol creado exitosamente.');
+          await fetchRolesList();
         } else {
           const res = await fetch('/api/v1/roles', {
             method: 'POST',
@@ -348,6 +407,7 @@ export const RolesManagementPage: React.FC<RolesManagementPageProps> = ({
           };
           setRoles((prev) => [...prev, newEntry]);
           setSuccessMessage(body.message || 'Rol creado exitosamente.');
+          await fetchRolesList();
         }
         setIsModalOpen(false);
       } else if (editingRole) {
@@ -371,6 +431,7 @@ export const RolesManagementPage: React.FC<RolesManagementPageProps> = ({
             )
           );
           setSuccessMessage(result.message || 'Rol actualizado exitosamente.');
+          await fetchRolesList();
         } else {
           const res = await fetch(`/api/v1/roles/${editingRole.id_rol}`, {
             method: 'PUT',
@@ -398,6 +459,7 @@ export const RolesManagementPage: React.FC<RolesManagementPageProps> = ({
             )
           );
           setSuccessMessage(body.message || 'Rol actualizado exitosamente.');
+          await fetchRolesList();
         }
         setIsModalOpen(false);
       }
@@ -446,6 +508,7 @@ export const RolesManagementPage: React.FC<RolesManagementPageProps> = ({
 
       const remaining = roles.filter((r) => r.id_rol !== roleToDelete.id_rol);
       setRoles(remaining);
+      await fetchRolesList();
       setRoleToDelete(null);
     } catch (error: any) {
       setErrorMessage(error?.message || 'No fue posible eliminar el rol.');

@@ -5,7 +5,6 @@ import { WeeklyCalendarGrid, CalendarTimeSlot } from '../components/WeeklyCalend
 import { QuickScheduleModal, DoctorCandidate, PatientCandidate } from '../components/QuickScheduleModal';
 import { AppointmentRequestDetailPage, RequestDetailData } from './AppointmentRequestDetailPage';
 import { AppointmentDetailPage, AppointmentDetailPageData } from './AppointmentDetailPage';
-import { Button } from '../../../../shared/ui/components/Button';
 import { usePatients } from '../../../patients/ui/hooks/usePatients';
 import { useAlertModal } from '../../../../shared/ui/hooks/useAlertModal';
 import {
@@ -68,6 +67,7 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
 
   // Modal para agendar nueva cita
   const [isQuickScheduleOpen, setIsQuickScheduleOpen] = useState(false);
+  const [isSubmittingSchedule, setIsSubmittingSchedule] = useState(false);
 
   // Carga de doctores reales desde base de datos / API
   useEffect(() => {
@@ -298,7 +298,7 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
     }
   };
 
-  // Manejo de Agendamiento Rápido
+  // Manejo de Agendamiento Rápido con estado de carga y modal garantizado
   const handleConfirmQuickSchedule = async (apptData: {
     idPaciente: number;
     idDoctor: number;
@@ -307,6 +307,7 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
     motivo: string;
     observaciones?: string;
   }) => {
+    setIsSubmittingSchedule(true);
     try {
       const formattedBlocks = apptData.bloques.map((b) => {
         const start = b.split('-')[0].trim();
@@ -331,10 +332,15 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
         throw new Error(errJson.message || 'Error al guardar la cita');
       }
 
+      // 1. Primero desaparece el formulario cerrando el modal
       setIsQuickScheduleOpen(false);
-      await fetchAgenda();
+
+      // 2. Refrescar la agenda en segundo plano
+      fetchAgenda();
+
+      // 3. Aparece el modal informando la confirmación de la cita
       showAlert({
-        title: '¡Cita Confirmada!',
+        title: '¡Cita Confirmada Exitosamente!',
         message: 'La cita ha sido registrada exitosamente en la agenda médica.',
         type: 'success',
       });
@@ -344,85 +350,92 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
         message: err.message || 'No fue posible programar la cita.',
         type: 'error',
       });
+      throw err;
+    } finally {
+      setIsSubmittingSchedule(false);
     }
   };
 
   // VISTA 1: DETALLE DE SOLICITUD DE CITA (Imagen 1)
   if (viewMode === 'REQUEST_DETAIL' && activeRequestDetail) {
     return (
-      <AppointmentRequestDetailPage
-        request={activeRequestDetail}
-        doctors={doctors}
-        onBack={() => setViewMode('AGENDA')}
-        onApprove={handleApproveRequest}
-        onReject={handleRejectRequest}
-      />
+      <>
+        <AlertModalComponent />
+        <AppointmentRequestDetailPage
+          request={activeRequestDetail}
+          doctors={doctors}
+          onBack={() => setViewMode('AGENDA')}
+          onApprove={handleApproveRequest}
+          onReject={handleRejectRequest}
+        />
+      </>
     );
   }
 
   // VISTA 2: DETALLE DE CITA CONFIRMADA (Imagen 2)
   if (viewMode === 'APPOINTMENT_DETAIL' && activeAppointmentDetail) {
     return (
-      <AppointmentDetailPage
-        appointment={activeAppointmentDetail}
-        doctors={doctors}
-        canStartAttention={canStartAttention}
-        onBack={() => setViewMode('AGENDA')}
-        onNavigateToPatientProfile={onNavigateToPatientProfile}
-        onUpdateAppointment={async (idCita, data) => {
-          await updateAppointment(idCita, data);
-          await fetchAgenda();
-        }}
-        onStartAttention={async (idCita, idPaciente) => {
-          try {
-            await startAttention(idCita);
-            onStartAttention?.(idCita, idPaciente, {
-              doctorName: activeAppointmentDetail.doctorNombre,
-              doctorSignature: activeAppointmentDetail.doctorFirma,
+      <>
+        <AlertModalComponent />
+        <AppointmentDetailPage
+          appointment={activeAppointmentDetail}
+          doctors={doctors}
+          canStartAttention={canStartAttention}
+          onBack={() => setViewMode('AGENDA')}
+          onNavigateToPatientProfile={onNavigateToPatientProfile}
+          onUpdateAppointment={async (idCita, data) => {
+            await updateAppointment(idCita, data);
+            await fetchAgenda();
+          }}
+          onStartAttention={async (idCita, idPaciente) => {
+            try {
+              await startAttention(idCita);
+              onStartAttention?.(idCita, idPaciente, {
+                doctorName: activeAppointmentDetail.doctorNombre,
+                doctorSignature: activeAppointmentDetail.doctorFirma,
+              });
+              setViewMode('AGENDA');
+            } catch (err: any) {
+              showAlert({
+                title: 'Error al iniciar atención',
+                message: err.message || 'No se pudo iniciar la consulta clínica.',
+                type: 'error',
+              });
+            }
+          }}
+          onCancelAppointment={async (idCita, motivo) => {
+            await cancelAppointment(idCita, motivo);
+            showAlert({
+              title: 'Cita Cancelada',
+              message: 'La cita médica ha sido cancelada y los bloques de horario han sido liberados.',
+              type: 'info',
             });
             setViewMode('AGENDA');
-          } catch (err: any) {
+          }}
+          onMarkNoShow={async (idCita, motivo) => {
+            await markNoShow(idCita, motivo);
             showAlert({
-              title: 'Error al iniciar atención',
-              message: err.message || 'No se pudo iniciar la consulta clínica.',
-              type: 'error',
+              title: 'Inasistencia Registrada',
+              message: 'Se ha registrado la inasistencia del paciente.',
+              type: 'warning',
             });
-          }
-        }}
-        onCancelAppointment={async (idCita, motivo) => {
-          await cancelAppointment(idCita, motivo);
-          showAlert({
-            title: 'Cita Cancelada',
-            message: 'La cita médica ha sido cancelada y los bloques de horario han sido liberados.',
-            type: 'info',
-          });
-          setViewMode('AGENDA');
-        }}
-        onMarkNoShow={async (idCita, motivo) => {
-          await markNoShow(idCita, motivo);
-          showAlert({
-            title: 'Inasistencia Registrada',
-            message: 'Se ha registrado la inasistencia del paciente.',
-            type: 'warning',
-          });
-          setViewMode('AGENDA');
-        }}
-        onSignConsent={() => {
-          showAlert({
-            title: 'Firma de Consentimiento',
-            message: 'Iniciando módulo de firma de consentimientos informados en tablet.',
-            type: 'info',
-          });
-        }}
-      />
+            setViewMode('AGENDA');
+          }}
+          onSignConsent={() => {
+            showAlert({
+              title: 'Firma de Consentimiento',
+              message: 'Iniciando módulo de firma de consentimientos informados en tablet.',
+              type: 'info',
+            });
+          }}
+        />
+      </>
     );
   }
 
   // VISTA PRINCIPAL: AGENDA MÉDICA (Imagen 3)
   return (
     <div className="space-y-6 max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 animate-fadeIn">
-      <AlertModalComponent />
-
       {/* Barra de Filtros Superior (Imagen 3) */}
       <div className="rounded-2xl border border-[#E2E6EA] bg-white p-4 shadow-xs flex flex-wrap items-center justify-between gap-4">
         <div className="flex flex-wrap items-center gap-6">
@@ -690,9 +703,13 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
           patients={patientCandidates}
           doctors={doctors}
           initialDate={selectedDate}
+          isLoading={isSubmittingSchedule}
           onConfirmSchedule={handleConfirmQuickSchedule}
         />
       )}
+
+      {/* Alerta modal siempre en capa superior */}
+      <AlertModalComponent />
     </div>
   );
 };

@@ -90,6 +90,7 @@ export const AlertModal: React.FC<AlertModalProps> = ({
       isOpen={isOpen}
       onClose={handleBackdropOrClose}
       maxWidth="md"
+      zIndex="z-[100]"
       footer={
         <div className="flex items-center justify-end gap-3 w-full">
           {type === 'confirm' && (

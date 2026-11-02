@@ -69,20 +69,26 @@ export class UsersAuthController {
         res.status(400).json({ message: 'El cuerpo de la solicitud es obligatorio y no puede estar vacío.' });
         return;
       }
-      const { codigo, nombreRol, descripcion, permisos } = req.body;
-      if (!codigo || typeof codigo !== 'string' || !codigo.trim()) {
+      const rawCodigo = req.body.codigo || req.body.codigo_rol;
+      const rawNombreRol = req.body?.nombreRol || req.body?.nombre_rol;
+      const rawDescripcion = req.body?.descripcion ?? '';
+      const rawPermisos = req.body?.permisos;
+      const ejecutadoPorUsuario = (req as any).user?.correo || req.body?.ejecutadoPorUsuario || 'ROL-ADM';
+
+      if (!rawCodigo || typeof rawCodigo !== 'string' || !rawCodigo.trim()) {
         res.status(400).json({ message: "El campo 'codigo' es obligatorio." });
         return;
       }
-      if (!nombreRol || typeof nombreRol !== 'string' || !nombreRol.trim()) {
+      if (!rawNombreRol || typeof rawNombreRol !== 'string' || !rawNombreRol.trim()) {
         res.status(400).json({ message: "El campo 'nombreRol' es obligatorio." });
         return;
       }
       const result = await this.createRoleUseCase.execute({
-        codigo,
-        nombreRol,
-        descripcion,
-        permisos,
+        codigo: rawCodigo.trim(),
+        nombreRol: rawNombreRol.trim(),
+        descripcion: rawDescripcion,
+        permisos: rawPermisos,
+        ejecutadoPorUsuario,
       });
       res.status(201).json(result);
     } catch (error: any) {
@@ -93,17 +99,31 @@ export class UsersAuthController {
   // RF-USR-010: Editar rol
   updateRole = async (req: Request, res: Response): Promise<void> => {
     try {
-      const idRol = Number(req.params.id);
-      const { nombreRol, descripcion, permisos } = req.body;
+      const idRol = Number(req.params.id || req.body.idRol || req.body.id_rol);
+      if (!idRol || Number.isNaN(idRol)) {
+        res.status(400).json({ message: 'El identificador del rol es inválido.' });
+        return;
+      }
+      const rawNombreRol = req.body.nombreRol || req.body.nombre_rol;
+      const rawDescripcion = req.body.descripcion ?? '';
+      const rawPermisos = req.body.permisos;
+      const ejecutadoPorUsuario = (req as any).user?.correo || req.body.ejecutadoPorUsuario || 'ROL-ADM';
+
+      if (!rawNombreRol || typeof rawNombreRol !== 'string' || !rawNombreRol.trim()) {
+        res.status(400).json({ message: "El campo 'nombreRol' es obligatorio." });
+        return;
+      }
+
       const result = await this.updateRoleUseCase.execute({
         idRol,
-        nombreRol,
-        descripcion,
-        permisos,
+        nombreRol: rawNombreRol.trim(),
+        descripcion: rawDescripcion,
+        permisos: rawPermisos,
+        ejecutadoPorUsuario,
       });
       res.json(result);
     } catch (error: any) {
-      res.status(400).json({ message: error.message });
+      handleHttpError(res, error, 400);
     }
   };
 
@@ -114,26 +134,33 @@ export class UsersAuthController {
       const rolesWithCounts = await Promise.all(
         roles.map(async (r) => ({
           ...r,
+          es_inicial: Boolean(r.es_inicial),
           usuariosAsignadosCount: await this.userRepo.countUsersByRole(r.id_rol),
         }))
       );
       res.json({ data: rolesWithCounts });
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      handleHttpError(res, error, 500);
     }
   };
 
   // RF-USR-011: Eliminar rol
   deleteRole = async (req: Request, res: Response): Promise<void> => {
     try {
-      const idRol = Number(req.params.id);
+      const idRol = Number(req.params?.id || req.body?.idRol || req.body?.id_rol);
+      if (!idRol || Number.isNaN(idRol)) {
+        res.status(400).json({ message: 'El identificador del rol es inválido.' });
+        return;
+      }
+      const ejecutadoPorUsuario = (req as any).user?.correo || req.body?.ejecutadoPorUsuario || 'ROL-ADM';
       const result = await this.deleteRoleUseCase.execute({
         idRol,
         confirmado: true,
+        ejecutadoPorUsuario,
       });
-      res.json({ message: result.message });
+      res.json({ message: result.message, eliminado: result.eliminado });
     } catch (error: any) {
-      res.status(400).json({ message: error.message });
+      handleHttpError(res, error, 400);
     }
   };
 

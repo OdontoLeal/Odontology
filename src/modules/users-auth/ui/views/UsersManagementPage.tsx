@@ -34,6 +34,7 @@ export interface UsersManagementPageProps {
     message: string;
     data: UserWithRolesDomainDTO;
   }>;
+  onFetchRoles?: () => Promise<RoleDTO[]>;
   canCreateUser?: boolean;
 }
 
@@ -59,6 +60,7 @@ export const UsersManagementPage: React.FC<UsersManagementPageProps> = ({
   onCreateUser,
   onUpdateUser,
   onToggleUserStatus,
+  onFetchRoles,
   canCreateUser = true,
 }) => {
   const [allLoadedUsers, setAllLoadedUsers] = useState<UserWithRolesDomainDTO[]>(initialUsers);
@@ -101,6 +103,32 @@ export const UsersManagementPage: React.FC<UsersManagementPageProps> = ({
     onSearchUsersRef.current = onSearchUsers;
   }, [onSearchUsers]);
 
+  const onFetchRolesRef = useRef(onFetchRoles);
+  useEffect(() => {
+    onFetchRolesRef.current = onFetchRoles;
+  }, [onFetchRoles]);
+
+  const fetchRolesDirectory = useCallback(async () => {
+    try {
+      if (onFetchRolesRef.current) {
+        const loaded = await onFetchRolesRef.current();
+        if (Array.isArray(loaded) && loaded.length > 0) {
+          setRoles(loaded);
+          return;
+        }
+      }
+      const res = await fetch('/api/v1/roles');
+      if (res.ok) {
+        const body = await res.json();
+        if (Array.isArray(body.data) && body.data.length > 0) {
+          setRoles(body.data);
+        }
+      }
+    } catch {
+      // Conservar fallback en caso de desconexión
+    }
+  }, []);
+
   const fetchUsersDirectory = useCallback(async (showSkeleton: boolean = false) => {
     if (showSkeleton) {
       setIsInitialLoading(true);
@@ -139,6 +167,10 @@ export const UsersManagementPage: React.FC<UsersManagementPageProps> = ({
     }
     fetchUsersDirectory(true);
   }, [fetchUsersDirectory, initialUsers]);
+
+  useEffect(() => {
+    fetchRolesDirectory();
+  }, [fetchRolesDirectory]);
 
   useEffect(() => {
     if (initialRoles && initialRoles.length > 0) {

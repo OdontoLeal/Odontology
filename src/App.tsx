@@ -1,5 +1,5 @@
 // src/App.tsx
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useCallback, useEffect, useState, useMemo } from 'react';
 import {
   InternalDashboardLayout,
   InternalNavigationView,
@@ -105,19 +105,58 @@ export const App: React.FC = () => {
     }
   }, [auth.isAuthenticated]);
 
+  const refreshCatalogRoles = useCallback(async () => {
+    try {
+      const loadedRoles = await auth.fetchRoles();
+      if (loadedRoles.length > 0) {
+        setCatalogRoles(loadedRoles);
+      }
+    } catch {
+      // Conserva los roles semilla
+    }
+  }, [auth.fetchRoles]);
+
   useEffect(() => {
     if (!auth.isAuthenticated) return;
-    auth
-      .fetchRoles()
-      .then((loadedRoles) => {
-        if (loadedRoles.length > 0) {
-          setCatalogRoles(loadedRoles);
-        }
-      })
-      .catch(() => {
-        // Conserva los roles semilla
-      });
-  }, [auth.isAuthenticated, auth.fetchRoles]);
+    refreshCatalogRoles();
+  }, [auth.isAuthenticated, refreshCatalogRoles]);
+
+  const handleCreateRole = useCallback(
+    async (payload: {
+      codigo: string;
+      nombreRol: string;
+      descripcion: string;
+      permisos: string[];
+    }) => {
+      const res = await auth.createRole(payload);
+      await refreshCatalogRoles();
+      return res;
+    },
+    [auth.createRole, refreshCatalogRoles]
+  );
+
+  const handleUpdateRole = useCallback(
+    async (payload: {
+      idRol: number;
+      nombreRol: string;
+      descripcion: string;
+      permisos: string[];
+    }) => {
+      const res = await auth.updateRole(payload);
+      await refreshCatalogRoles();
+      return res;
+    },
+    [auth.updateRole, refreshCatalogRoles]
+  );
+
+  const handleDeleteRole = useCallback(
+    async (idRol: number) => {
+      const res = await auth.deleteRole(idRol);
+      await refreshCatalogRoles();
+      return res;
+    },
+    [auth.deleteRole, refreshCatalogRoles]
+  );
 
   // Permisos dinámicos RBAC centralizados
   const canAccessAppointments = useMemo(() => {
@@ -459,6 +498,8 @@ export const App: React.FC = () => {
       {internalView === 'PATIENTS' && (
         patientSubView === 'HOLDER_DATA' ? (
           <HolderDataQueryPage
+            patients={patients}
+            initialSelectedDocument={selectedPatient?.documentoIdentidad}
             onBack={() => setPatientSubView('DIRECTORY')}
             onQueryHolderData={getHolderData}
           />
@@ -581,6 +622,7 @@ export const App: React.FC = () => {
         ) : (
           <UsersManagementPage
             initialRoles={catalogRoles}
+            onFetchRoles={auth.fetchRoles}
             canCreateUser={canCreateUser}
             savedUserDraft={userDraftHook.getDraftByFormId('USER_FORM')}
             onDiscardUserDraft={() => userDraftHook.discardDraft('USER_FORM')}
@@ -612,9 +654,9 @@ export const App: React.FC = () => {
           <RolesManagementPage
             initialRoles={catalogRoles}
             canCreateRole={canCreateRole}
-            onCreateRole={auth.createRole}
-            onUpdateRole={auth.updateRole}
-            onDeleteRole={auth.deleteRole}
+            onCreateRole={handleCreateRole}
+            onUpdateRole={handleUpdateRole}
+            onDeleteRole={handleDeleteRole}
           />
         )
       )}

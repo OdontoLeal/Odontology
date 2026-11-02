@@ -221,7 +221,7 @@ export class UserRepository implements IUserRepository {
                END,
                codigo_rol = COALESCE(codigo_rol, $2),
                descripcion = COALESCE(descripcion, $3)
-           WHERE LOWER(nombre_rol) = $4;`,
+           WHERE LOWER(nombre_rol) = $4 OR codigo_rol = $2;`,
           [JSON.stringify(meta.permisos), meta.codigo, meta.descripcion, name]
         );
       }
@@ -386,7 +386,10 @@ export class UserRepository implements IUserRepository {
     if (!role) {
       throw new Error(`El rol con ID ${idRol} no existe.`);
     }
-    if (role.es_inicial) {
+    const isInitial =
+      Boolean(role.es_inicial) ||
+      (role.codigo && INITIAL_ROLE_CODES.includes(role.codigo.toUpperCase() as any));
+    if (isInitial) {
       throw new Error(
         `El rol "${role.nombre_rol}" pertenece a la configuración inicial del sistema y no puede ser eliminado.`
       );
@@ -401,7 +404,11 @@ export class UserRepository implements IUserRepository {
       'DELETE FROM public.rol WHERE id_rol = $1;',
       [idRol]
     );
-    return (rowCount ?? 0) > 0;
+    if ((rowCount ?? 0) > 0) {
+      UserRepository.roleMetadataStore.delete(role.nombre_rol.trim().toLowerCase());
+      return true;
+    }
+    return false;
   }
 
   // RF-USR-001: Crear usuario y asignarle roles en una transacción

@@ -48,3 +48,5 @@ export {
   ExportHolderDataOutput,
   IPdfHolderExporterPort,
 } from './application/export-holder-data.use-case';
+
+export { PdfHolderExporterService } from './application/pdf-holder-exporter.service';

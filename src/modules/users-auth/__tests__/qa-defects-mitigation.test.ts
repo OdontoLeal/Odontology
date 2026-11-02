@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 // src/modules/users-auth/__tests__/qa-defects-mitigation.test.ts
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
@@ -199,5 +200,277 @@ describe('VERIFICACIÓN Y MITIGACIÓN DE DEFECTOS QA (D-01 a D-14)', () => {
     const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
     assert.strictEqual(typeof pkg.scripts['db:init'], 'string');
     assert.match(pkg.scripts['db:init'], /init-db\.ts/);
+  });
+  it('ROLES: Roles en Doctores y Equipo vienen dinámicamente de la BD y no están quemados', async () => {
+    // Verificar que UsersManagementPage define onFetchRoles y no depende únicamente de DEFAULT_ROLES_FALLBACK
+    const usersPageCode = fs.readFileSync('src/modules/users-auth/ui/views/UsersManagementPage.tsx', 'utf8');
+    assert.strictEqual(usersPageCode.includes('onFetchRoles'), true);
+    assert.strictEqual(usersPageCode.includes('fetchRolesDirectory'), true);
+    assert.strictEqual(usersPageCode.includes("fetch('/api/v1/roles')"), true);
+
+    // Verificar que App.tsx pasa onFetchRoles a UsersManagementPage
+    const appCode = fs.readFileSync('src/App.tsx', 'utf8');
+    assert.strictEqual(appCode.includes('onFetchRoles={auth.fetchRoles}'), true);
+    assert.strictEqual(appCode.includes('refreshCatalogRoles'), true);
+  });
+
+  it('ROLES: Creación de rol funcional según el modelo de datos actual y rechaza permisos clínicos y códigos iniciales', async () => {
+    const rolesStore: any[] = [
+      { id_rol: 1, codigo: 'ROL-ADM', nombre_rol: 'Administrador del Sistema', permisos: ['RF-USR-001'], es_inicial: true },
+      { id_rol: 2, codigo: 'ROL-ODO', nombre_rol: 'Odontólogo General', permisos: ['RF-HCL-005'], es_inicial: true },
+    ];
+    let nextId = 3;
+
+    const mockRepo: any = {
+      findAllRoles: async () => rolesStore,
+      createRole: async (nombreRol: string, meta: any) => {
+        const created = {
+          id_rol: nextId++,
+          codigo: meta?.codigo ?? 'ROL-GEN',
+          nombre_rol: nombreRol,
+          descripcion: meta?.descripcion ?? '',
+          permisos: meta?.permisos ?? [],
+          es_inicial: false,
+        };
+        rolesStore.push(created);
+        return created;
+      },
+      countUsersByRole: async () => 0,
+    };
+
+    const ctrl = new UsersAuthController(mockRepo);
+
+    // 1. Rechaza código reservado para roles iniciales
+    const reqReserved: any = {
+      body: {
+        codigo: 'ROL-ADM',
+        nombreRol: 'Nuevo Administrador',
+        permisos: ['RF-AGE-008'],
+      },
+    };
+    const resReserved = createMockResponse();
+    await ctrl.createRole(reqReserved, resReserved);
+    assert.strictEqual(resReserved.statusCode, 400);
+    assert.match(resReserved.body.message, /reservado para los roles iniciales/i);
+
+    // 2. Rechaza asignación de permisos clínicos a nuevos roles
+    const reqClinical: any = {
+      body: {
+        codigo: 'ROL-PRU',
+        nombreRol: 'Rol Prueba Clínico',
+        permisos: ['RF-HCL-005'],
+      },
+    };
+    const resClinical = createMockResponse();
+    await ctrl.createRole(reqClinical, resClinical);
+    assert.strictEqual(resClinical.statusCode, 400);
+    assert.match(resClinical.body.message, /permiso clínico/i);
+
+    // 3. Creación exitosa de rol configurable válido
+    const reqValid: any = {
+      body: {
+        codigo: 'ROL-AUD',
+        nombreRol: 'Auditor Externo',
+        descripcion: 'Rol de prueba para auditorías de calidad',
+        permisos: ['RF-AGE-008', 'RF-USR-004'],
+      },
+    };
+    const resValid = createMockResponse();
+    await ctrl.createRole(reqValid, resValid);
+    assert.strictEqual(resValid.statusCode, 201);
+    assert.strictEqual(resValid.body.data.codigo, 'ROL-AUD');
+    assert.strictEqual(resValid.body.data.es_inicial, false);
+    assert.strictEqual(rolesStore.length, 3);
+  });
+
+  it('ROLES: Edición de rol funcional protege permisos clínicos y rechaza nombres duplicados', async () => {
+    const rolesStore: any[] = [
+      { id_rol: 1, codigo: 'ROL-ADM', nombre_rol: 'Administrador del Sistema', permisos: ['RF-USR-001', 'RF-USR-002', 'RF-USR-003', 'RF-USR-004', 'RF-USR-007', 'RF-USR-010', 'RF-USR-011'], es_inicial: true },
+      { id_rol: 2, codigo: 'ROL-AUD', nombre_rol: 'Auditor Externo', permisos: ['RF-AGE-008'], es_inicial: false, descripcion: 'Inicial' },
+    ];
+
+    const mockRepo: any = {
+      findAllRoles: async () => rolesStore,
+      findRoleById: async (id: number) => rolesStore.find((r) => r.id_rol === id) || null,
+      updateRole: async (id: number, data: any) => {
+        const target = rolesStore.find((r) => r.id_rol === id);
+        if (!target) throw new Error('Rol no encontrado');
+        target.nombre_rol = data.nombreRol;
+        target.descripcion = data.descripcion;
+        target.permisos = data.permisos;
+        return target;
+      },
+      countUsersByRole: async () => 0,
+    };
+
+    const ctrl = new UsersAuthController(mockRepo);
+
+    // 1. Rechaza duplicación de nombre con otro rol
+    const reqDupName: any = {
+      params: { id: '2' },
+      body: {
+        nombreRol: 'Administrador del Sistema',
+        descripcion: 'Intento duplicar nombre',
+        permisos: ['RF-AGE-008'],
+      },
+    };
+    const resDup = createMockResponse();
+    await ctrl.updateRole(reqDupName, resDup);
+    assert.strictEqual(resDup.statusCode, 400);
+    assert.match(resDup.body.message, /ya está en uso por otro rol/i);
+
+    // 2. Edición exitosa de rol personalizado
+    const reqUpdateValid: any = {
+      params: { id: '2' },
+      body: {
+        nombreRol: 'Auditor de Calidad Senior',
+        descripcion: 'Descripción actualizada',
+        permisos: ['RF-AGE-008', 'RF-AGE-001'],
+      },
+    };
+    const resUpdateValid = createMockResponse();
+    await ctrl.updateRole(reqUpdateValid, resUpdateValid);
+    assert.strictEqual(resUpdateValid.statusCode, 200);
+    assert.strictEqual(resUpdateValid.body.data.nombre_rol, 'Auditor de Calidad Senior');
+    assert.strictEqual(resUpdateValid.body.data.descripcion, 'Descripción actualizada');
+  });
+
+  it('ROLES: Eliminación permitida solo para roles no iniciales y si y solo si no tienen usuarios asignados', async () => {
+    const rolesStore: any[] = [
+      { id_rol: 1, codigo: 'ROL-ADM', nombre_rol: 'Administrador del Sistema', es_inicial: true, permisos: ['RF-USR-001'] },
+      { id_rol: 2, codigo: 'ROL-ASIG', nombre_rol: 'Rol Asignado Con Usuarios', es_inicial: false, permisos: ['RF-AGE-008'] },
+      { id_rol: 3, codigo: 'ROL-LIBRE', nombre_rol: 'Rol Libre Sin Usuarios', es_inicial: false, permisos: ['RF-AGE-008'] },
+    ];
+
+    const mockRepo: any = {
+      findAllRoles: async () => rolesStore,
+      findRoleById: async (id: number) => rolesStore.find((r) => r.id_rol === id) || null,
+      countUsersByRole: async (idRol: number) => {
+        if (idRol === 1) return 1;
+        if (idRol === 2) return 2; // Tiene 2 usuarios asignados
+        return 0; // Rol 3 no tiene usuarios
+      },
+      deleteRole: async (idRol: number) => {
+        const idx = rolesStore.findIndex((r) => r.id_rol === idRol);
+        if (idx >= 0) {
+          rolesStore.splice(idx, 1);
+          return true;
+        }
+        return false;
+      },
+    };
+
+    const ctrl = new UsersAuthController(mockRepo);
+
+    // 1. Intento de eliminar rol inicial del sistema -> RECHAZADO (400)
+    const reqDelInitial: any = { params: { id: '1' } };
+    const resDelInitial = createMockResponse();
+    await ctrl.deleteRole(reqDelInitial, resDelInitial);
+    assert.strictEqual(resDelInitial.statusCode, 400);
+    assert.match(resDelInitial.body.message, /configuración inicial del sistema y no puede ser eliminado/i);
+
+    // 2. Intento de eliminar rol con usuarios asignados -> RECHAZADO (400)
+    const reqDelAssigned: any = { params: { id: '2' } };
+    const resDelAssigned = createMockResponse();
+    await ctrl.deleteRole(reqDelAssigned, resDelAssigned);
+    assert.strictEqual(resDelAssigned.statusCode, 400);
+    assert.match(resDelAssigned.body.message, /está asignado a 2 usuario/i);
+
+    // 3. Eliminación exitosa de rol no inicial sin usuarios asignados -> PERMITIDO (200)
+    const reqDelFree: any = { params: { id: '3' } };
+    const resDelFree = createMockResponse();
+    await ctrl.deleteRole(reqDelFree, resDelFree);
+    assert.strictEqual(resDelFree.statusCode, 200);
+    assert.strictEqual(resDelFree.body.eliminado, true);
+    assert.strictEqual(rolesStore.some((r) => r.id_rol === 3), false);
+  });
+
+  it('CITAS: QuickScheduleModal inicializa sin bloques seleccionados por defecto y consulta por profesional', () => {
+    const fileContent = fs.readFileSync('src/modules/appointments/ui/components/QuickScheduleModal.tsx', 'utf8');
+    assert.ok(
+      fileContent.includes('const [selectedBlocks, setSelectedBlocks] = useState<string[]>([]);'),
+      'Los bloques seleccionados deben iniciar en un arreglo vacio []'
+    );
+    assert.ok(
+      !fileContent.includes("['14:00-14:30', '14:30-15:00']"),
+      'No debe tener bloques quemados por defecto'
+    );
+    assert.ok(
+      fileContent.includes('idProfesional=${selectedDoctorId}'),
+      'Debe consultar bloques disponibles filtrando por el profesional seleccionado'
+    );
+  });
+
+  it('MODALES: AlertModal utiliza z-[100] garantizando que nunca quede detras de formularios', () => {
+    const modalContent = fs.readFileSync('src/shared/ui/components/Modal.tsx', 'utf8');
+    assert.ok(
+      modalContent.includes('zIndex?: string;'),
+      'Modal debe admitir prop zIndex personalizable'
+    );
+    const alertModalContent = fs.readFileSync('src/shared/ui/components/AlertModal.tsx', 'utf8');
+    assert.ok(
+      alertModalContent.includes('zIndex="z-[100]"'),
+      'AlertModal debe pasar zIndex="z-[100]" para superponerse a cualquier modal o formulario'
+    );
+  });
+
+  it('HABEAS DATA: Certificado adaptable a tamanos Carta, A4 y Oficio con reglas profesionales de impresion', () => {
+    const holderContent = fs.readFileSync('src/modules/patients/ui/views/HolderDataQueryPage.tsx', 'utf8');
+    assert.ok(
+      holderContent.includes('patients = [],'),
+      'HolderDataQueryPage debe recibir listado de pacientes para seleccion directa'
+    );
+    assert.ok(
+      holderContent.includes("'LETTER' | 'A4' | 'LEGAL' | 'AUTO'"),
+      'Debe soportar tipos de papel LETTER, A4 y LEGAL'
+    );
+    assert.ok(
+      holderContent.includes('size: auto;'),
+      'Debe definir @page size: auto para adaptarse a cualquier tamano de papel'
+    );
+    assert.ok(
+      holderContent.includes('break-inside: avoid !important;'),
+      'Debe prevenir saltos de pagina indebidos con avoid-break'
+    );
+    assert.ok(
+      holderContent.includes('habeas-sheet-container'),
+      'Debe contener clase contenedora adaptable para previsualizacion e impresion'
+    );
+  });
+
+  it('PACIENTES: Nueva cita muestra estado de carga procesando peticion, cierra formulario y muestra modal de confirmacion', () => {
+    // 1. En PatientProfilePage.tsx
+    const profileContent = fs.readFileSync('src/modules/patients/ui/views/PatientProfilePage.tsx', 'utf8');
+    assert.ok(
+      profileContent.includes('const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);'),
+      'PatientProfilePage debe controlar la apertura del modal de nueva cita'
+    );
+    assert.ok(
+      profileContent.includes('const [isSubmittingSchedule, setIsSubmittingSchedule] = useState(false);'),
+      'PatientProfilePage debe gestionar el estado de carga durante el agendamiento'
+    );
+    assert.ok(
+      profileContent.includes('setIsScheduleModalOpen(false);'),
+      'Al confirmarse la cita debe desaparecer el formulario cerrando el modal'
+    );
+    assert.ok(
+      profileContent.includes("title: '¡Cita Confirmada Exitosamente!'"),
+      'Al confirmarse debe aparecer el modal de alerta con confirmacion exitosa'
+    );
+    assert.ok(
+      profileContent.includes('<QuickScheduleModal'),
+      'PatientProfilePage debe renderizar QuickScheduleModal preseleccionando al paciente'
+    );
+
+    // 2. En QuickScheduleModal.tsx
+    const modalContent = fs.readFileSync('src/modules/appointments/ui/components/QuickScheduleModal.tsx', 'utf8');
+    assert.ok(
+      modalContent.includes('Procesando agendamiento...'),
+      'Debe mostrar banner/overlay visual indicando que se esta procesando la peticion'
+    );
+    assert.ok(
+      modalContent.includes("{isProcessing ? 'Confirmando Cita...' : 'Confirmar Cita'}"),
+      'El boton Confirmar Cita debe cambiar a estado de carga durante el procesamiento'
+    );
   });
 });
