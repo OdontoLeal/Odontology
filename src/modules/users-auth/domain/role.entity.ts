@@ -128,11 +128,22 @@ export class RoleEntity {
     if (!codigo) {
       throw new Error('El código del rol es obligatorio.');
     }
+    if (codigo.length > 20) {
+      throw new Error('El código del rol no puede exceder los 20 caracteres.');
+    }
+    if (INITIAL_ROLE_CODES.includes(codigo as InitialRoleCode)) {
+      throw new Error(
+        `El código "${codigo}" está reservado para los roles iniciales del sistema y no puede ser usado en nuevos roles.`
+      );
+    }
     if (!nombreRol) {
       throw new Error('El nombre del rol es obligatorio.');
     }
     if (nombreRol.length > 40) {
       throw new Error('El nombre del rol no puede exceder los 40 caracteres.');
+    }
+    if (descripcion.length > 250) {
+      throw new Error('La descripción del rol no puede exceder los 250 caracteres.');
     }
     if (!Array.isArray(permisos) || permisos.length === 0) {
       throw new Error('Debe asignar al menos un permiso al rol.');
@@ -155,6 +166,7 @@ export class RoleEntity {
       descripcion,
       permisos,
       estadoAsignacion: props.estadoAsignacion ?? true,
+      esInicial: false,
     });
   }
 

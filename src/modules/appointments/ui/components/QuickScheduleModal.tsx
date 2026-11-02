@@ -3,7 +3,6 @@ import React, { useState, useEffect } from 'react';
 import { Modal } from '../../../../shared/ui/components/Modal';
 import { Button } from '../../../../shared/ui/components/Button';
 import { Input } from '../../../../shared/ui/components/Input';
-import { Badge } from '../../../../shared/ui/components/Badge';
 import { useAlertModal } from '../../../../shared/ui/hooks/useAlertModal';
 
 export interface PatientCandidate {
@@ -40,17 +39,28 @@ export interface QuickScheduleModalProps {
   isLoading?: boolean;
 }
 
+const getTodayColombia = () =>
+  new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Bogota',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+
 export const QuickScheduleModal: React.FC<QuickScheduleModalProps> = ({
   isOpen,
   onClose,
   patients,
   doctors,
   initialSelectedPatient = null,
-  initialDate = new Date().toISOString().split('T')[0],
+  initialDate,
   onConfirmSchedule,
   onOpenNewPatientModal,
   isLoading = false,
 }) => {
+  const todayColombia = getTodayColombia();
+  const effectiveDate = initialDate && initialDate >= todayColombia ? initialDate : todayColombia;
+
   const [patientSearch, setPatientSearch] = useState('');
   const [selectedPatient, setSelectedPatient] = useState<PatientCandidate | null>(
     initialSelectedPatient
@@ -64,23 +74,47 @@ export const QuickScheduleModal: React.FC<QuickScheduleModalProps> = ({
     doctors[0]?.idUsuario || 1
   );
 
-  const [fecha, setFecha] = useState(initialDate);
-  const [selectedBlocks, setSelectedBlocks] = useState<string[]>(['14:00-14:30', '14:30-15:00']);
+  const [fecha, setFecha] = useState(effectiveDate);
+  const [selectedBlocks, setSelectedBlocks] = useState<string[]>([]); // Por defecto ningún bloque seleccionado
 
   const [availableBlocks, setAvailableBlocks] = useState<string[]>([]);
+  const [internalLoading, setInternalLoading] = useState(false);
+  const isProcessing = Boolean(isLoading || internalLoading);
   const [isLoadingSlots, setIsLoadingSlots] = useState(false);
 
-  // Consulta dinámica a la base de datos de los bloques disponibles (estado = true AND ocupacion = false)
+  // Reiniciar estado al abrir el formulario para evitar bloques quemados o fechas inconsistentes
+  useEffect(() => {
+    if (!isOpen) return;
+    const today = getTodayColombia();
+    const targetDate = initialDate && initialDate >= today ? initialDate : today;
+    setFecha(targetDate);
+    setSelectedBlocks([]); // Por defecto ningún bloque seleccionado
+    setSelectedPatient(initialSelectedPatient || null);
+    setPatientSearch('');
+    setObservaciones('');
+    setMotivo('Valoración Odontológica');
+    if (doctors.length > 0 && !doctors.some((d) => d.idUsuario === selectedDoctorId)) {
+      setSelectedDoctorId(doctors[0].idUsuario);
+    }
+  }, [isOpen, initialDate, initialSelectedPatient, doctors]);
+
+  // Si cambia la fecha o el doctor, resetear los bloques seleccionados
+  useEffect(() => {
+    setSelectedBlocks([]);
+  }, [fecha, selectedDoctorId]);
+
+  // Consulta dinámica a la base de datos de los bloques disponibles por fecha y profesional
   useEffect(() => {
     if (!fecha) return;
     setIsLoadingSlots(true);
-    fetch(`/api/v1/appointments/available-slots?fecha=${fecha}`)
+    const doctorParam = selectedDoctorId ? `&idProfesional=${selectedDoctorId}` : '';
+    fetch(`/api/v1/appointments/available-slots?fecha=${fecha}${doctorParam}`)
       .then((res) => (res.ok ? res.json() : { data: [] }))
       .then((json) => {
         const rawSlots: any[] = json.data || [];
         const blocks = rawSlots.map((s: any) => {
-          let cleanInicio = String(s.inicio || '').trim();
-          let cleanFinal = String(s.final || '').trim();
+          const cleanInicio = String(s.inicio || '').trim();
+          const cleanFinal = String(s.final || '').trim();
           const startPart = cleanInicio.includes(' ')
             ? cleanInicio.split(' ')[1]
             : cleanInicio.includes('T')
@@ -102,7 +136,7 @@ export const QuickScheduleModal: React.FC<QuickScheduleModalProps> = ({
       .finally(() => {
         setIsLoadingSlots(false);
       });
-  }, [fecha]);
+  }, [fecha, selectedDoctorId]);
 
   const filteredPatients = patients.filter(
     (p) =>
@@ -116,7 +150,8 @@ export const QuickScheduleModal: React.FC<QuickScheduleModalProps> = ({
     );
   };
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
+    if (isProcessing) return;
     const todayColombia = new Intl.DateTimeFormat('en-CA', {
       timeZone: 'America/Bogota',
       year: 'numeric',
@@ -150,19 +185,25 @@ export const QuickScheduleModal: React.FC<QuickScheduleModalProps> = ({
       return;
     }
 
-    onConfirmSchedule({
-      idPaciente: selectedPatient.idPaciente,
-      idDoctor: selectedDoctorId,
-      fecha,
-      bloques: selectedBlocks,
-      motivo,
-      observaciones,
-    });
+    try {
+      setInternalLoading(true);
+      await onConfirmSchedule({
+        idPaciente: selectedPatient.idPaciente,
+        idDoctor: selectedDoctorId,
+        fecha,
+        bloques: selectedBlocks,
+        motivo,
+        observaciones,
+      });
+    } catch (err) {
+      console.error('Error al agendar cita en QuickScheduleModal:', err);
+    } finally {
+      setInternalLoading(false);
+    }
   };
 
   return (
     <>
-      <AlertModalComponent />
       <Modal
       isOpen={isOpen}
       onClose={onClose}
@@ -171,21 +212,34 @@ export const QuickScheduleModal: React.FC<QuickScheduleModalProps> = ({
       maxWidth="4xl"
       footer={
         <div className="flex items-center gap-3">
-          <Button variant="outline" onClick={onClose} disabled={isLoading}>
+          <Button variant="outline" onClick={onClose} disabled={isProcessing}>
             Cancelar
           </Button>
           <Button
             variant="primary"
             onClick={handleConfirm}
-            isLoading={isLoading}
-            leftIcon={<span>📅</span>}
+            isLoading={isProcessing}
+            disabled={isProcessing}
+            leftIcon={!isProcessing ? <span>📅</span> : undefined}
           >
-            Confirmar Cita
+            {isProcessing ? 'Confirmando Cita...' : 'Confirmar Cita'}
           </Button>
         </div>
       }
     >
-      <div className="space-y-6">
+      <div className="relative space-y-6">
+        {/* Estado de carga / procesamiento visual cuando se confirma la cita */}
+        {isProcessing && (
+          <div className="absolute -inset-4 bg-white/80 backdrop-blur-[1px] flex flex-col items-center justify-center z-30 rounded-2xl animate-fadeIn">
+            <div className="flex items-center gap-3.5 bg-[#111827] text-white px-6 py-4 rounded-2xl shadow-2xl border border-[#D4AF37]/50">
+              <div className="h-6 w-6 border-2 border-white/20 border-t-[#D4AF37] rounded-full animate-spin" />
+              <div className="text-left">
+                <p className="text-xs sm:text-sm font-bold text-white">Procesando agendamiento...</p>
+                <p className="text-[11px] text-gray-300">Reservando bloques y confirmando la cita médica</p>
+              </div>
+            </div>
+          </div>
+        )}
         {/* Paso 1: Selección de Paciente */}
         <div className="rounded-2xl border border-[#E2E6EA] p-5 space-y-3 bg-[#F8F9FA]/60">
           <div className="flex items-center justify-between">
@@ -366,6 +420,7 @@ export const QuickScheduleModal: React.FC<QuickScheduleModalProps> = ({
         </div>
       </div>
     </Modal>
+      <AlertModalComponent />
     </>
   );
 };

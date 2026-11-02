@@ -9,6 +9,8 @@ import { useClinicalRecord, ClinicalEvolutionEntry } from '../../../clinical-rec
 import { EvolutionDetailModal } from '../../../clinical-records/ui/components/EvolutionDetailModal';
 import { printCompleteClinicalHistory } from '../../../clinical-records/application/print-clinical-history.service';
 import { useConsents } from '../../../consents/ui/hooks/useConsents';
+import { QuickScheduleModal, DoctorCandidate } from '../../../appointments/ui/components/QuickScheduleModal';
+import { useAlertModal } from '../../../../shared/ui/hooks/useAlertModal';
 
 export interface PatientProfilePageProps {
   patient: PatientListItem;
@@ -37,7 +39,7 @@ interface PatientAppointment {
 export const PatientProfilePage: React.FC<PatientProfilePageProps> = ({
   patient,
   onBack,
-  onScheduleAppointment,
+  onScheduleAppointment: _onScheduleAppointment,
   onOpenConsultation,
   onViewClinicalHistoryDetail,
   onSignConsent,
@@ -49,6 +51,38 @@ export const PatientProfilePage: React.FC<PatientProfilePageProps> = ({
   const [selectedEvolutionForView, setSelectedEvolutionForView] = useState<ClinicalEvolutionEntry | null>(null);
   const [appointments, setAppointments] = useState<PatientAppointment[]>([]);
   const [isAppointmentsLoading, setIsAppointmentsLoading] = useState(false);
+  const { showAlert, AlertModalComponent } = useAlertModal();
+  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+  const [isSubmittingSchedule, setIsSubmittingSchedule] = useState(false);
+  const [doctors, setDoctors] = useState<DoctorCandidate[]>([]);
+
+  useEffect(() => {
+    fetch('/api/v1/users')
+      .then((res) => (res.ok ? res.json() : { data: [] }))
+      .then((json) => {
+        const userList: any[] = Array.isArray(json.data)
+          ? json.data
+          : Array.isArray(json.data?.data)
+          ? json.data.data
+          : Array.isArray(json)
+          ? json
+          : [];
+        const doctorCandidates: DoctorCandidate[] = userList
+          .filter((u) => u.estado !== false)
+          .map((u) => ({
+            idUsuario: Number(u.id_usuario ?? u.idUsuario),
+            nombreCompleto: u.nombre_completo ?? u.nombreCompleto ?? 'Doctor',
+            especialidad:
+              u.roles?.[0]?.nombreRol ||
+              u.roles?.[0]?.nombre_rol ||
+              'Odontología General',
+          }));
+        if (doctorCandidates.length > 0) {
+          setDoctors(doctorCandidates);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // DEF-17 & CPS-HCL-004-02: Detectar si el usuario activo es Coordinadora (ROL-COA)
   const isCoordinator = React.useMemo(() => {
@@ -101,6 +135,64 @@ export const PatientProfilePage: React.FC<PatientProfilePageProps> = ({
   const pastAppointments = appointments.filter(
     (a) => a.estado === 'Completada' || a.estado === 'Atendida' || a.estado === 'Cancelada' || a.estado === 'No asistió'
   );
+
+  // Manejo de Agendamiento de Nueva Cita desde la ficha del paciente
+  const handleConfirmSchedule = async (apptData: {
+    idPaciente: number;
+    idDoctor: number;
+    fecha: string;
+    bloques: string[];
+    motivo: string;
+    observaciones?: string;
+  }) => {
+    setIsSubmittingSchedule(true);
+    try {
+      const formattedBlocks = apptData.bloques.map((b) => {
+        const start = b.split('-')[0].trim();
+        return `${apptData.fecha} ${start}:00`;
+      });
+
+      const res = await fetch('/api/v1/appointments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          titulo: apptData.motivo,
+          descripcion: apptData.observaciones,
+          idPaciente: apptData.idPaciente,
+          idUsuarioProfesional: apptData.idDoctor,
+          idUsuarioGestor: 1,
+          bloques: formattedBlocks,
+        }),
+      });
+
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.message || 'Error al agendar la cita');
+      }
+
+      // 1. Desaparece el formulario (cerrar el modal)
+      setIsScheduleModalOpen(false);
+
+      // 2. Refrescar citas del paciente inmediatamente
+      await fetchPatientAppointments();
+
+      // 3. Aparece el modal informando la confirmación de la cita
+      showAlert({
+        title: '¡Cita Confirmada Exitosamente!',
+        message: 'La cita ha sido registrada exitosamente en la agenda del paciente.',
+        type: 'success',
+      });
+    } catch (err: any) {
+      showAlert({
+        title: 'Error al agendar cita',
+        message: err.message || 'No fue posible programar la cita.',
+        type: 'error',
+      });
+      throw err;
+    } finally {
+      setIsSubmittingSchedule(false);
+    }
+  };
 
   // Helper para formatear bloque horario
   const formatSlot = (bloques: string[]) => {
@@ -213,7 +305,7 @@ export const PatientProfilePage: React.FC<PatientProfilePageProps> = ({
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => onScheduleAppointment(patient)}
+                onClick={() => setIsScheduleModalOpen(true)}
                 leftIcon={
                   <svg className="h-4 w-4 text-[#D4AF37]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -290,7 +382,7 @@ export const PatientProfilePage: React.FC<PatientProfilePageProps> = ({
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => onScheduleAppointment(patient)}
+                onClick={() => setIsScheduleModalOpen(true)}
               >
                 + Programar Nueva Cita
               </Button>
@@ -573,6 +665,36 @@ export const PatientProfilePage: React.FC<PatientProfilePageProps> = ({
         isOpen={Boolean(selectedEvolutionForView)}
         onClose={() => setSelectedEvolutionForView(null)}
       />
+
+      {/* Modal de Nueva Cita para el Paciente */}
+      {isScheduleModalOpen && (
+        <QuickScheduleModal
+          isOpen={isScheduleModalOpen}
+          onClose={() => setIsScheduleModalOpen(false)}
+          patients={[
+            {
+              idPaciente: patient.idPaciente,
+              nombreCompleto: patient.nombreCompleto,
+              documentoIdentidad: patient.documentoIdentidad,
+              telefono: patient.telefono,
+              correo: patient.correo,
+            },
+          ]}
+          initialSelectedPatient={{
+            idPaciente: patient.idPaciente,
+            nombreCompleto: patient.nombreCompleto,
+            documentoIdentidad: patient.documentoIdentidad,
+            telefono: patient.telefono,
+            correo: patient.correo,
+          }}
+          doctors={doctors}
+          isLoading={isSubmittingSchedule}
+          onConfirmSchedule={handleConfirmSchedule}
+        />
+      )}
+
+      {/* Alerta modal en capa superior */}
+      <AlertModalComponent />
     </div>
   );
 };

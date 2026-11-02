@@ -440,4 +440,31 @@ describe('MÓDULO C (Parte 1): Gestión de Pacientes y Ficha Médica (RF-HCL-001
     assert.strictEqual(exportResult.datosTitular.calidades.comoPaciente?.nombreCompleto, 'Héctor Julio Ramírez');
     assert.strictEqual(exportResult.datosTitular.autorizaciones.length, 1);
   });
+
+  it('RF-HCL-010: Exportar certificado de Habeas Data en formato PDF binario estándar (%PDF) profesional', async () => {
+    const createUseCase = new CreatePatientUseCase(repo);
+    const exportUseCase = new ExportHolderDataUseCase(repo);
+
+    await createUseCase.execute({
+      nombreCompleto: 'Laura Sofía Gómez',
+      documentoIdentidad: '52431987',
+      fechaNacimiento: '1995-11-20',
+      sexo: 'Femenino',
+      telefono: '3105554433',
+      correo: 'laura.gomez@test.com',
+      autorizacionDatos: { autorizado: true },
+    });
+
+    const exportResult = await exportUseCase.execute({
+      documentoIdentidad: '52431987',
+      requesterRoles: ['ROL-ADM'],
+      formato: 'PDF',
+    });
+
+    assert.ok(exportResult.pdfBufferBase64, 'Debe incluir pdfBufferBase64');
+    const buffer = Buffer.from(exportResult.pdfBufferBase64, 'base64');
+    const header = buffer.subarray(0, 5).toString('utf-8');
+    assert.strictEqual(header, '%PDF-', 'El buffer generado debe iniciar con cabecera estándar %PDF-');
+    assert.ok(buffer.length > 500, 'El PDF debe contener bytes binarios estructurados de certificado');
+  });
 });

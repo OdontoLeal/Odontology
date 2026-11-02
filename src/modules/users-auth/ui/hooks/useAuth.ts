@@ -379,10 +379,11 @@ export function useAuth(options?: {
     }
     return (body.data ?? []).map((r: any) => ({
       id_rol: r.id_rol,
-      codigo: r.codigo ?? `ROL-${String(r.nombre_rol).substring(0, 3).toUpperCase()}`,
+      codigo: r.codigo ?? r.codigo_rol ?? `ROL-${String(r.nombre_rol).substring(0, 3).toUpperCase()}`,
       nombre_rol: r.nombre_rol,
       descripcion: r.descripcion ?? '',
       permisos: Array.isArray(r.permisos) ? r.permisos : ['RF-AGE-008'],
+      es_inicial: Boolean(r.es_inicial),
       usuariosAsignadosCount: Number(r.usuariosAsignadosCount ?? 0),
     }));
   }, [apiBase]);
