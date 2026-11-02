@@ -94,6 +94,22 @@ SMTP_PASS=tu_password_de_aplicacion
 SMTP_FROM="OdontoLeal Clínica" <notificaciones@odontoleal.com>
 ```
 
+### 3.1. Inicialización de la Base de Datos (PostgreSQL - DEF-27)
+
+El esquema relacional completo del sistema (15 tablas, restricciones de integridad referencial, índices y auditoría médica) se encuentra versionado en el repositorio:
+* **Script DDL canónico:** [`database/schema.sql`](database/schema.sql)
+* **Dump de referencia:** [`database/DDL_ult_version.txt`](database/DDL_ult_version.txt)
+
+Para inicializar la base de datos en un entorno local o de desarrollo aislado (Docker, PostgreSQL local):
+```bash
+# Ejecutar script de inicialización DDL (protegido por defecto contra bases de producción)
+npm run db:init
+
+# En caso de requerir ejecución explícita forzada:
+npm run db:init -- --force
+```
+*Alternativamente, puede importar directamente el archivo `database/schema.sql` en su cliente PostgreSQL preferido (DBeaver, pgAdmin o `psql -d odontoleal -f database/schema.sql`).*
+
 ### 4. Ejecución en Modo Desarrollo
 Inicia el servidor backend con recarga automática y el cliente frontend Vite:
 ```bash

@@ -92,12 +92,17 @@ export const AppointmentDetailHeader: React.FC<AppointmentDetailHeaderProps> = (
               {appointment.descripcion || 'Valoración clínica y diagnóstico general odontológico.'}
             </p>
 
-            <div className="mt-4 flex items-center gap-2.5">
-              <div className="h-7 w-7 rounded-full bg-[#111827] text-white font-bold text-xs flex items-center justify-center shrink-0">
-                {getInitials(appointment.doctorNombre)}
+            <div className="mt-4 flex items-center gap-4 flex-wrap">
+              <div className="flex items-center gap-2.5">
+                <div className="h-7 w-7 rounded-full bg-[#111827] text-white font-bold text-xs flex items-center justify-center shrink-0">
+                  {getInitials(appointment.doctorNombre)}
+                </div>
+                <span className="text-xs text-[#687380]">
+                  Doctor encargado: <strong className="text-[#1E242B]">{appointment.doctorNombre}</strong>
+                </span>
               </div>
               <span className="text-xs text-[#687380]">
-                Doctor encargado: <strong className="text-[#1E242B]">{appointment.doctorNombre}</strong>
+                Agendado por: <strong className="text-[#1E242B]">{appointment.agendadoPor || 'Portal Web'}</strong>
               </span>
             </div>
           </div>

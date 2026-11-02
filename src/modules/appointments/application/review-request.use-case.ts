@@ -212,7 +212,7 @@ export class ReviewRequestUseCase {
         documentoIdentidad: request.documentoSolicitante,
         correo: request.correoSolicitante,
         telefono: request.telefonoSolicitante,
-        fechaNacimiento: request.fechaNacimiento ?? new Date('2000-01-01'),
+        fechaNacimiento: request.fechaNacimiento ?? undefined,
         sexo: undefined, // Faltante: motivo de marca "Datos incompletos"
         datosIncompletos: true, // Se retira al completarlos en RF-HCL-002
         autorizacionDatos: true,

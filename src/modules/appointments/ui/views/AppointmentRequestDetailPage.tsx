@@ -555,7 +555,7 @@ export const AppointmentRequestDetailPage: React.FC<AppointmentRequestDetailPage
                     Teléfono Móvil
                   </span>
                   <span className="font-bold text-[#1E242B]">
-                    {request.telefono || '+57 318 459 2011'}
+                    {request.telefono || 'Sin registrar'}
                   </span>
                 </div>
               </div>

@@ -159,7 +159,7 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
         idCita: slot.idCita || null,
         nombrePaciente: slot.pacienteNombre || 'Lucía Restrepo Gómez',
         documentoIdentidad: slot.pacienteDocumento || '1025884320',
-        telefono: slot.pacienteTelefono || '+57 318 459 2011',
+        telefono: slot.pacienteTelefono || 'Sin registrar',
         correo: slot.pacienteCorreo || 'lucia.restrepo@email.com',
         fechaSolicitada: selectedDate,
         horaSolicitada: slot.horaInicio,
@@ -186,8 +186,8 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
       idPaciente: realAppt?.idPaciente || 1,
       nombrePaciente: realAppt?.nombrePaciente || slot.pacienteNombre || 'Paciente',
       documentoIdentidad: realAppt?.documentoPaciente || slot.pacienteDocumento || '1020456789',
-      telefono: realAppt?.telefonoPaciente || slot.pacienteTelefono || '+57 312 456 7890',
-      correo: realAppt?.correoPaciente || slot.pacienteCorreo || 'paciente@odontoleal.com',
+      telefono: realAppt?.telefonoPaciente || slot.pacienteTelefono || 'Sin registrar',
+      correo: realAppt?.correoPaciente || slot.pacienteCorreo || 'Sin registrar',
       titulo: realAppt?.titulo || slot.tratamiento || 'Valoración para Implante Dental',
       descripcion:
         realAppt?.descripcion ||
@@ -199,6 +199,7 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
       horaInicio: slot.horaInicio,
       horaFin: slot.horaFin,
       sillon: 'Gabinete 02',
+      agendadoPor: realAppt?.agendadoPor || 'Portal Web',
       estado: (slot.estadoCita as any) || 'Confirmada',
     });
 
