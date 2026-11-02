@@ -71,6 +71,7 @@ export const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
 
   const isConfirmed = appointment.estado === 'Confirmada';
   const isInConsultation = appointment.estado === 'En consulta';
+  const isAttended = appointment.estado === 'Atendida' || appointment.estado === 'Completada';
 
   const handleConfirmCancel = () => {
     if (!reasonInput.trim()) {
@@ -286,7 +287,8 @@ export const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
           </div>
         </div>
 
-        {/* Consentimientos Informados (Page 12) */}
+        {/* Consentimientos Informados (Page 12) - Retirado si la cita está atendida */}
+        {!isAttended && (
         <div className="rounded-2xl border border-[#E2E6EA] p-4 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -349,6 +351,7 @@ export const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
             ))}
           </div>
         </div>
+        )}
       </div>
     </Modal>
     </>

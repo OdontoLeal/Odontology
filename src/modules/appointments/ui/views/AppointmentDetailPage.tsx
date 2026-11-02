@@ -71,6 +71,7 @@ export const AppointmentDetailPage: React.FC<AppointmentDetailPageProps> = ({
   onSignConsent,
 }) => {
   const [appointment, setAppointment] = useState<AppointmentDetailPageData>(initialAppointment);
+  const isAttended = appointment.estado === 'Atendida' || appointment.estado === 'Completada';
 
   // Modales
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
@@ -151,9 +152,9 @@ export const AppointmentDetailPage: React.FC<AppointmentDetailPageProps> = ({
     return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
   };
 
-  // Cargar historial clínico
+  // Cargar historial clínico (solo si no está atendida)
   useEffect(() => {
-    if (!appointment.idPaciente) return;
+    if (isAttended || !appointment.idPaciente) return;
     setIsLoadingHistories(true);
     fetch(`/api/v1/clinical-records/patient/${appointment.idPaciente}`)
       .then((res) => (res.ok ? res.json() : { data: {} }))
@@ -191,11 +192,11 @@ export const AppointmentDetailPage: React.FC<AppointmentDetailPageProps> = ({
         setClinicalHistories([]);
       })
       .finally(() => setIsLoadingHistories(false));
-  }, [appointment.idPaciente, appointment.doctorNombre]);
+  }, [appointment.idPaciente, appointment.doctorNombre, isAttended]);
 
-  // Cargar consentimientos del paciente y plantillas
+  // Cargar consentimientos del paciente y plantillas (solo si no está atendida)
   useEffect(() => {
-    if (!appointment.idPaciente) return;
+    if (isAttended || !appointment.idPaciente) return;
     setIsLoadingConsents(true);
     fetch(`/api/v1/consents/patient/${appointment.idPaciente}`)
       .then((res) => (res.ok ? res.json() : { data: [] }))
@@ -207,7 +208,7 @@ export const AppointmentDetailPage: React.FC<AppointmentDetailPageProps> = ({
       .then((res) => (res.ok ? res.json() : { data: [] }))
       .then((json) => setAvailableTemplates(json.data || []))
       .catch(() => setAvailableTemplates([]));
-  }, [appointment.idPaciente]);
+  }, [appointment.idPaciente, isAttended]);
 
   // Modo edición: cargar bloques
   const handleOpenEditMode = () => {
@@ -480,21 +481,26 @@ export const AppointmentDetailPage: React.FC<AppointmentDetailPageProps> = ({
         onNavigateToPatientProfile={onNavigateToPatientProfile}
       />
 
-      <AppointmentHistoryCard
-        idPaciente={appointment.idPaciente}
-        clinicalHistories={clinicalHistories}
-        isLoadingHistories={isLoadingHistories}
-        onNavigateToPatientProfile={onNavigateToPatientProfile}
-      />
+      {/* En citas atendidas solo se muestra información del paciente y detalle de la cita (retira historias clínicas y consentimientos) */}
+      {!isAttended && (
+        <>
+          <AppointmentHistoryCard
+            idPaciente={appointment.idPaciente}
+            clinicalHistories={clinicalHistories}
+            isLoadingHistories={isLoadingHistories}
+            onNavigateToPatientProfile={onNavigateToPatientProfile}
+          />
 
-      <AppointmentConsentsCard
-        idPaciente={appointment.idPaciente}
-        consentItems={consentItems}
-        isLoadingConsents={isLoadingConsents}
-        onOpenAttachModal={() => setIsConsentModalOpen(true)}
-        onSignConsent={onSignConsent}
-        onNavigateToPatientProfile={onNavigateToPatientProfile}
-      />
+          <AppointmentConsentsCard
+            idPaciente={appointment.idPaciente}
+            consentItems={consentItems}
+            isLoadingConsents={isLoadingConsents}
+            onOpenAttachModal={() => setIsConsentModalOpen(true)}
+            onSignConsent={onSignConsent}
+            onNavigateToPatientProfile={onNavigateToPatientProfile}
+          />
+        </>
+      )}
 
       <AppointmentNoShowModal
         isOpen={isNoShowModalOpen}
