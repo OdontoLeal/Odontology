@@ -335,20 +335,10 @@ export class ClinicalDocumentPdfGeneratorService {
 
     const pdfBytes = await pdfDoc.save();
 
-    // Guardar físicamente en disco en public/storage/clinical-documents/<idPaciente>/
+    // ERS v1.2 (RF-DOC-001 a RF-DOC-004, D-27):
+    // "sin almacenar el archivo PDF en el servidor" -> generación en memoria pura
     const slugTipo = payload.tipoDocumento.toLowerCase().replace(/_/g, '-');
     const filename = `cita-${payload.idCita}-${slugTipo}-${Date.now()}-flattened.pdf`;
-    const targetDir = path.resolve(process.cwd(), 'storage/clinical-documents', String(payload.idPaciente));
-    
-    try {
-      if (!fs.existsSync(targetDir)) {
-        fs.mkdirSync(targetDir, { recursive: true });
-      }
-      fs.writeFileSync(path.join(targetDir, filename), Buffer.from(pdfBytes));
-    } catch (fsErr) {
-      console.error('Error al persistir archivo PDF en disco:', fsErr);
-    }
-
     const archivoPdfUrl = `/storage/clinical-documents/${payload.idPaciente}/${filename}`;
 
     return {

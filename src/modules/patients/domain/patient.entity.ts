@@ -286,6 +286,7 @@ export class Patient {
 
     if (
       this._sexo !== null &&
+      this._sexo !== undefined &&
       !Patient.VALID_SEX_VALUES.includes(this._sexo)
     ) {
       throw new PatientDomainError(
@@ -294,39 +295,22 @@ export class Patient {
       );
     }
 
-    if (!this._creadoDesdeSolicitud && !this._sexo) {
-      throw new PatientDomainError(
-        'sexo',
-        'El sexo del paciente es obligatorio.'
-      );
-    }
-
-    if (this._telefono !== null) {
+    if (this._telefono !== null && this._telefono !== undefined && this._telefono.trim() !== '') {
       if (!Patient.PHONE_REGEX.test(this._telefono)) {
         throw new PatientDomainError(
           'telefono',
           'El teléfono debe contener exactamente 10 dígitos numéricos.'
         );
       }
-    } else if (!this._creadoDesdeSolicitud) {
-      throw new PatientDomainError(
-        'telefono',
-        'El teléfono del paciente es obligatorio.'
-      );
     }
 
-    if (this._correo !== null) {
+    if (this._correo !== null && this._correo !== undefined && this._correo.trim() !== '') {
       if (!Patient.EMAIL_REGEX.test(this._correo)) {
         throw new PatientDomainError(
           'correo',
           'El correo electrónico debe tener un formato válido (usuario@dominio).'
         );
       }
-    } else if (!this._creadoDesdeSolicitud) {
-      throw new PatientDomainError(
-        'correo',
-        'El correo electrónico del paciente es obligatorio.'
-      );
     }
 
     if (this._contactoRespaldo) {

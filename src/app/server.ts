@@ -6,6 +6,8 @@ import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import { envConfig } from './config/env.config';
 import apiRoutes from './routes/api.routes';
 import { CronService } from '../shared/infrastructure/services/cron.service';
+import { authMiddleware } from '../shared/infrastructure/security/auth.middleware';
+import { db } from '../shared/infrastructure/database/database';
 
 const app = express();
 
@@ -65,8 +67,28 @@ app.use((req, res, next) => {
 });
 app.use(express.json({ limit: '5mb' }));
 
-// DEF-22 & CPS-DOC-001-01: Servir binarios PDF reales de documentos clínicos
-app.get('/storage/clinical-documents/:idPaciente/:filename', async (req, res) => {
+// DEF-22, D-23 & CPS-DOC-001-01: Descarga protegida de documentos clínicos
+app.get('/storage/clinical-documents/:idPaciente/:filename', authMiddleware, async (req, res) => {
+  const user = (req as any).user;
+  const roles = user?.roles ?? [];
+  const isAllowed = roles.includes('ROL-ODO') || roles.includes('ROL-ESP') || roles.includes('ROL-ADM');
+
+  if (!isAllowed) {
+    try {
+      await db.query(
+        `INSERT INTO log_auditoria (usuario, accion, registro_afectado, detalle) VALUES ($1, $2, $3, $4)`,
+        [
+          user?.correo || user?.nombreCompleto || 'Desconocido',
+          'Intento no autorizado de descarga de documento clínico',
+          `paciente:${req.params.idPaciente}`,
+          JSON.stringify({ ruta: req.originalUrl, metodo: req.method, roles }),
+        ]
+      );
+    } catch (_) {}
+
+    return res.status(403).json({ message: 'No tiene permiso para realizar esta acción' });
+  }
+
   const { idPaciente, filename } = req.params;
   const storageFilePath = path.resolve(process.cwd(), 'storage/clinical-documents', idPaciente, filename);
 

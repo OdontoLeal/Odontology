@@ -23,13 +23,13 @@ export interface CreatePatientInput {
   correo?: string | null;
   contactoRespaldo?: BackupContactInfo | null;
   acudiente?: GuardianInfo | null;
-  autorizacionDatos: {
+  autorizacionDatos?: {
     autorizado: boolean;
     medio?: AuthorizationMedium;
     versionAvisoPrivacidad?: string;
     fechaHora?: Date | string;
     idUsuarioRegistro?: number | null;
-  };
+  } | null;
   creadoDesdeSolicitud?: boolean;
 }
 
@@ -69,8 +69,8 @@ export class CreatePatientUseCase {
 
     const isMinor = previewPatient.isMinor();
 
-    // RQNF-SEG-005: Autorización previa, expresa e informada obligatoria (DEF-07 / CPS-HCL-001-03)
-    if (!input.autorizacionDatos || input.autorizacionDatos.autorizado !== true) {
+    // RQNF-SEG-005: Autorización previa, expresa e informada obligatoria si se incluye (DEF-07 / CPS-HCL-001-03)
+    if (input.autorizacionDatos && input.autorizacionDatos.autorizado === false) {
       throw new PatientDomainError(
         'autorizacionDatos',
         'Campo [autorizacionDatos]: Debe aceptar la autorización previa, expresa e informada para el tratamiento de datos personales (Ley 1581 de 2012).',
@@ -78,19 +78,21 @@ export class CreatePatientUseCase {
       );
     }
 
-    let dataAuthVO: DataAuthorizationVO;
-    try {
-      dataAuthVO = DataAuthorizationVO.create({
-        autorizado: true,
-        medio: input.autorizacionDatos.medio ?? 'CONSULTORIO_WEB',
-        versionAvisoPrivacidad:
-          input.autorizacionDatos.versionAvisoPrivacidad ?? '1.0',
-        fechaHora: input.autorizacionDatos.fechaHora ?? new Date(),
-        idUsuarioRegistro: input.autorizacionDatos.idUsuarioRegistro ?? null,
-        firmadoPorAcudiente: isMinor,
-      });
-    } catch (error: any) {
-      throw new PatientDomainError('autorizacionDatos', error.message, 400);
+    let dataAuthVO: DataAuthorizationVO | null = null;
+    if (input.autorizacionDatos && input.autorizacionDatos.autorizado === true) {
+      try {
+        dataAuthVO = DataAuthorizationVO.create({
+          autorizado: true,
+          medio: input.autorizacionDatos.medio ?? 'CONSULTORIO_WEB',
+          versionAvisoPrivacidad:
+            input.autorizacionDatos.versionAvisoPrivacidad ?? '1.0',
+          fechaHora: input.autorizacionDatos.fechaHora ?? new Date(),
+          idUsuarioRegistro: input.autorizacionDatos.idUsuarioRegistro ?? null,
+          firmadoPorAcudiente: isMinor,
+        });
+      } catch (error: any) {
+        throw new PatientDomainError('autorizacionDatos', error.message, 400);
+      }
     }
 
     const patient = Patient.create({

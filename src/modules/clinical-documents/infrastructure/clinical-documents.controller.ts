@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { db } from '../../../shared/infrastructure/database/database';
 import { IClinicalDocumentRepository } from '../domain/clinical-document.repository.interface';
 import {
   AuthenticatedProfessionalActor,
@@ -150,8 +151,22 @@ export class ClinicalDocumentsController {
         roles.includes('ROL-ADM');
 
       if (!isAllowed) {
+        // I2-009 & RQNF-SEG-009: Registrar en auditoría intento no autorizado
+        try {
+          await db.query(
+            `INSERT INTO log_auditoria (usuario, accion, registro_afectado, detalle) VALUES ($1, $2, $3, $4)`,
+            [
+              sessionUser?.correo || sessionUser?.nombreCompleto || 'Desconocido',
+              'Intento no autorizado de consulta de documentos clínicos',
+              `paciente:${req.params.idPaciente}`,
+              JSON.stringify({ ruta: req.originalUrl, metodo: req.method, roles }),
+            ]
+          );
+        } catch (_) {}
+
+        // I2-009 (D-18): Mensaje canónico ERS v1.2
         res.status(403).json({
-          message: 'No tiene permiso para consultar documentos clínicos.',
+          message: 'No tiene permiso para realizar esta acción',
         });
         return;
       }

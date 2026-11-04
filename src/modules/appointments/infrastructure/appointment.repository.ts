@@ -1,4 +1,5 @@
 import { db } from '../../../shared/infrastructure/database/database';
+import { PatientRepository } from '../../patients/infrastructure/patient.repository';
 import {
   CreateCitaDTO,
   CreateSolicitudCitaDTO,
@@ -300,6 +301,22 @@ export class AppointmentRepository {
         `INSERT INTO public.historia_clinica (id_paciente) VALUES ($1) ON CONFLICT (id_paciente) DO NOTHING;`,
         [finalPatientId]
       );
+
+      // I4-010 (RQNF-SEG-005, RF-AGE-003, D-22):
+      // Preservar la autorización de datos aceptada en la solicitud web y marcar datosIncompletos: true
+      PatientRepository.setMetadata(finalPatientId, {
+        autorizacionDatos: {
+          autorizado: true,
+          fechaHora:
+            solicitud.fecha_solicitud instanceof Date
+              ? solicitud.fecha_solicitud.toISOString()
+              : String(solicitud.fecha_solicitud || new Date().toISOString()),
+          medio: 'PORTAL_PUBLICO_WEB',
+          versionAvisoPrivacidad: 'v1.1',
+          idUsuarioRegistro: params.idUsuarioGestor ?? null,
+        },
+        datosIncompletos: true,
+      });
     }
 
     const existingCitaRes = await client.query(

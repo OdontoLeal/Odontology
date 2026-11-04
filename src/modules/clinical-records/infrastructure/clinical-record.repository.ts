@@ -129,6 +129,11 @@ export class ClinicalRecordRepository implements IClinicalRecordRepository {
       idHistoria = hcRes.rows[0].id_historia;
     }
 
+    const hasExplicitMotivo = Boolean(
+      (dto.motivoConsulta && dto.motivoConsulta !== 'Consulta Odontológica' && dto.motivoConsulta !== 'Plan de Manejo y Conducta') ||
+      (dto.payload?.motivoConsulta && dto.payload?.motivoConsulta !== 'Consulta Odontológica' && dto.payload?.motivoConsulta !== 'Plan de Manejo y Conducta')
+    );
+
     const motivoConsulta =
       dto.motivoConsulta ??
       dto.payload?.motivoConsulta ??
@@ -138,6 +143,12 @@ export class ClinicalRecordRepository implements IClinicalRecordRepository {
       dto.enfermedadActual ??
       dto.payload?.enfermedadActual ??
       'N/A';
+
+    const hasExplicitAntecedentes = Boolean(
+      isNonEmptyObject(dto.antecedentesClinicos) ||
+      isNonEmptyObject(dto.payload?.antecedentesClinicos) ||
+      isNonEmptyObject(dto.payload?.antecedentes)
+    );
 
     const rawAntecedentes =
       dto.antecedentesClinicos ??
@@ -221,9 +232,19 @@ export class ClinicalRecordRepository implements IClinicalRecordRepository {
         $1, $2, $3, $4, $5::jsonb, $6::jsonb, $7::jsonb, $8, $9::jsonb, $10, $11, $12, $13, $14::jsonb, COALESCE($15, CURRENT_TIMESTAMP)
       )
       ON CONFLICT (id_cita) DO UPDATE SET
-        motivo_consulta = EXCLUDED.motivo_consulta,
+        -- D-24 & D-28: Si la fila existente tiene motivo de apertura y la nueva entrada no especifica uno explícito, preservar el original
+        motivo_consulta = CASE 
+          WHEN public.evolucion.motivo_consulta = 'Plan de Manejo y Conducta' THEN EXCLUDED.motivo_consulta
+          WHEN public.evolucion.motivo_consulta IS NOT NULL AND public.evolucion.motivo_consulta <> '' AND $16 = false THEN public.evolucion.motivo_consulta
+          ELSE EXCLUDED.motivo_consulta
+        END,
         enfermedad_actual = CASE WHEN EXCLUDED.enfermedad_actual IS NOT NULL AND EXCLUDED.enfermedad_actual <> 'N/A' THEN EXCLUDED.enfermedad_actual ELSE public.evolucion.enfermedad_actual END,
-        antecedentes_clinicos = CASE WHEN EXCLUDED.antecedentes_clinicos <> '{}'::jsonb THEN EXCLUDED.antecedentes_clinicos ELSE public.evolucion.antecedentes_clinicos END,
+        -- D-28: No sobrescribir antecedentes previos con defaults si la nueva entrada no los envía explícitamente
+        antecedentes_clinicos = CASE 
+          WHEN public.evolucion.antecedentes_clinicos IS NOT NULL AND public.evolucion.antecedentes_clinicos <> '{}'::jsonb AND $17 = false THEN public.evolucion.antecedentes_clinicos
+          WHEN EXCLUDED.antecedentes_clinicos <> '{}'::jsonb THEN EXCLUDED.antecedentes_clinicos 
+          ELSE public.evolucion.antecedentes_clinicos 
+        END,
         habitos_higiene = CASE WHEN EXCLUDED.habitos_higiene <> '{}'::jsonb THEN EXCLUDED.habitos_higiene ELSE public.evolucion.habitos_higiene END,
         examen_estomatognatico = CASE WHEN EXCLUDED.examen_estomatognatico <> '{}'::jsonb THEN EXCLUDED.examen_estomatognatico ELSE public.evolucion.examen_estomatognatico END,
         examen_fisico_observaciones = COALESCE(EXCLUDED.examen_fisico_observaciones, public.evolucion.examen_fisico_observaciones),
@@ -252,6 +273,8 @@ export class ClinicalRecordRepository implements IClinicalRecordRepository {
       hallazgosObservaciones,
       JSON.stringify(planManejo),
       dto.fecha ?? null,
+      hasExplicitMotivo,
+      hasExplicitAntecedentes,
     ]);
 
     return mapEvolucionRowToEntity(rows[0], dto.payload?.diligenciadoPor);

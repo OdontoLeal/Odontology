@@ -135,8 +135,8 @@ export class ClinicalRecordsController {
       }
 
       // DEF-13 & CPS-HCL-005-03: Validar estado de la cita directamente en la BD (public.cita)
-      const citaRes = await db.query<{ estado: string; id_usuario: number; profesional_nombre?: string }>(
-        `SELECT c.estado, c.id_usuario, u.nombre_completo as profesional_nombre
+      const citaRes = await db.query<{ estado: string; id_usuario: number; id_paciente: number; profesional_nombre?: string }>(
+        `SELECT c.estado, c.id_usuario, c.id_paciente, u.nombre_completo as profesional_nombre
          FROM public.cita c
          LEFT JOIN public.usuario u ON u.id_usuario = c.id_usuario
          WHERE c.id_cita = $1;`,
@@ -149,6 +149,16 @@ export class ClinicalRecordsController {
       }
 
       const citaDb = citaRes.rows[0];
+
+      // I5-002 (RF-HCL-009, D-25): Validar que la cita pertenezca al paciente especificado
+      if (Number(citaDb.id_paciente) !== Number(idPaciente)) {
+        res.status(400).json({
+          field: 'idCita',
+          message: 'La cita indicada no corresponde al paciente especificado.',
+        });
+        return;
+      }
+
       if (citaDb.estado !== 'En consulta') {
         res.status(409).json({
           message: 'Solo se puede crear o abrir la historia clínica cuando la cita está "En consulta".',
@@ -643,19 +653,45 @@ export class ClinicalRecordsController {
       }
 
       const actor = this.extractActor(req);
-      const isAllowed =
+      let isAllowed =
         actor.roles.includes('ROL-ODO') ||
         actor.roles.includes('ROL-ESP') ||
         actor.roles.includes('ROL-ADM');
 
+      const idPaciente = Number(req.params.idPaciente);
+
+      // I5-006 (RQNF-SEG-003, Regla de Negocio 5, D-26):
+      // Rol auxiliar (ROL-AUX) puede consultar la historia del paciente exclusivamente si tiene cita activa "En consulta"
+      if (!isAllowed && actor.roles.includes('ROL-AUX')) {
+        const enConsultaRes = await db.query<{ id_cita: number }>(
+          `SELECT id_cita FROM public.cita WHERE id_paciente = $1 AND estado = 'En consulta' LIMIT 1;`,
+          [idPaciente]
+        );
+        if (enConsultaRes.rows.length > 0) {
+          isAllowed = true;
+        }
+      }
+
       if (!isAllowed) {
+        // I2-009 & RQNF-SEG-009: Registrar en auditoría intento no autorizado
+        try {
+          await db.query(
+            `INSERT INTO log_auditoria (usuario, accion, registro_afectado, detalle) VALUES ($1, $2, $3, $4)`,
+            [
+              actor.nombreUsuario || 'Desconocido',
+              'Intento no autorizado de consulta de historia clínica',
+              `paciente:${idPaciente}`,
+              JSON.stringify({ ruta: req.originalUrl, metodo: req.method, roles: actor.roles }),
+            ]
+          );
+        } catch (_) {}
+
+        // I2-009 & I5-006 (D-18): Mensaje canónico ERS v1.2
         res.status(403).json({
-          message: 'No tiene permiso para consultar la historia clínica.',
+          message: 'No tiene permiso para realizar esta acción',
         });
         return;
       }
-
-      const idPaciente = Number(req.params.idPaciente);
       const history = await this.getClinicalHistoryUseCase.execute({
         idPaciente,
         actor,

@@ -473,4 +473,133 @@ describe('VERIFICACIÓN Y MITIGACIÓN DE DEFECTOS QA (D-01 a D-14)', () => {
       'El boton Confirmar Cita debe cambiar a estado de carga durante el procesamiento'
     );
   });
+
+  it('I4-011: Formateador de fecha DD/MM/AAAA y hora 12h (a. m. / p. m.) para correos en Colombia', async () => {
+    const { formatColombiaDate, formatColombiaTime } = await import(
+      '../../../shared/infrastructure/mail/mailer.service'
+    );
+
+    // Fechas AAAA-MM-DD -> DD/MM/AAAA
+    assert.strictEqual(formatColombiaDate('2026-11-12'), '12/11/2026');
+    assert.strictEqual(formatColombiaDate('2026-05-03'), '03/05/2026');
+
+    // Horas 24h -> 12h
+    assert.strictEqual(formatColombiaTime('14:00'), '02:00 p. m.');
+    assert.strictEqual(formatColombiaTime('10:00'), '10:00 a. m.');
+    assert.strictEqual(formatColombiaTime('00:00'), '12:00 a. m.');
+    assert.strictEqual(formatColombiaTime('12:00'), '12:00 p. m.');
+
+    // Rangos de horario
+    assert.strictEqual(formatColombiaTime('10:00 - 10:30'), '10:00 a. m. - 10:30 a. m.');
+    assert.strictEqual(formatColombiaTime('14:00 - 15:30'), '02:00 p. m. - 03:30 p. m.');
+  });
+
+  it('I5-002: Código fuente valida relación cita-paciente en creación de evolución clínica', () => {
+    const controllerSource = fs.readFileSync(
+      'src/modules/clinical-records/infrastructure/clinical-records.controller.ts',
+      'utf8'
+    );
+    assert.ok(
+      controllerSource.includes('c.id_paciente'),
+      'La consulta de cita debe recuperar c.id_paciente'
+    );
+    assert.ok(
+      controllerSource.includes('Number(citaDb.id_paciente) !== Number(idPaciente)'),
+      'Debe rechazar con error si la cita no pertenece al paciente indicado'
+    );
+    assert.ok(
+      controllerSource.includes('La cita indicada no corresponde al paciente especificado.'),
+      'Debe retornar el mensaje de error canónico'
+    );
+  });
+
+  it('I6-001 & D-27, D-23, D-24: Eliminación de PDF en disco, descarga con sesión y orden documento-apertura', () => {
+    // D-27: Sin almacenar archivo PDF en servidor
+    const generatorSource = fs.readFileSync(
+      'src/modules/clinical-documents/application/clinical-document-pdf-generator.service.ts',
+      'utf8'
+    );
+    assert.ok(
+      !generatorSource.includes('fs.writeFileSync'),
+      'No debe escribir físicamente archivos PDF en disco en clinical-document-pdf-generator.service.ts'
+    );
+
+    // D-23: Servir binarios PDF con autenticación
+    const serverSource = fs.readFileSync('src/app/server.ts', 'utf8');
+    assert.ok(
+      serverSource.includes("app.get('/storage/clinical-documents/:idPaciente/:filename', authMiddleware"),
+      'La ruta de descarga de documentos debe estar protegida con authMiddleware'
+    );
+
+    // D-24: Orden documento previo no bloquea apertura
+    const useCaseSource = fs.readFileSync(
+      'src/modules/clinical-records/application/create-clinical-record.use-case.ts',
+      'utf8'
+    );
+    assert.ok(
+      useCaseSource.includes("row.motivoConsulta !== 'Plan de Manejo y Conducta'"),
+      'CreateClinicalRecordUseCase debe excluir filas creadas preliminarmente por documentos clínicos'
+    );
+  });
+
+  it('I2-009 & I5-006: Estandarización de mensaje 403 canónico y permiso contextual para ROL-AUX', () => {
+    const recordsSource = fs.readFileSync(
+      'src/modules/clinical-records/infrastructure/clinical-records.controller.ts',
+      'utf8'
+    );
+    assert.ok(
+      recordsSource.includes("actor.roles.includes('ROL-AUX')"),
+      'Debe contemplar permiso de lectura para rol auxiliar'
+    );
+    assert.ok(
+      recordsSource.includes("estado = 'En consulta'"),
+      'ROL-AUX solo puede acceder a la historia si hay cita en estado En consulta'
+    );
+    assert.ok(
+      recordsSource.includes("message: 'No tiene permiso para realizar esta acción'"),
+      'Debe retornar el mensaje canónico de la ERS ante rechazo 403'
+    );
+
+    const docSource = fs.readFileSync(
+      'src/modules/clinical-documents/infrastructure/clinical-documents.controller.ts',
+      'utf8'
+    );
+    assert.ok(
+      docSource.includes("message: 'No tiene permiso para realizar esta acción'"),
+      'Controlador de documentos debe retornar el mensaje canónico de la ERS ante rechazo 403'
+    );
+  });
+
+  it('I3-007 & I4-010: Persistencia de idUsuarioRegistro y soporte al DDL actual de paciente', async () => {
+    const { Patient } = await import('../../patients/domain/patient.entity');
+    const { PatientRepository } = await import('../../patients/infrastructure/patient.repository');
+
+    // Validación según DDL: paciente solo con campos requeridos por DDL
+    const minimalPatient = Patient.create({
+      nombreCompleto: 'Paciente Con DDL Básico',
+      documentoIdentidad: '987654321',
+      fechaNacimiento: '1995-04-10',
+      // teléfono, correo, sexo opcionales
+    });
+    assert.strictEqual(minimalPatient.nombreCompleto, 'Paciente Con DDL Básico');
+    assert.strictEqual(minimalPatient.datosIncompletos, true); // por falta de sexo
+
+    // setMetadata persiste y se recupera
+    PatientRepository.setMetadata(99999, {
+      autorizacionDatos: {
+        autorizado: true,
+        fechaHora: new Date().toISOString(),
+        medio: 'PORTAL_PUBLICO_WEB',
+        versionAvisoPrivacidad: 'v1.1',
+        idUsuarioRegistro: 42,
+      },
+      datosIncompletos: true,
+    });
+
+    const retrievedMeta = PatientRepository.getMetadata(99999);
+    assert.ok(retrievedMeta);
+    assert.strictEqual(retrievedMeta?.autorizacionDatos?.idUsuarioRegistro, 42);
+    assert.strictEqual(retrievedMeta?.autorizacionDatos?.medio, 'PORTAL_PUBLICO_WEB');
+    assert.strictEqual(retrievedMeta?.datosIncompletos, true);
+  });
 });

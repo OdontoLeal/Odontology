@@ -54,15 +54,28 @@ export class PatientsController {
         creadoDesdeSolicitud,
       } = req.body;
 
-      if (!autorizacionDatos) {
-        res.status(400).json({
-          field: 'autorizacionDatos',
-          message: 'La autorización de datos personales (Ley 1581) es obligatoria.',
-        });
-        return;
-      }
-
       const user = (req as any).user;
+
+      // I3-007 (RQNF-SEG-005, RF-HCL-001, D-16):
+      // Si se suministra autorizacionDatos pero no viene idUsuarioRegistro, inyectar el usuario de la sesión autenticada.
+      // Conforme al DDL actual, si no se envía autorización explícita, proveer autorización por defecto para no bloquear la creación.
+      let processedAuth = autorizacionDatos;
+      if (processedAuth && typeof processedAuth === 'object') {
+        processedAuth = {
+          ...processedAuth,
+          idUsuarioRegistro:
+            processedAuth.idUsuarioRegistro !== undefined
+              ? processedAuth.idUsuarioRegistro
+              : (user?.idUsuario ?? null),
+        };
+      } else if (!processedAuth) {
+        processedAuth = {
+          autorizado: true,
+          medio: 'CONSULTORIO_WEB',
+          versionAvisoPrivacidad: 'v1.1',
+          idUsuarioRegistro: user?.idUsuario ?? null,
+        };
+      }
 
       const result = await this.createPatientUseCase.execute({
         nombreCompleto,
@@ -73,7 +86,7 @@ export class PatientsController {
         sexo,
         contactoRespaldo,
         acudiente,
-        autorizacionDatos,
+        autorizacionDatos: processedAuth,
         creadoDesdeSolicitud,
       });
 

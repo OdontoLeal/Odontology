@@ -40,6 +40,16 @@ export class PatientRepository implements IPatientRepository {
     return PatientRepository.metadataStore.get(idPaciente);
   }
 
+  public static setMetadata(idPaciente: number, metadata: ExtendedPatientMetadata): void {
+    if (!PatientRepository.isInitialized) {
+      new PatientRepository().ensureInitialized();
+    }
+    const current = PatientRepository.metadataStore.get(idPaciente) || {};
+    const merged = { ...current, ...metadata };
+    PatientRepository.metadataStore.set(idPaciente, merged);
+    new PatientRepository().persistMetadata();
+  }
+
   constructor() {
     this.ensureInitialized();
   }

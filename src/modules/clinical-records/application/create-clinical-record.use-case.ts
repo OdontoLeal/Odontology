@@ -48,10 +48,14 @@ export class CreateClinicalRecordUseCase {
     );
 
     // Verificar que no exista ya una apertura de historia clínica para la misma cita (1:1 según uq_evolucion_cita)
+    // D-24: Excluir filas registradas preliminarmente por documentos clínicos anexos (motivo 'Plan de Manejo y Conducta')
     const existingForAppointment = historyRows.find(
       (row) =>
         row.idCita === command.idCita &&
-        (row.evolucion?.tipoRegistro === 'APERTURA_CONSULTA' || (row.motivoConsulta && row.motivoConsulta.trim().length > 0))
+        (row.evolucion?.tipoRegistro === 'APERTURA_CONSULTA' ||
+          (row.motivoConsulta &&
+            row.motivoConsulta.trim().length > 0 &&
+            row.motivoConsulta !== 'Plan de Manejo y Conducta'))
     );
 
     if (existingForAppointment) {

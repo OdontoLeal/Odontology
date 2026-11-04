@@ -12,6 +12,68 @@ export interface MailerServiceOptions {
   from?: string;
 }
 
+/**
+ * RQNF-USA-002: Formato de fecha localizado para Colombia (DD/MM/AAAA)
+ */
+export function formatColombiaDate(dateStr: string | Date | undefined | null): string {
+  if (!dateStr) return '';
+  if (dateStr instanceof Date) {
+    return new Intl.DateTimeFormat('es-CO', {
+      timeZone: 'America/Bogota',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    }).format(dateStr);
+  }
+  const str = String(dateStr).trim();
+  const isoMatch = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoMatch) {
+    const [, y, m, d] = isoMatch;
+    return `${d}/${m}/${y}`;
+  }
+  return str;
+}
+
+function formatSingleTime12h(timeStr: string): string {
+  const match = timeStr.trim().match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+  if (!match) return timeStr;
+  let hours = parseInt(match[1], 10);
+  const minutes = match[2];
+  const isPm = hours >= 12;
+  hours = hours % 12;
+  if (hours === 0) hours = 12;
+  const hoursStr = String(hours).padStart(2, '0');
+  const period = isPm ? 'p. m.' : 'a. m.';
+  return `${hoursStr}:${minutes} ${period}`;
+}
+
+/**
+ * RQNF-USA-002: Formato de hora localizado de 12 horas (hh:mm a. m./p. m.)
+ */
+export function formatColombiaTime(timeStr: string | undefined | null): string {
+  if (!timeStr) return '';
+  const str = String(timeStr).trim();
+  if (str.includes(' - ')) {
+    return str
+      .split(' - ')
+      .map((part) => formatSingleTime12h(part.trim()))
+      .join(' - ');
+  }
+  if (str.includes('-')) {
+    return str
+      .split('-')
+      .map((part) => formatSingleTime12h(part.trim()))
+      .join(' - ');
+  }
+  if (str.includes(' a ')) {
+    return str
+      .split(' a ')
+      .map((part) => formatSingleTime12h(part.trim()))
+      .join(' a ');
+  }
+  return formatSingleTime12h(str);
+}
+
 export class MailerService implements IMailerPort {
   private transporter: Transporter | null = null;
   private readonly fromAddress: string;
@@ -211,7 +273,9 @@ export class MailerService implements IMailerPort {
     motivo: string;
     idCita?: number;
   }): Promise<{ messageId?: string; previewUrl?: string | null }> {
-    const { to, nombrePaciente, fecha, hora, doctor, motivo, idCita } = params;
+    const { to, nombrePaciente, doctor, motivo, idCita } = params;
+    const fecha = formatColombiaDate(params.fecha);
+    const hora = formatColombiaTime(params.hora);
 
     const htmlContent = `
 <!DOCTYPE html>
@@ -295,7 +359,9 @@ export class MailerService implements IMailerPort {
     hora: string;
     doctor: string;
   }): Promise<{ messageId?: string; previewUrl?: string | null }> {
-    const { to, nombrePaciente, fecha, hora, doctor } = params;
+    const { to, nombrePaciente, doctor } = params;
+    const fecha = formatColombiaDate(params.fecha);
+    const hora = formatColombiaTime(params.hora);
 
     const htmlContent = `
 <!DOCTYPE html>
@@ -378,7 +444,9 @@ export class MailerService implements IMailerPort {
     idCita?: number;
     telefonoPaciente?: string;
   }): Promise<{ messageId?: string; previewUrl?: string | null }> {
-    const { to, doctorName, patientName, fecha, hora, motivo, idCita, telefonoPaciente } = params;
+    const { to, doctorName, patientName, motivo, idCita, telefonoPaciente } = params;
+    const fecha = formatColombiaDate(params.fecha);
+    const hora = formatColombiaTime(params.hora);
 
     const htmlContent = `
 <!DOCTYPE html>
@@ -462,7 +530,9 @@ export class MailerService implements IMailerPort {
     motivo: string;
     idSolicitud?: number;
   }): Promise<{ messageId?: string; previewUrl?: string | null }> {
-    const { to, nombreSolicitante, fecha, hora, doctor, motivo, idSolicitud } = params;
+    const { to, nombreSolicitante, doctor, motivo, idSolicitud } = params;
+    const fecha = formatColombiaDate(params.fecha);
+    const hora = formatColombiaTime(params.hora);
 
     const htmlContent = `
 <!DOCTYPE html>
@@ -560,11 +630,11 @@ export class MailerService implements IMailerPort {
       requesterDni,
       requesterEmail,
       requesterPhone,
-      requestedDate,
-      requestedTime,
       motive,
       idSolicitud,
     } = params;
+    const requestedDate = formatColombiaDate(params.requestedDate);
+    const requestedTime = formatColombiaTime(params.requestedTime);
 
     const htmlContent = `
 <!DOCTYPE html>
@@ -652,7 +722,9 @@ export class MailerService implements IMailerPort {
     idCita?: number;
     notas?: string;
   }): Promise<{ messageId?: string; previewUrl?: string | null }> {
-    const { to, nombrePaciente, fecha, hora, doctor, motivo, idCita, notas } = params;
+    const { to, nombrePaciente, doctor, motivo, idCita, notas } = params;
+    const fecha = formatColombiaDate(params.fecha);
+    const hora = formatColombiaTime(params.hora);
 
     const htmlContent = `
 <!DOCTYPE html>
@@ -741,7 +813,9 @@ export class MailerService implements IMailerPort {
     telefonoPaciente?: string;
     notas?: string;
   }): Promise<{ messageId?: string; previewUrl?: string | null }> {
-    const { to, doctorName, patientName, fecha, hora, motivo, idCita, telefonoPaciente, notas } = params;
+    const { to, doctorName, patientName, motivo, idCita, telefonoPaciente, notas } = params;
+    const fecha = formatColombiaDate(params.fecha);
+    const hora = formatColombiaTime(params.hora);
 
     const htmlContent = `
 <!DOCTYPE html>
@@ -829,7 +903,9 @@ export class MailerService implements IMailerPort {
     idCita?: number;
     isDoctor?: boolean;
   }): Promise<{ messageId?: string; previewUrl?: string | null }> {
-    const { to, recipientName, patientName, doctorName, fecha, hora, motivo, idCita, isDoctor } = params;
+    const { to, recipientName, patientName, doctorName, motivo, idCita, isDoctor } = params;
+    const fecha = formatColombiaDate(params.fecha);
+    const hora = formatColombiaTime(params.hora);
 
     const htmlContent = `
 <!DOCTYPE html>
