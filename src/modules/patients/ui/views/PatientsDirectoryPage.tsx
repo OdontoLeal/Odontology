@@ -25,6 +25,8 @@ import {
   InitialsAvatar,
 } from '../../../../shared/ui/components/PageList';
 import { Pagination } from '../../../../shared/ui/components/Pagination';
+import { useAlertModal } from '../../../../shared/ui/hooks/useAlertModal';
+import { useToast } from '../../../../shared/ui/hooks/useToast';
 
 export interface PatientsDirectoryPageProps {
   onSelectPatient: (
@@ -56,10 +58,12 @@ export const PatientsDirectoryPage: React.FC<PatientsDirectoryPageProps> = ({
     setCurrentPage(1);
   }, [searchQuery, sortBy]);
 
-  // Modal de creación / edición
+  // Modal de creación / edición y hooks de feedback
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [editingPatient, setEditingPatient] = useState<PatientListItem | null>(null);
   const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
+  const { showAlert, AlertModalComponent } = useAlertModal();
+  const { showToast, ToastContainerComponent } = useToast();
 
   // DEF-17 & CPS-HCL-004-02: Ocultar botón de historia clínica para Coordinadora (ROL-COA)
   const isCoordinator = useMemo(() => {
@@ -126,12 +130,63 @@ export const PatientsDirectoryPage: React.FC<PatientsDirectoryPageProps> = ({
   };
 
   const handleFormSubmit = async (formData: PatientFormData) => {
-    if (editingPatient) {
-      await updatePatient(editingPatient.idPaciente, formData);
-    } else {
-      await createPatient(formData);
+    // RF-HCL-001 / RF-HCL-002: Validación previa de documento duplicado
+    const existingDocPatient = patients.find(
+      (p) =>
+        p.documentoIdentidad.trim() === formData.documentoIdentidad.trim() &&
+        (!editingPatient || p.idPaciente !== editingPatient.idPaciente)
+    );
+
+    if (existingDocPatient) {
+      showAlert({
+        title: 'Documento de Identidad Duplicado',
+        type: 'error',
+        children: (
+          <div className="space-y-3 text-xs sm:text-sm text-[#4B5563]">
+            <p>
+              Ya existe un paciente registrado con el número de documento <strong>{formData.documentoIdentidad}</strong>:
+            </p>
+            <div className="rounded-xl border border-[#B91C1C]/25 bg-[#FEE2E2]/60 p-3 space-y-1 text-xs">
+              <p className="font-bold text-[#1F2937]">Titular Registrado:</p>
+              <p className="font-semibold text-[#1F2937] text-sm">{existingDocPatient.nombreCompleto}</p>
+              <p className="text-[#64748B]">Documento: C.C. {existingDocPatient.documentoIdentidad}</p>
+              {existingDocPatient.telefono && (
+                <p className="text-[#64748B]">Teléfono: +57 {existingDocPatient.telefono}</p>
+              )}
+            </div>
+            <p className="text-xs text-[#64748B]">
+              Verifique el número ingresado o busque al paciente directamente desde el directorio para actualizar sus datos.
+            </p>
+          </div>
+        ),
+      });
+      return;
     }
-    setIsFormModalOpen(false);
+
+    try {
+      if (editingPatient) {
+        await updatePatient(editingPatient.idPaciente, formData);
+        showToast({
+          type: 'success',
+          title: 'Ficha Actualizada',
+          message: `Los datos del paciente ${formData.nombreCompleto} se han actualizado exitosamente.`,
+        });
+      } else {
+        await createPatient(formData);
+        showToast({
+          type: 'success',
+          title: 'Paciente Registrado',
+          message: `El paciente ${formData.nombreCompleto} fue registrado en el sistema exitosamente.`,
+        });
+      }
+      setIsFormModalOpen(false);
+    } catch (err: any) {
+      showAlert({
+        title: 'No se pudo guardar el paciente',
+        message: err?.message || 'Ocurrió un error al procesar el registro del paciente en el servidor.',
+        type: 'error',
+      });
+    }
   };
 
   return (
@@ -440,6 +495,10 @@ export const PatientsDirectoryPage: React.FC<PatientsDirectoryPageProps> = ({
         isOpen={isPrivacyModalOpen}
         onClose={() => setIsPrivacyModalOpen(false)}
       />
+
+      {/* Diálogos Modales y Notificaciones Toast */}
+      <AlertModalComponent />
+      <ToastContainerComponent />
     </PageLayout>
   );
 };

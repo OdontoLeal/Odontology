@@ -19,6 +19,7 @@ import {
 } from '../../../../shared/ui/components/PageToolbar';
 import { ListState } from '../../../../shared/ui/components/PageList';
 import { useAlertModal } from '../../../../shared/ui/hooks/useAlertModal';
+import { useToast } from '../../../../shared/ui/hooks/useToast';
 import { AVAILABLE_TEMPLATE_PLACEHOLDERS } from '../../domain/consent-template-interpolator';
 
 const SAMPLE_BLANQUEAMIENTO_TITLE =
@@ -61,7 +62,8 @@ export const ConsentTemplatesAdminPage: React.FC = () => {
   const [formTitle, setFormTitle] = useState('');
   const [formBody, setFormBody] = useState('');
   const [formTipo, setFormTipo] = useState<ConsentTemplateTipo>('PROCEDIMIENTO');
-  const { showAlert, AlertModalComponent } = useAlertModal();
+  const { showAlert, showConfirm, showDestructive, AlertModalComponent } = useAlertModal();
+  const { showToast, ToastContainerComponent } = useToast();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL');
@@ -113,16 +115,112 @@ export const ConsentTemplatesAdminPage: React.FC = () => {
       return;
     }
 
-    saveTemplate({
-      idPlantilla: editingTemplate?.idPlantilla,
-      titulo: formTitle.trim(),
-      cuerpoTexto: formBody.trim(),
-      tipo: editingTemplate?.tipo ?? formTipo,
-    })
-      .then(() => setIsModalOpen(false))
-      .catch((err: Error) =>
-        showAlert({ title: 'No se guardó la plantilla', message: err.message, type: 'error' })
-      );
+    const executeSave = () => {
+      saveTemplate({
+        idPlantilla: editingTemplate?.idPlantilla,
+        titulo: formTitle.trim(),
+        cuerpoTexto: formBody.trim(),
+        tipo: editingTemplate?.tipo ?? formTipo,
+      })
+        .then(() => {
+          setIsModalOpen(false);
+          showToast({
+            type: 'success',
+            title: editingTemplate ? 'Nueva Versión Creada' : 'Plantilla Creada',
+            message: editingTemplate
+              ? `Se ha publicado la versión v${editingTemplate.version + 1}.0 de "${formTitle.trim()}" exitosamente.`
+              : `La plantilla "${formTitle.trim()}" fue creada en versión v1.0.`,
+          });
+        })
+        .catch((err: Error) =>
+          showAlert({ title: 'No se guardó la plantilla', message: err.message, type: 'error' })
+        );
+    };
+
+    // RF-CON-007: Confirmación previa al crear una nueva versión incremental
+    if (editingTemplate) {
+      showConfirm({
+        title: `Confirmar Creación de Versión v${editingTemplate.version + 1}.0`,
+        confirmText: 'Sí, crear versión',
+        cancelText: 'Seguir editando',
+        children: (
+          <div className="space-y-2 text-xs sm:text-sm text-[#4B5563]">
+            <p>
+              Al guardar los cambios de <strong>{editingTemplate.titulo}</strong>, el sistema generará automáticamente la <strong>versión {editingTemplate.version + 1}.0</strong>.
+            </p>
+            <div className="rounded-xl border border-[#D4AF37]/30 bg-[#FEFCE8] p-3 text-xs space-y-1">
+              <p className="font-bold text-[#1F2937]">Garantía de Inmutabilidad Médico-Legal:</p>
+              <p>Los consentimientos firmados previamente por pacientes con la versión {editingTemplate.version}.0 no se modificarán ni perderán validez (RF-CON-007).</p>
+            </div>
+            <p className="text-[11px] text-[#64748B]">¿Desea publicar esta nueva versión para futuras atenciones?</p>
+          </div>
+        ),
+        onConfirm: executeSave,
+      });
+      return;
+    }
+
+    executeSave();
+  };
+
+  // RF-CON-008: Confirmación previa obligatoria antes de inactivar o activar una plantilla
+  const handleRequestToggleStatus = (tpl: ConsentTemplateItem) => {
+    if (tpl.activo) {
+      showDestructive({
+        title: '¿Inactivar Plantilla de Consentimiento?',
+        confirmText: 'Sí, inactivar',
+        cancelText: 'Cancelar',
+        children: (
+          <div className="space-y-2 text-xs sm:text-sm text-[#4B5563]">
+            <p>
+              ¿Está seguro de que desea inactivar la plantilla <strong>{tpl.titulo} (v{tpl.version}.0)</strong>?
+            </p>
+            <div className="rounded-xl border border-[#B91C1C]/25 bg-[#FEE2E2]/60 p-3 text-xs space-y-1 text-[#1F2937]">
+              <p className="font-bold text-[#B91C1C]">Efectos de la inactivación (Regla 8):</p>
+              <p>• La plantilla no estará disponible para nuevas firmas en tablet o consulta.</p>
+              <p>• Los consentimientos firmados previamente conservarán plena validez médico-legal.</p>
+            </div>
+          </div>
+        ),
+        onConfirm: async () => {
+          try {
+            await toggleTemplateStatus(tpl.idPlantilla);
+            showToast({
+              type: 'info',
+              title: 'Plantilla Inactivada',
+              message: `La plantilla "${tpl.titulo}" ha sido inactivada.`,
+            });
+          } catch (err: any) {
+            showAlert({ title: 'Error al inactivar', message: err.message, type: 'error' });
+          }
+        },
+      });
+    } else {
+      showConfirm({
+        title: '¿Reactivar Plantilla de Consentimiento?',
+        confirmText: 'Sí, reactivar',
+        cancelText: 'Cancelar',
+        children: (
+          <div className="space-y-2 text-xs sm:text-sm text-[#4B5563]">
+            <p>
+              ¿Desea habilitar nuevamente la plantilla <strong>{tpl.titulo} (v{tpl.version}.0)</strong> para toma de firmas en tablet y consulta médica?
+            </p>
+          </div>
+        ),
+        onConfirm: async () => {
+          try {
+            await toggleTemplateStatus(tpl.idPlantilla);
+            showToast({
+              type: 'success',
+              title: 'Plantilla Reactivada',
+              message: `La plantilla "${tpl.titulo}" está nuevamente activa.`,
+            });
+          } catch (err: any) {
+            showAlert({ title: 'Error al reactivar', message: err.message, type: 'error' });
+          }
+        },
+      });
+    }
   };
 
   return (
@@ -253,7 +351,7 @@ export const ConsentTemplatesAdminPage: React.FC = () => {
               <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#E2E8F0] pt-3">
                 <button
                   type="button"
-                  onClick={() => toggleTemplateStatus(tpl.idPlantilla)}
+                  onClick={() => handleRequestToggleStatus(tpl)}
                   className="min-h-[44px] text-xs font-bold text-[#64748B] hover:text-[#1E242B] underline"
                 >
                   {tpl.activo ? 'Inactivar Plantilla' : 'Activar Plantilla'}
@@ -358,6 +456,8 @@ export const ConsentTemplatesAdminPage: React.FC = () => {
           </div>
         </form>
       </Modal>
+      {/* Notificaciones Toast */}
+      <ToastContainerComponent />
     </PageLayout>
   );
 };

@@ -81,7 +81,7 @@ textarea {
   min-width: 44px;
   min-height: 44px;
   margin: 0;
-  border: 2px solid #8f99a3;
+  border: 2px solid #CBD5E1;
   border-radius: 10px;
   background-color: #ffffff;
   background-position: center;
@@ -109,6 +109,46 @@ textarea {
 .touch-checkbox:disabled {
   cursor: not-allowed;
   opacity: 0.75;
+}
+
+/* Casilla de verificación estándar (20×20 px) para formularios con contenedor táctil >= 44×44 px */
+.form-checkbox-custom {
+  appearance: none;
+  -webkit-appearance: none;
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  min-height: 20px;
+  margin: 2px 0 0 0;
+  border: 1.5px solid #CBD5E1;
+  border-radius: 6px;
+  background-color: #ffffff;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 13px 13px;
+  cursor: pointer;
+  transition: background-color 150ms ease, border-color 150ms ease;
+}
+
+.form-checkbox-custom:hover:not(:disabled) {
+  border-color: #B8942A;
+}
+
+.form-checkbox-custom:focus-visible {
+  outline: 2px solid #111111;
+  outline-offset: 2px;
+}
+
+.form-checkbox-custom:checked {
+  border-color: #D4AF37;
+  background-color: #D4AF37;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23111111' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 13l4 4L19 7'/%3E%3C/svg%3E");
+}
+
+.form-checkbox-custom:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 /* Bloquea el scroll de la página mientras el menú lateral móvil está abierto. */

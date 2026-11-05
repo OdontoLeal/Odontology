@@ -27,6 +27,8 @@ import {
   InitialsAvatar,
 } from '../../../../shared/ui/components/PageList';
 import { Pagination } from '../../../../shared/ui/components/Pagination';
+import { useAlertModal } from '../../../../shared/ui/hooks/useAlertModal';
+import { useToast } from '../../../../shared/ui/hooks/useToast';
 
 export interface UsersManagementPageProps {
   currentAdminUsername?: string;
@@ -106,9 +108,11 @@ export const UsersManagementPage: React.FC<UsersManagementPageProps> = ({
     setCurrentPage(1);
   }, [searchQuery, rolIdFilter, estadoFilter]);
 
-  // Mensajes de estado
+  // Mensajes de estado y hooks de diálogo / toast
   const [bannerSuccess, setBannerSuccess] = useState<string | null>(null);
   const [bannerError, setBannerError] = useState<string | null>(null);
+  const { showAlert, showConfirm, showDestructive, AlertModalComponent } = useAlertModal();
+  const { showToast, ToastContainerComponent } = useToast();
 
   // Estados del modal de Crear / Editar (RF-USR-001 / RF-USR-002)
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -293,6 +297,11 @@ export const UsersManagementPage: React.FC<UsersManagementPageProps> = ({
         if (onCreateUser) {
           const result = await onCreateUser(payload);
           setBannerSuccess(result.message);
+          showToast({
+            type: 'success',
+            title: 'Usuario Registrado',
+            message: result.message || 'El usuario fue creado en estado Activo exitosamente.',
+          });
         } else {
           const res = await fetch('/api/v1/users', {
             method: 'POST',
@@ -305,11 +314,21 @@ export const UsersManagementPage: React.FC<UsersManagementPageProps> = ({
           const body = await res.json();
           if (!res.ok) throw new Error(body.message);
           setBannerSuccess(body.message || 'Usuario creado en estado Activo.');
+          showToast({
+            type: 'success',
+            title: 'Usuario Registrado',
+            message: body.message || 'Usuario creado en estado Activo exitosamente.',
+          });
         }
       } else {
         if (onUpdateUser) {
           const result = await onUpdateUser(payload);
           setBannerSuccess(result.message);
+          showToast({
+            type: 'success',
+            title: 'Usuario Actualizado',
+            message: result.message || 'Datos del usuario actualizados exitosamente.',
+          });
         } else {
           const res = await fetch(`/api/v1/users/${payload.idUsuario}`, {
             method: 'PUT',
@@ -324,6 +343,11 @@ export const UsersManagementPage: React.FC<UsersManagementPageProps> = ({
             throw new Error(body.message);
           }
           setBannerSuccess(body.message || 'Datos del usuario actualizados exitosamente.');
+          showToast({
+            type: 'success',
+            title: 'Usuario Actualizado',
+            message: body.message || 'Datos del usuario actualizados exitosamente.',
+          });
         }
       }
 
@@ -336,36 +360,97 @@ export const UsersManagementPage: React.FC<UsersManagementPageProps> = ({
     }
   };
 
-  const handleToggleStatus = async (user: UserWithRolesDomainDTO) => {
-    setBannerError(null);
-    setBannerSuccess(null);
-    setTogglingUserId(user.idUsuario);
+  const handleToggleStatus = (user: UserWithRolesDomainDTO) => {
     const nuevoEstado = !user.estado;
 
-    try {
-      if (onToggleUserStatus) {
-        const result = await onToggleUserStatus(user.idUsuario, nuevoEstado);
-        setBannerSuccess(result.message);
-      } else {
-        const res = await fetch(`/api/v1/users/${user.idUsuario}/status`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ estado: nuevoEstado }),
+    const executeToggle = async () => {
+      setBannerError(null);
+      setBannerSuccess(null);
+      setTogglingUserId(user.idUsuario);
+
+      try {
+        if (onToggleUserStatus) {
+          const result = await onToggleUserStatus(user.idUsuario, nuevoEstado);
+          setBannerSuccess(result.message);
+          showToast({
+            type: 'success',
+            title: 'Estado Actualizado',
+            message: result.message,
+          });
+        } else {
+          const res = await fetch(`/api/v1/users/${user.idUsuario}/status`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ estado: nuevoEstado }),
+          });
+          const body = await res.json();
+          if (!res.ok) {
+            if (Array.isArray(body.citasPendientes) && body.citasPendientes.length > 0) {
+              showAlert({
+                title: 'No se puede inactivar al usuario',
+                type: 'error',
+                children: (
+                  <div className="space-y-3">
+                    <p className="text-sm text-[#4B5563]">{body.message}</p>
+                    <div className="rounded-xl border border-[#B91C1C]/25 bg-[#FEE2E2]/60 p-3 max-h-48 overflow-y-auto">
+                      <p className="font-bold text-xs text-[#B91C1C] uppercase tracking-wider mb-1.5">
+                        Citas activas asociadas:
+                      </p>
+                      <ul className="list-disc list-inside space-y-1 text-xs text-[#1F2937]">
+                        {body.citasPendientes.map((c: any) => (
+                          <li key={c.idCita}>
+                            Cita #{c.idCita} — <span className="font-semibold">{c.titulo}</span> (Estado: {c.estado})
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                ),
+              });
+              return;
+            }
+            throw new Error(body.message);
+          }
+          const msg = body.message || `Usuario ${nuevoEstado ? 'activado' : 'inactivado'} exitosamente.`;
+          setBannerSuccess(msg);
+          showToast({
+            type: 'success',
+            title: 'Estado Actualizado',
+            message: msg,
+          });
+        }
+        await fetchUsersDirectory(false);
+      } catch (error: any) {
+        const errorMsg =
+          error?.message ||
+          'No se pudo cambiar el estado del usuario (verifique si es el último administrador o tiene citas activas).';
+        setBannerError(errorMsg);
+        showAlert({
+          title: 'Acción No Permitida',
+          message: errorMsg,
+          type: 'error',
         });
-        const body = await res.json();
-        if (!res.ok) throw new Error(body.message);
-        setBannerSuccess(
-          body.message || `Usuario ${nuevoEstado ? 'activado' : 'inactivado'} exitosamente.`
-        );
+      } finally {
+        setTogglingUserId(null);
       }
-      await fetchUsersDirectory(false);
-    } catch (error: any) {
-      setBannerError(
-        error?.message ||
-          'No se pudo cambiar el estado del usuario (verifique si es el último administrador o tiene citas activas).'
-      );
-    } finally {
-      setTogglingUserId(null);
+    };
+
+    if (user.estado) {
+      showDestructive({
+        title: '¿Inactivar Usuario del Sistema?',
+        message: `¿Está seguro de que desea inactivar a ${user.nombreCompleto}? El usuario no podrá iniciar sesión en la plataforma ni gestionar pacientes ni citas mientras permanezca inactivo.`,
+        confirmText: 'Sí, inactivar usuario',
+        cancelText: 'Cancelar',
+        onConfirm: executeToggle,
+      });
+    } else {
+      showConfirm({
+        title: '¿Reactivar Usuario del Sistema?',
+        message: `¿Desea reactivar la cuenta de ${user.nombreCompleto}? El usuario podrá iniciar sesión con sus credenciales y permisos asignados.`,
+        confirmText: 'Sí, reactivar usuario',
+        cancelText: 'Cancelar',
+        onConfirm: executeToggle,
+      });
     }
   };
 
@@ -768,6 +853,9 @@ export const UsersManagementPage: React.FC<UsersManagementPageProps> = ({
         onClose={() => setIsModalOpen(false)}
         onSubmit={handleModalSubmit}
       />
+      {/* Diálogos modales y Notificaciones Toast */}
+      <AlertModalComponent />
+      <ToastContainerComponent />
     </PageLayout>
   );
 };

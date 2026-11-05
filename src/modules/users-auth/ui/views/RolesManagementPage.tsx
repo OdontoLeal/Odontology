@@ -20,6 +20,8 @@ import {
 } from '../../../../shared/ui/components/PageToolbar';
 import { PageList, ListCard, ListState } from '../../../../shared/ui/components/PageList';
 import { Pagination } from '../../../../shared/ui/components/Pagination';
+import { useAlertModal } from '../../../../shared/ui/hooks/useAlertModal';
+import { useToast } from '../../../../shared/ui/hooks/useToast';
 
 export interface RoleExtendedViewDTO extends RoleDTO {
   codigo: string;
@@ -213,9 +215,8 @@ export const RolesManagementPage: React.FC<RolesManagementPageProps> = ({
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [modalErrorMessage, setModalErrorMessage] = useState<string | null>(null);
-
-  // Modal de confirmación de eliminación
-  const [roleToDelete, setRoleToDelete] = useState<RoleExtendedViewDTO | null>(null);
+  const { showAlert, showDestructive, AlertModalComponent } = useAlertModal();
+  const { showToast, ToastContainerComponent } = useToast();
 
   const isInitialProtectedRole = (roleOrCode: string | RoleExtendedViewDTO): boolean => {
     if (typeof roleOrCode === 'string') {
@@ -400,6 +401,11 @@ export const RolesManagementPage: React.FC<RolesManagementPageProps> = ({
           };
           setRoles((prev) => [...prev, newEntry]);
           setSuccessMessage(result.message || 'Rol creado exitosamente.');
+          showToast({
+            type: 'success',
+            title: 'Rol Creado',
+            message: result.message || 'Rol creado exitosamente.',
+          });
           await fetchRolesList();
         } else {
           const res = await fetch('/api/v1/roles', {
@@ -425,7 +431,13 @@ export const RolesManagementPage: React.FC<RolesManagementPageProps> = ({
             usuariosAsignadosCount: 0,
           };
           setRoles((prev) => [...prev, newEntry]);
-          setSuccessMessage(body.message || 'Rol creado exitosamente.');
+          const successText = body.message || 'Rol creado exitosamente.';
+          setSuccessMessage(successText);
+          showToast({
+            type: 'success',
+            title: 'Rol Creado',
+            message: successText,
+          });
           await fetchRolesList();
         }
         setIsModalOpen(false);
@@ -450,6 +462,11 @@ export const RolesManagementPage: React.FC<RolesManagementPageProps> = ({
             )
           );
           setSuccessMessage(result.message || 'Rol actualizado exitosamente.');
+          showToast({
+            type: 'success',
+            title: 'Rol Actualizado',
+            message: result.message || 'Rol actualizado exitosamente.',
+          });
           await fetchRolesList();
         } else {
           const res = await fetch(`/api/v1/roles/${editingRole.id_rol}`, {
@@ -477,7 +494,13 @@ export const RolesManagementPage: React.FC<RolesManagementPageProps> = ({
                 : r
             )
           );
-          setSuccessMessage(body.message || 'Rol actualizado exitosamente.');
+          const updateText = body.message || 'Rol actualizado exitosamente.';
+          setSuccessMessage(updateText);
+          showToast({
+            type: 'success',
+            title: 'Rol Actualizado',
+            message: updateText,
+          });
           await fetchRolesList();
         }
         setIsModalOpen(false);
@@ -489,52 +512,80 @@ export const RolesManagementPage: React.FC<RolesManagementPageProps> = ({
     }
   };
 
-  // Confirmar eliminación
-  const handleConfirmDeleteRole = async () => {
-    if (!roleToDelete) return;
+  // Solicitar eliminación de rol con validaciones previas de seguridad (RF-USR-011)
+  const handleRequestDeleteRole = (role: RoleExtendedViewDTO) => {
     setErrorMessage(null);
     setSuccessMessage(null);
 
-    if (isInitialProtectedRole(roleToDelete)) {
-      setErrorMessage(
-        `El rol ${roleToDelete.codigo} (${roleToDelete.nombre_rol}) pertenece a la configuración inicial y no puede eliminarse.`
-      );
-      setRoleToDelete(null);
+    // Regla 1: Rol inicial del sistema no se puede eliminar
+    if (isInitialProtectedRole(role)) {
+      showAlert({
+        title: 'Rol Protegido del Sistema',
+        message: `El rol ${role.codigo} (${role.nombre_rol}) pertenece a la configuración inicial obligatoria del consultorio y no puede eliminarse.`,
+        type: 'warning',
+      });
       return;
     }
 
-    if ((roleToDelete.usuariosAsignadosCount ?? 0) > 0) {
-      setErrorMessage(
-        `No se puede eliminar el rol porque está asignado a ${roleToDelete.usuariosAsignadosCount} usuario(s).`
-      );
-      setRoleToDelete(null);
+    // Regla 2: Rol asignado a usuarios no se puede eliminar (debe indicar cantidad exacta)
+    const assignedUsers = Number(role.usuariosAsignadosCount ?? 0);
+    if (assignedUsers > 0) {
+      showAlert({
+        title: 'No es Posible Eliminar el Rol',
+        message: `El rol "${role.nombre_rol}" (${role.codigo}) se encuentra asignado actualmente a ${assignedUsers} usuario(s). Debe reasignar o desvincular a los usuarios de este rol antes de poder eliminarlo.`,
+        type: 'error',
+      });
       return;
     }
 
-    setIsSubmitting(true);
-    try {
-      if (onDeleteRole) {
-        const res = await onDeleteRole(roleToDelete.id_rol);
-        setSuccessMessage(res.message);
-      } else {
-        const res = await fetch(`/api/v1/roles/${roleToDelete.id_rol}`, {
-          method: 'DELETE',
-        });
-        const body = await res.json();
-        if (!res.ok) throw new Error(body.message);
-        setSuccessMessage(body.message || 'Rol eliminado exitosamente.');
-      }
+    // Modal de confirmación destructiva
+    showDestructive({
+      title: '¿Eliminar Rol del Catálogo?',
+      message: `¿Está seguro de que desea eliminar el rol "${role.nombre_rol}" (${role.codigo})? Esta acción es irreversible y eliminará el perfil de la base de datos.`,
+      confirmText: 'Sí, eliminar rol',
+      cancelText: 'Cancelar',
+      onConfirm: async () => {
+        setIsSubmitting(true);
+        try {
+          if (onDeleteRole) {
+            const res = await onDeleteRole(role.id_rol);
+            setSuccessMessage(res.message);
+            showToast({
+              type: 'success',
+              title: 'Rol Eliminado',
+              message: res.message,
+            });
+          } else {
+            const res = await fetch(`/api/v1/roles/${role.id_rol}`, {
+              method: 'DELETE',
+            });
+            const body = await res.json();
+            if (!res.ok) throw new Error(body.message);
+            const deleteMsg = body.message || 'Rol eliminado exitosamente.';
+            setSuccessMessage(deleteMsg);
+            showToast({
+              type: 'success',
+              title: 'Rol Eliminado',
+              message: deleteMsg,
+            });
+          }
 
-      const remaining = roles.filter((r) => r.id_rol !== roleToDelete.id_rol);
-      setRoles(remaining);
-      await fetchRolesList();
-      setRoleToDelete(null);
-    } catch (error: any) {
-      setErrorMessage(error?.message || 'No fue posible eliminar el rol.');
-      setRoleToDelete(null);
-    } finally {
-      setIsSubmitting(false);
-    }
+          const remaining = roles.filter((r) => r.id_rol !== role.id_rol);
+          setRoles(remaining);
+          await fetchRolesList();
+        } catch (error: any) {
+          const errMsg = error?.message || 'No fue posible eliminar el rol.';
+          setErrorMessage(errMsg);
+          showAlert({
+            title: 'Error al Eliminar',
+            message: errMsg,
+            type: 'error',
+          });
+        } finally {
+          setIsSubmitting(false);
+        }
+      },
+    });
   };
 
   return (
@@ -742,7 +793,7 @@ export const RolesManagementPage: React.FC<RolesManagementPageProps> = ({
                   {!isProtected && (
                     <button
                       type="button"
-                      onClick={() => setRoleToDelete(role)}
+                      onClick={() => handleRequestDeleteRole(role)}
                       className="min-h-[40px] inline-flex items-center gap-1.5 rounded-xl border border-[#B91C1C]/25 bg-white px-3.5 py-2 text-[13px] font-bold text-[#B91C1C] hover:bg-[#FEE2E2] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#B91C1C] transition-colors"
                     >
                       <svg
@@ -940,54 +991,9 @@ export const RolesManagementPage: React.FC<RolesManagementPageProps> = ({
         </div>
       )}
 
-      {/* Modal de Confirmación de Eliminación de Rol */}
-      {roleToDelete && (
-        <div
-          role="alertdialog"
-          aria-modal="true"
-          aria-labelledby="delete-role-title"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-[#111111]/60 p-4 backdrop-blur-xs"
-        >
-          <div className="w-full max-w-md rounded-2xl border-t-4 border-[#B91C1C] bg-white p-6 shadow-2xl space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#FEE2E2] text-[#B91C1C] font-bold text-lg">
-                ⚠
-              </div>
-              <div>
-                <h3 id="delete-role-title" className="text-lg font-bold text-[#1E242B]">
-                  Confirmar eliminación de rol
-                </h3>
-                <p className="text-[13px] text-[#687380]">
-                  Código: <span className="font-mono font-bold">{roleToDelete.codigo}</span>
-                </p>
-              </div>
-            </div>
-
-            <p className="text-sm text-[#1E242B] leading-relaxed">
-              ¿Está seguro de que desea eliminar el rol <strong>{roleToDelete.nombre_rol}</strong>{' '}
-              del catálogo? Esta acción no se puede deshacer.
-            </p>
-
-            <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2.5 pt-2">
-              <button
-                type="button"
-                onClick={() => setRoleToDelete(null)}
-                className="min-h-[44px] rounded-xl border border-[#E2E6EA] bg-white px-4 py-2 text-sm font-semibold text-[#1E242B] hover:bg-[#F8F9FA] transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirmDeleteRole}
-                disabled={isSubmitting}
-                className="min-h-[44px] rounded-xl bg-[#B91C1C] px-5 py-2 text-sm font-bold text-white hover:opacity-95 transition-opacity"
-              >
-                Sí, eliminar rol
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Diálogos Modales y Notificaciones Toast */}
+      <AlertModalComponent />
+      <ToastContainerComponent />
     </PageLayout>
   );
 };

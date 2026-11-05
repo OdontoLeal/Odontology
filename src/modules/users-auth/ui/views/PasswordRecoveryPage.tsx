@@ -5,6 +5,7 @@ import {
   RequestPasswordRecoveryCommand,
   ResetPasswordWithTokenCommand,
 } from '../../application/recover-password.use-case';
+import { PublicNavbar } from '../../../../shared/ui/components/PublicNavbar';
 
 export interface PasswordRecoveryPageProps {
   initialToken?: string | null;
@@ -153,41 +154,19 @@ export const PasswordRecoveryPage: React.FC<PasswordRecoveryPageProps> = ({
 
   return (
     <div className="min-h-screen w-full flex flex-col justify-between bg-[#F8F9FA] text-[#1E242B] overflow-x-hidden">
-      {/* Cabecera Institucional */}
-      <header className="w-full border-b border-[#E2E6EA] bg-white px-4 py-3.5 sm:px-8">
-        <div className="mx-auto flex max-w-7xl items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#111111] text-[#D4AF37] border border-[#D4AF37]/40"
-              aria-hidden="true"
-            >
-              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"
-                />
-              </svg>
-            </div>
-            <div>
-              <span className="block text-base sm:text-lg font-extrabold tracking-tight text-[#1E242B] leading-tight">
-                Portal OdontoLeal
-              </span>
-              <span className="block text-[13px] font-bold uppercase tracking-widest text-[#D4AF37]">
-                DR. EDUAR LEAL
-              </span>
-            </div>
-          </div>
-
+      {/* 1. Header Unificado con Marca OdontoLeal */}
+      <PublicNavbar
+        rightAction={
           <button
             type="button"
             onClick={goToLogin}
-            className="min-h-[44px] rounded-xl border border-[#E2E6EA] bg-[#F8F9FA] px-4 py-2 text-[13px] font-bold text-[#1E242B] hover:border-[#D4AF37] hover:bg-[#FBF6E6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37] transition-colors"
+            className="h-10 px-4 rounded-lg border border-[#E2E6EA] bg-white text-[#1E242B] hover:bg-[#F8FAFC] transition-colors text-sm font-semibold inline-flex items-center gap-2 cursor-pointer shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37]"
           >
-            ← Volver al inicio de sesión
+            <span aria-hidden="true">←</span>
+            <span>Volver al inicio de sesión</span>
           </button>
-        </div>
-      </header>
+        }
+      />
 
       {/* Tarjeta Central */}
       <main className="flex-1 flex items-center justify-center px-4 py-8 sm:py-12">

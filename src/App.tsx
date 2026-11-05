@@ -552,7 +552,7 @@ export const App: React.FC = () => {
               if (isCoordinatorOnly) {
                 showAlert({
                   title: 'Acceso Restringido',
-                  message: 'El perfil de Coordinadora de Atención (ROL-COA) no tiene permisos para consultar historias clínicas.',
+                  message: 'No tiene permiso para realizar esta acción.',
                   type: 'warning',
                 });
                 return;
@@ -602,7 +602,7 @@ export const App: React.FC = () => {
                 if (isCoordinatorOnly) {
                   showAlert({
                     title: 'Acceso Restringido',
-                    message: 'El perfil de Coordinadora de Atención (ROL-COA) no tiene permisos para consultar historias clínicas.',
+                    message: 'No tiene permiso para realizar esta acción.',
                     type: 'warning',
                   });
                   return;
