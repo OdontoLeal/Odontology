@@ -10,3 +10,4 @@ export * from './PageHeader';
 export * from './PageToolbar';
 export * from './PageList';
 export * from './Pagination';
+export * from './DetailPage';

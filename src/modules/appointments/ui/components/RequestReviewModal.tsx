@@ -1,5 +1,6 @@
 // src/modules/appointments/ui/components/RequestReviewModal.tsx
 import React, { useState } from 'react';
+import { formatLongDateCO, formatTimeCO } from '../../../../shared/ui/format';
 import { Modal } from '../../../../shared/ui/components/Modal';
 import { Button } from '../../../../shared/ui/components/Button';
 import { Badge } from '../../../../shared/ui/components/Badge';
@@ -116,7 +117,7 @@ export const RequestReviewModal: React.FC<RequestReviewModalProps> = ({
               Fecha Solicitada
             </span>
             <p className="text-sm font-extrabold text-[#1E242B] mt-0.5">
-              {request.fechaSolicitada}
+              {formatLongDateCO(request.fechaSolicitada)}
             </p>
           </div>
           <div>
@@ -124,7 +125,7 @@ export const RequestReviewModal: React.FC<RequestReviewModalProps> = ({
               Hora Solicitada
             </span>
             <p className="text-sm font-extrabold text-[#1E242B] mt-0.5">
-              {request.horaSolicitada}
+              {formatTimeCO(request.horaSolicitada)}
             </p>
           </div>
         </div>

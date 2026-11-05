@@ -1,5 +1,6 @@
 // src/modules/appointments/ui/components/QuickScheduleModal.tsx
 import React, { useState, useEffect } from 'react';
+import { formatTimeCO } from '../../../../shared/ui/format';
 import { Modal } from '../../../../shared/ui/components/Modal';
 import { Button } from '../../../../shared/ui/components/Button';
 import { Input } from '../../../../shared/ui/components/Input';
@@ -407,7 +408,7 @@ export const QuickScheduleModal: React.FC<QuickScheduleModalProps> = ({
                           : 'border-[#E2E6EA] bg-white text-[#687380] hover:border-[#CBD2D9]'
                       }`}
                     >
-                      <span className="block">{b}</span>
+                      <span className="block">{formatTimeCO(b)}</span>
                       <span className="text-[13px] text-[#8F99A3]">
                         {isSelected ? '✓ Seleccionado' : 'Disponible'}
                       </span>

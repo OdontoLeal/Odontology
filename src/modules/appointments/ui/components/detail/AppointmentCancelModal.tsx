@@ -1,5 +1,6 @@
 // src/modules/appointments/ui/components/detail/AppointmentCancelModal.tsx
 import React, { useState } from 'react';
+import { formatTimeRangeCO } from '../../../../../shared/ui/format';
 import { FileTextIcon } from '../../../../../shared/ui/components/Icons';
 import { AppointmentDetailPageData } from '../../views/AppointmentDetailPage';
 
@@ -50,7 +51,7 @@ export const AppointmentCancelModal: React.FC<AppointmentCancelModalProps> = ({
               </svg>
             </div>
             <div>
-              <h3 className="text-base font-extrabold text-[#1E242B]">Cancelar Cita</h3>
+              <h3 className="text-[16px] font-bold leading-6 text-[#1E242B]">Cancelar Cita</h3>
               <p className="text-xs text-[#8F99A3]">Registro de anulación y liberación de horario en agenda</p>
             </div>
           </div>
@@ -75,7 +76,7 @@ export const AppointmentCancelModal: React.FC<AppointmentCancelModalProps> = ({
           <div className="flex justify-between items-center">
             <span className="text-[#8F99A3]">Fecha y hora:</span>
             <span className="font-bold text-[#B45309]">
-              {formatSpanishHeaderDate(appointment.fecha)} • {appointment.horaInicio} - {appointment.horaFin} hrs
+              {formatSpanishHeaderDate(appointment.fecha)} · {formatTimeRangeCO(appointment.horaInicio, appointment.horaFin)}
             </span>
           </div>
         </div>

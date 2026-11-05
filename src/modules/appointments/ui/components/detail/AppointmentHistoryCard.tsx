@@ -1,10 +1,16 @@
 // src/modules/appointments/ui/components/detail/AppointmentHistoryCard.tsx
 import React from 'react';
 import { ClipboardIcon } from '../../../../../shared/ui/components/Icons';
+import {
+  EmptyState,
+  SectionAction,
+  SectionCard,
+} from '../../../../../shared/ui/components/DetailPage';
 
 export interface HistoryItem {
   id: number;
   title: string;
+  /** Fecha ya formateada (DD/MM/AAAA hh:mm a. m.). */
   fecha: string;
   doctor: string;
 }
@@ -21,61 +27,43 @@ export const AppointmentHistoryCard: React.FC<AppointmentHistoryCardProps> = ({
   clinicalHistories,
   isLoadingHistories,
   onNavigateToPatientProfile,
-}) => {
-  return (
-    <div className="rounded-3xl border border-[#E2E6EA] bg-white p-6 shadow-xs space-y-4">
-      <div className="flex items-center justify-between pb-3 border-b border-[#E2E6EA]">
-        <div className="flex items-center gap-3">
-          <div className="h-9 w-9 rounded-xl bg-[#111111] flex items-center justify-center shrink-0">
-            <ClipboardIcon size={18} color="#D4AF37" />
-          </div>
-          <div className="flex items-center gap-2">
-            <h3 className="text-sm font-extrabold text-[#1E242B]">Historias Clínicas</h3>
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#FEF3C7] text-[#92400E]">
-              {clinicalHistories.length} historia{clinicalHistories.length !== 1 ? 's clínicas' : ' clínica'}
-            </span>
-          </div>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => onNavigateToPatientProfile?.(idPaciente)}
-          className="text-xs font-bold text-[#687380] hover:text-[#1E242B] flex items-center gap-1 cursor-pointer"
-        >
-          Ver antecedentes ⌃
-        </button>
-      </div>
-
-      {isLoadingHistories ? (
-        <div className="py-6 text-center text-xs text-[#8F99A3]">
-          Consultando historias clínicas desde la base de datos...
-        </div>
-      ) : clinicalHistories.length === 0 ? (
-        <div className="py-6 text-center rounded-2xl border border-dashed border-[#E2E6EA] text-xs text-[#8F99A3]">
-          No hay historias clínicas ni evoluciones previas registradas para este paciente en la base de datos.
-        </div>
-      ) : (
-        <div className="divide-y divide-[#E2E6EA]">
-          {clinicalHistories.map((h, i) => (
-            <div key={i} className="py-3.5 flex items-center justify-between gap-4 text-xs">
-              <div>
-                <span className="font-bold text-[#1E242B]">{h.title}</span>
-                {h.doctor && <span className="block text-[13px] text-[#687380] mt-0.5">{h.doctor}</span>}
-              </div>
-              <div className="flex items-center gap-4 shrink-0">
-                <span className="text-[#687380] font-medium">{h.fecha}</span>
-                <button
-                  type="button"
-                  onClick={() => onNavigateToPatientProfile?.(idPaciente)}
-                  className="font-bold text-[#D4AF37] hover:text-[#B8942A] cursor-pointer"
-                >
-                  Consultar →
-                </button>
-              </div>
+}) => (
+  <SectionCard
+    title="Historias Clínicas y Evoluciones"
+    icon={<ClipboardIcon />}
+    count={`${clinicalHistories.length} registro${clinicalHistories.length !== 1 ? 's' : ''}`}
+    action={
+      <SectionAction onClick={() => onNavigateToPatientProfile?.(idPaciente)}>
+        Ver antecedentes →
+      </SectionAction>
+    }
+  >
+    {isLoadingHistories ? (
+      <EmptyState>Consultando historias clínicas desde la base de datos...</EmptyState>
+    ) : clinicalHistories.length === 0 ? (
+      <EmptyState>
+        No hay historias clínicas ni evoluciones previas registradas para este paciente.
+      </EmptyState>
+    ) : (
+      <ul className="divide-y divide-[#F3F4F6]">
+        {clinicalHistories.map((h, i) => (
+          <li
+            key={i}
+            className="flex min-w-0 flex-col items-stretch gap-2 py-3.5 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
+          >
+            <div className="min-w-0">
+              <span className="text-break block text-[14px] font-semibold text-[#1E242B]">{h.title}</span>
+              {h.doctor && <span className="mt-0.5 block text-[13px] text-[#64748B]">{h.doctor}</span>}
             </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-};
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 sm:shrink-0">
+              <span className="text-[13px] font-medium text-[#64748B]">{h.fecha}</span>
+              <SectionAction onClick={() => onNavigateToPatientProfile?.(idPaciente)}>
+                Consultar →
+              </SectionAction>
+            </div>
+          </li>
+        ))}
+      </ul>
+    )}
+  </SectionCard>
+);

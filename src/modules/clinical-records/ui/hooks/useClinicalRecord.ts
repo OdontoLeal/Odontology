@@ -1,5 +1,6 @@
 // src/modules/clinical-records/ui/hooks/useClinicalRecord.ts
 import { useState, useCallback, useEffect } from 'react';
+import { formatDateTimeCO } from '../../../../shared/ui/format';
 import { OdontogramDataDTO } from '../../infrastructure/clinical-record.model';
 import { OdontogramEntity } from '../../domain/odontogram.entity';
 
@@ -109,7 +110,7 @@ export function useClinicalRecord(idPaciente: number, apiBaseUrl = '/api/v1', id
                 idEvolucion: Number(ev.idEvolucion ?? ev.id_evolucion),
                 idHistoriaClinica: Number(ev.idHistoriaClinica ?? ev.id_historia),
                 idCita: Number(ev.idCita ?? ev.id_cita),
-                fechaRegistro: String(ev.fechaRegistro ?? ev.fecha ?? '').replace('T', ' ').slice(0, 16),
+                fechaRegistro: formatDateTimeCO(ev.fechaRegistro ?? ev.fecha),
                 profesional: {
                   idUsuario: Number(ev.profesional?.idUsuario ?? ev.idUsuario ?? 1),
                   nombreCompleto: ev.profesionalResponsable || ev.profesional?.nombreCompleto || 'Dr. Eduar Leal Álvarez',
@@ -155,11 +156,9 @@ export function useClinicalRecord(idPaciente: number, apiBaseUrl = '/api/v1', id
               idEvolucion: Number(item.notasEvolucion?.[0]?.idEvolucion || item.idCita || i + 1),
               idHistoriaClinica: Number(data.idHistoria || 1),
               idCita: Number(item.idCita || i + 1),
-              fechaRegistro: String(
-                item.notasEvolucion?.[0]?.diligenciadoPor?.fechaHoraISO || item.fechaHoraRegistro || ''
-              )
-                .replace('T', ' ')
-                .slice(0, 16),
+              fechaRegistro: formatDateTimeCO(
+                item.notasEvolucion?.[0]?.diligenciadoPor?.fechaHoraISO || item.fechaHoraRegistro
+              ),
               profesional: {
                 idUsuario: Number(item.notasEvolucion?.[0]?.diligenciadoPor?.idUsuario || 1),
                 nombreCompleto:
@@ -295,7 +294,7 @@ export function useClinicalRecord(idPaciente: number, apiBaseUrl = '/api/v1', id
           idEvolucion: Number(createdRow.idEvolucion || Date.now()),
           idHistoriaClinica: Number(createdRow.idHistoria || 1),
           idCita: entryData.idCita || 1,
-          fechaRegistro: new Date().toISOString().replace('T', ' ').slice(0, 16),
+          fechaRegistro: formatDateTimeCO(new Date()),
           profesional: {
             idUsuario: 1,
             nombreCompleto: 'Dr. Eduar Leal Álvarez',

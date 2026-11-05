@@ -48,7 +48,7 @@ export const AppointmentAttachConsentModal: React.FC<AppointmentAttachConsentMod
               <FileTextIcon size={18} color="#D4AF37" />
             </div>
             <div>
-              <h3 className="text-base font-extrabold text-[#1E242B]">Adjuntar Consentimientos Informados</h3>
+              <h3 className="text-[16px] font-bold leading-6 text-[#1E242B]">Adjuntar Consentimientos Informados</h3>
               <p className="text-xs text-[#8F99A3]">Selecciona plantillas registradas en base de datos para asociarlas a esta cita.</p>
             </div>
           </div>

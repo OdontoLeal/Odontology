@@ -1,5 +1,6 @@
 // src/modules/appointments/ui/components/detail/AppointmentNoShowModal.tsx
 import React, { useState } from 'react';
+import { formatTimeRangeCO } from '../../../../../shared/ui/format';
 import { AppointmentDetailPageData } from '../../views/AppointmentDetailPage';
 
 export interface AppointmentNoShowModalProps {
@@ -77,7 +78,7 @@ export const AppointmentNoShowModal: React.FC<AppointmentNoShowModalProps> = ({
           <div className="flex justify-between items-center">
             <span className="text-[#8F99A3]">Fecha y hora:</span>
             <span className="font-bold text-[#B45309]">
-              {formatSpanishHeaderDate(appointment.fecha)} • {appointment.horaInicio} - {appointment.horaFin} hrs
+              {formatSpanishHeaderDate(appointment.fecha)} · {formatTimeRangeCO(appointment.horaInicio, appointment.horaFin)}
             </span>
           </div>
         </div>

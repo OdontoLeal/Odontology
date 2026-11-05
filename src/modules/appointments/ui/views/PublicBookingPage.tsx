@@ -1,5 +1,6 @@
 // src/modules/appointments/ui/views/PublicBookingPage.tsx
 import React, { useState, useEffect } from 'react';
+import { formatLongDateCO, formatTimeCO } from '../../../../shared/ui/format';
 import { Button } from '../../../../shared/ui/components/Button';
 import { Input } from '../../../../shared/ui/components/Input';
 import { Modal } from '../../../../shared/ui/components/Modal';
@@ -409,7 +410,7 @@ export const PublicBookingPage: React.FC<PublicBookingPageProps> = ({
                               : 'border-[#E2E6EA] bg-white text-[#687380] hover:border-[#CBD2D9] hover:bg-[#F8F9FA]'
                           }`}
                         >
-                          <span>{slot.label}</span>
+                          <span>{formatTimeCO(slot.label)}</span>
                           {isSelected && <span className="text-[#D4AF37] font-bold">✓</span>}
                         </button>
                       );
@@ -528,7 +529,7 @@ export const PublicBookingPage: React.FC<PublicBookingPageProps> = ({
           <div className="rounded-2xl border border-[#E2E6EA] p-3.5 bg-[#F8F9FA] space-y-1">
             <span className="text-[13px] font-extrabold uppercase text-[#8F99A3]">Fecha y Horario Solicitado</span>
             <p className="font-extrabold text-[#1E242B] text-sm">
-              {selectedDate} • {selectedSlot?.label || ''}
+              {formatLongDateCO(selectedDate)} · {formatTimeCO(selectedSlot?.label || '')}
             </p>
           </div>
 
@@ -578,7 +579,7 @@ export const PublicBookingPage: React.FC<PublicBookingPageProps> = ({
           <div className="rounded-2xl border border-[#E2E6EA] p-4 bg-[#F8F9FA] space-y-2">
             <div>
               <span className="text-[13px] font-bold text-[#8F99A3]">FECHA Y HORA SOLICITADA</span>
-              <p className="font-bold text-[#1E242B]">{selectedDate} • {selectedSlot?.label || ''}</p>
+              <p className="font-bold text-[#1E242B]">{formatLongDateCO(selectedDate)} · {formatTimeCO(selectedSlot?.label || '')}</p>
             </div>
             <div>
               <span className="text-[13px] font-bold text-[#8F99A3]">PACIENTE</span>

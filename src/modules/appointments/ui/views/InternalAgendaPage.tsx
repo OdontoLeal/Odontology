@@ -1,5 +1,6 @@
 // src/modules/appointments/ui/views/InternalAgendaPage.tsx
 import React, { useState, useEffect, useMemo } from 'react';
+import { formatLongDateCO } from '../../../../shared/ui/format';
 import { useRealtimeAgenda } from '../hooks/useRealtimeAgenda';
 import { WeeklyCalendarGrid, CalendarTimeSlot } from '../components/WeeklyCalendarGrid';
 import {
@@ -134,32 +135,8 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
   }));
 
   // Formateador de fecha en español para la barra superior (ej. Hoy: Sábado 24 Octubre 2026)
-  const formatHeaderDate = (dateStr: string) => {
-    try {
-      const [year, month, day] = dateStr.split('-').map(Number);
-      const d = new Date(year, month - 1, day);
-      const days = ['Domingo', 'Sábado', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
-      // Ajuste de día en JS (0 es domingo)
-      const daysEs = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-      const monthsEs = [
-        'Enero',
-        'Febrero',
-        'Marzo',
-        'Abril',
-        'Mayo',
-        'Junio',
-        'Julio',
-        'Agosto',
-        'Septiembre',
-        'Octubre',
-        'Noviembre',
-        'Diciembre',
-      ];
-      return `${daysEs[d.getDay()]} ${day} ${monthsEs[d.getMonth()]} ${year}`;
-    } catch {
-      return dateStr;
-    }
-  };
+  // RQNF-USA-002: "Jueves, 05/11/2026"
+  const formatHeaderDate = (dateStr: string) => formatLongDateCO(dateStr);
 
   // Manejar navegación a día anterior / posterior
   const handleNavigateDay = (delta: number) => {

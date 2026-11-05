@@ -239,7 +239,7 @@ export const TopPatientSearchBar: React.FC<TopPatientSearchBarProps> = ({
                     }`}
                   >
                     {/* Avatar Iniciales */}
-                    <div className="h-9 w-9 rounded-xl bg-[#1E242B] text-[#D4AF37] font-extrabold text-xs flex items-center justify-center shrink-0 shadow-2xs">
+                    <div className="h-9 w-9 rounded-full bg-[#1E242B] text-[#D4AF37] font-extrabold text-xs flex items-center justify-center shrink-0 shadow-2xs">
                       {initials}
                     </div>
 

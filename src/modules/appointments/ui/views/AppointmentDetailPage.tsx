@@ -1,5 +1,7 @@
 // src/modules/appointments/ui/views/AppointmentDetailPage.tsx
 import React, { useState, useEffect } from 'react';
+import { DetailPageContainer } from '../../../../shared/ui/components/DetailPage';
+import { formatDateTimeCO, formatLongDateCO } from '../../../../shared/ui/format';
 import { useAlertModal } from '../../../../shared/ui/hooks/useAlertModal';
 import { DoctorOption } from '../components/ServiceSelector';
 import { AppointmentDetailHeader } from '../components/detail/AppointmentDetailHeader';
@@ -127,22 +129,9 @@ export const AppointmentDetailPage: React.FC<AppointmentDetailPageProps> = ({
   }, [doctors]);
 
   // Formateador de fecha en español
-  const formatSpanishHeaderDate = (dateStr: string) => {
-    if (!dateStr) return 'Fecha por confirmar';
-    try {
-      const cleanDate = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr.split(' ')[0];
-      const [year, month, day] = cleanDate.split('-').map(Number);
-      const d = new Date(year, month - 1, day);
-      const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-      const months = [
-        'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-        'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
-      ];
-      return `${days[d.getDay()]} ${day} ${months[d.getMonth()]} ${year}`;
-    } catch {
-      return dateStr;
-    }
-  };
+  // RQNF-USA-002: "Lunes, 09/11/2026"
+  const formatSpanishHeaderDate = (dateStr: string) =>
+    dateStr ? formatLongDateCO(dateStr) : 'Fecha por confirmar';
 
   const getInitials = (name: string) => {
     if (!name) return 'P';
@@ -160,19 +149,9 @@ export const AppointmentDetailPage: React.FC<AppointmentDetailPageProps> = ({
       .then((json) => {
         const hist: any[] = json.data?.historial || [];
         const formatted: HistoryItem[] = hist.map((item: any, idx: number) => {
-          let dateStr = 'Fecha no registrada';
-          if (item.fechaHoraRegistro) {
-            try {
-              const d = new Date(item.fechaHoraRegistro);
-              const months = [
-                'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-                'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
-              ];
-              dateStr = `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
-            } catch {
-              dateStr = item.fechaHoraRegistro;
-            }
-          }
+          const dateStr = item.fechaHoraRegistro
+            ? formatDateTimeCO(item.fechaHoraRegistro)
+            : 'Fecha no registrada';
           return {
             id: item.idCita || idx,
             title:
@@ -444,27 +423,15 @@ export const AppointmentDetailPage: React.FC<AppointmentDetailPageProps> = ({
   }
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto p-4 sm:p-6 lg:p-8 animate-fadeIn">
+    <DetailPageContainer className="space-y-6">
       <AlertModalComponent />
-
-      <div>
-        <button
-          type="button"
-          onClick={onBack}
-          className="inline-flex items-center gap-2 text-xs font-bold text-[#687380] hover:text-[#1E242B] transition-colors cursor-pointer"
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-          </svg>
-          Volver a la Agenda
-        </button>
-      </div>
 
       <AppointmentDetailHeader
         appointment={appointment}
         canStartAttention={canStartAttention}
         formatSpanishHeaderDate={formatSpanishHeaderDate}
         getInitials={getInitials}
+        onBack={onBack}
         onStartAttention={onStartAttention}
         onOpenEditMode={handleOpenEditMode}
         onOpenNoShowModal={() => setIsNoShowModalOpen(true)}
@@ -526,6 +493,6 @@ export const AppointmentDetailPage: React.FC<AppointmentDetailPageProps> = ({
           });
         }}
       />
-    </div>
+    </DetailPageContainer>
   );
 };

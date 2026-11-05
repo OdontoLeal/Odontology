@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { formatDateTimeCO } from '../../../../shared/ui/format';
 import {
   AuthenticateUserCommand,
   AuthenticateUserResult,
@@ -109,18 +110,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
     }
   };
 
-  const formatColombianDateTime = (date: Date): string => {
-    const d = new Date(date);
-    return d.toLocaleString('es-CO', {
-      timeZone: 'America/Bogota',
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true,
-    });
-  };
+  const formatColombianDateTime = (date: Date): string => formatDateTimeCO(date);
 
   return (
     <div className="min-h-screen w-full flex flex-col justify-between bg-[#F8F9FA] text-[#1E242B] overflow-x-hidden">

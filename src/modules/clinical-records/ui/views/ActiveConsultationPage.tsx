@@ -1,5 +1,13 @@
 // src/modules/clinical-records/ui/views/ActiveConsultationPage.tsx
 import React, { useState, useMemo, useEffect } from 'react';
+import {
+  DetailPageContainer,
+  EmptyState,
+  SECTION_CARD_CLASS,
+  SectionCardHeader,
+} from '../../../../shared/ui/components/DetailPage';
+import { ToothIcon as SectionToothIcon } from '../../../../shared/ui/components/Icons';
+import { formatLongDateCO } from '../../../../shared/ui/format';
 import { EvolutionTemplateEditor, EvolutionFormData } from '../components/EvolutionTemplateEditor';
 import { OdontogramCanvas } from '../components/OdontogramCanvas';
 import { useClinicalRecord } from '../hooks/useClinicalRecord';
@@ -195,13 +203,8 @@ export const ActiveConsultationPage: React.FC<ActiveConsultationPageProps> = ({
 
   // Fecha legible
   const displayDate = useMemo(() => {
-    if (appointmentDate) return appointmentDate;
-    return new Intl.DateTimeFormat('es-CO', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    }).format(new Date());
+    if (appointmentDate) return formatLongDateCO(appointmentDate);
+    return formatLongDateCO(new Date());
   }, [appointmentDate]);
 
   // Hallazgos y notas clínicas reales del odontograma activo
@@ -293,15 +296,15 @@ export const ActiveConsultationPage: React.FC<ActiveConsultationPageProps> = ({
 
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 animate-fadeIn">
+    <DetailPageContainer className="space-y-6">
       <AlertModalComponent />
 
       {/* Banner Informativo de Precarga Automática de Consulta Anterior */}
       {previousEvolution && Number(previousEvolution.idCita) !== Number(idCita) && (
-        <div className="flex items-start sm:items-center gap-3 p-4 rounded-2xl bg-[#FBF6E6] border border-[#E9C765] text-xs text-[#111111]">
+        <div className="flex items-start gap-3 rounded-xl border border-[#E9C765] bg-[#FBF6E6] p-4 text-[14px] text-[#111111]">
           <SparklesIcon size={20} color="#D4AF37" className="shrink-0 mt-0.5" />
-          <div className="flex-1">
-            <strong className="font-black text-[#926C15] block">
+          <div className="min-w-0 flex-1">
+            <strong className="block font-bold text-[#926C15]">
               Precarga Automática de la Consulta Anterior ({previousEvolution.fechaRegistro})
             </strong>
             <p className="text-[#687380] text-[13px] mt-0.5">
@@ -339,7 +342,7 @@ export const ActiveConsultationPage: React.FC<ActiveConsultationPageProps> = ({
         title="Odontograma Clínico FDI — Modo Edición Ampliada"
         subtitle={`Paciente: ${patientName} • Odontólogo: ${doctorName}`}
         footer={
-          <div className="flex items-center justify-between w-full">
+          <div className="flex w-full flex-wrap items-center justify-between gap-3">
             <Button variant="outline" onClick={() => setIsExpandedOdontogramOpen(false)}>
               ✕ Cerrar
             </Button>
@@ -370,12 +373,10 @@ export const ActiveConsultationPage: React.FC<ActiveConsultationPageProps> = ({
           />
 
           {/* Tabla inferior de Observaciones y Notas Clínicas por Pieza Dental */}
-          <div className="rounded-2xl border border-[#E7E7E3] bg-[#F6F6F4] p-4 space-y-2">
-            <span className="text-xs font-black uppercase text-[#111111] block">
-              Observaciones y Notas Clínicas por Pieza Dental
-            </span>
+          <div className={SECTION_CARD_CLASS}>
+            <SectionCardHeader title="Observaciones y Notas Clínicas por Pieza Dental" icon={<SectionToothIcon />} />
             {toothNotes.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+              <div className="grid grid-cols-[minmax(0,1fr)] md:grid-cols-3 gap-3 text-[14px]">
                 {toothNotes.map((note) => (
                   <div key={note.fdi} className="p-2.5 rounded-xl bg-white border border-[#E7E7E3]">
                     <strong className="text-[#D4AF37]">
@@ -386,13 +387,13 @@ export const ActiveConsultationPage: React.FC<ActiveConsultationPageProps> = ({
                 ))}
               </div>
             ) : (
-              <p className="text-xs text-[#8F99A3] italic py-2">
+              <EmptyState>
                 No hay observaciones o notas clínicas registradas en piezas dentales. Al seleccionar y modificar piezas en el odontograma, aparecerán aquí.
-              </p>
+              </EmptyState>
             )}
           </div>
         </div>
       </Modal>
-    </div>
+    </DetailPageContainer>
   );
 };

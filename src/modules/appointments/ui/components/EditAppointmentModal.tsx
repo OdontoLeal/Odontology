@@ -1,5 +1,6 @@
 // src/modules/appointments/ui/components/EditAppointmentModal.tsx
 import React, { useState } from 'react';
+import { formatLongDateCO, formatTimeCO, formatTimeRangeCO } from '../../../../shared/ui/format';
 import { Modal } from '../../../../shared/ui/components/Modal';
 import { Button } from '../../../../shared/ui/components/Button';
 import { AppointmentDetailData } from './AppointmentDetailModal';
@@ -106,7 +107,7 @@ export const EditAppointmentModal: React.FC<EditAppointmentModalProps> = ({
               Fecha y Hora Actual
             </span>
             <p className="text-sm font-extrabold text-[#1E242B]">
-              {appointment.fecha} • {appointment.horaInicio} - {appointment.horaFin}
+              {formatLongDateCO(appointment.fecha)} · {formatTimeRangeCO(appointment.horaInicio, appointment.horaFin)}
             </p>
             <p className="text-xs text-[#687380]">{appointment.doctorNombre}</p>
           </div>
@@ -116,7 +117,7 @@ export const EditAppointmentModal: React.FC<EditAppointmentModalProps> = ({
               Nueva Fecha y Hora Seleccionada
             </span>
             <p className="text-sm font-extrabold text-[#1E242B]">
-              {fecha} • {selectedBlocks.join(', ') || 'Sin bloques seleccionados'}
+              {formatLongDateCO(fecha)} · {selectedBlocks.map((b) => formatTimeCO(b)).join(', ') || 'Sin bloques seleccionados'}
             </p>
             <p className="text-xs text-[#8F721A]">
               {selectedBlocks.length * 30} min total ({selectedBlocks.length} bloques contiguos)
@@ -175,7 +176,7 @@ export const EditAppointmentModal: React.FC<EditAppointmentModalProps> = ({
                       : 'border-[#E2E6EA] bg-white text-[#687380] hover:border-[#CBD2D9]'
                   }`}
                 >
-                  {b}
+                  {formatTimeCO(b)}
                 </button>
               );
             })}

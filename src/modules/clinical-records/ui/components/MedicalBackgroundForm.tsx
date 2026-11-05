@@ -322,8 +322,8 @@ export const MedicalBackgroundForm: React.FC<MedicalBackgroundFormProps> = ({
   return (
     <div className="space-y-6">
       {/* Sección 2: Antecedentes Clínicos del Paciente (Imagen 2) */}
-      <div className="rounded-3xl border border-[#E7E7E3] bg-white p-6 shadow-xs space-y-5">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-[#E7E7E3]">
+      <div className="rounded-xl border border-[#E2E8F0] bg-white px-4 py-5 sm:px-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)] space-y-5">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-[#F3F4F6]">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-2xl bg-[#FBF3D5] flex items-center justify-center text-lg text-[#D4AF37] border border-[#F6E7B0]">
               📋
@@ -448,8 +448,8 @@ export const MedicalBackgroundForm: React.FC<MedicalBackgroundFormProps> = ({
       </div>
 
       {/* Sección 3: Hábitos y Rutina de Higiene Oral (Imagen 2) */}
-      <div className="rounded-3xl border border-[#E7E7E3] bg-white p-6 shadow-xs space-y-5">
-        <div className="pb-3 border-b border-[#E7E7E3] flex items-center gap-3">
+      <div className="rounded-xl border border-[#E2E8F0] bg-white px-4 py-5 sm:px-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)] space-y-5">
+        <div className="pb-3 border-b border-[#F3F4F6] flex items-center gap-3">
           <div className="h-10 w-10 rounded-2xl bg-[#FBF3D5] flex items-center justify-center text-lg text-[#D4AF37] border border-[#F6E7B0]">
             🪥
           </div>

@@ -1,5 +1,6 @@
 // src/modules/consents/ui/views/ConsentTemplatesAdminPage.tsx
 import React, { useMemo, useState } from 'react';
+import { formatDateCO } from '../../../../shared/ui/format';
 import { useConsents, ConsentTemplateItem, ConsentTemplateTipo } from '../hooks/useConsents';
 import { Button } from '../../../../shared/ui/components/Button';
 import { Badge } from '../../../../shared/ui/components/Badge';
@@ -245,7 +246,7 @@ export const ConsentTemplatesAdminPage: React.FC = () => {
                 </p>
 
                 <div className="text-[13px] text-[#64748B]">
-                  Fecha actualización: {tpl.fechaCreacion}
+                  Fecha actualización: {formatDateCO(tpl.fechaCreacion)}
                 </div>
               </div>
 

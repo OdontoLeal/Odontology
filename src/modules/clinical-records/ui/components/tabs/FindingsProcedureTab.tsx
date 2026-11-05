@@ -42,15 +42,15 @@ export const FindingsProcedureTab: React.FC<FindingsProcedureTabProps> = ({
   return (
     <div className="space-y-6">
       {/* CARD PRINCIPAL: ODONTOGRAMA CLÍNICO REGISTRADO (FDI UNIVERSAL) */}
-      <div className="rounded-3xl border border-[#E7E7E3] bg-white p-6 shadow-xs space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-[#E7E7E3]">
+      <div className="rounded-xl border border-[#E2E8F0] bg-white px-4 py-5 sm:px-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)] space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-[#F3F4F6]">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#111111] flex items-center justify-center">
+            <div className="h-9 w-9 shrink-0 rounded-lg bg-[#111111] flex items-center justify-center [&_svg]:h-[18px] [&_svg]:w-[18px]">
               <ToothIcon size={20} color="#D4AF37" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-sm font-black text-[#111111]">
+                <h3 className="text-[16px] font-bold leading-6 text-[#1E242B]">
                   Odontograma Clínico Registrado (FDI Universal)
                 </h3>
                 <span className="px-2 py-0.5 rounded-full text-[13px] font-black bg-[#FBF6E6] text-[#926C15] border border-[#E9C765]">
@@ -96,7 +96,7 @@ export const FindingsProcedureTab: React.FC<FindingsProcedureTabProps> = ({
       </div>
 
       {/* CARD: PROCEDIMIENTO REALIZADO (OBLIGATORIO) */}
-      <div className="rounded-3xl border border-[#E7E7E3] bg-white p-6 shadow-xs space-y-2">
+      <div className="rounded-xl border border-[#E2E8F0] bg-white px-4 py-5 sm:px-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)] space-y-2">
         <div className="flex items-center justify-between">
           <label className="text-xs font-black uppercase tracking-wider text-[#111111] flex items-center gap-2">
             <span>Procedimiento Realizado</span>
@@ -119,7 +119,7 @@ export const FindingsProcedureTab: React.FC<FindingsProcedureTabProps> = ({
       </div>
 
       {/* CARD: DIAGNÓSTICO CLÍNICO */}
-      <div className="rounded-3xl border border-[#E7E7E3] bg-white p-6 shadow-xs space-y-2">
+      <div className="rounded-xl border border-[#E2E8F0] bg-white px-4 py-5 sm:px-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)] space-y-2">
         <label className="text-xs font-black uppercase tracking-wider text-[#111111] block">
           Diagnóstico Clínico (Definitivo / Presuntivo)
         </label>
@@ -135,7 +135,7 @@ export const FindingsProcedureTab: React.FC<FindingsProcedureTabProps> = ({
 
       {/* GRID 2 COLUMNAS: ACCIONES A REALIZAR Y OBSERVACIONES */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="rounded-3xl border border-[#E7E7E3] bg-white p-6 shadow-xs space-y-2">
+        <div className="rounded-xl border border-[#E2E8F0] bg-white px-4 py-5 sm:px-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)] space-y-2">
           <label className="block text-xs font-black uppercase tracking-wider text-[#111111]">
             Acciones a Realizar (Plan Próxima Cita)
           </label>
@@ -149,7 +149,7 @@ export const FindingsProcedureTab: React.FC<FindingsProcedureTabProps> = ({
           />
         </div>
 
-        <div className="rounded-3xl border border-[#E7E7E3] bg-white p-6 shadow-xs space-y-2">
+        <div className="rounded-xl border border-[#E2E8F0] bg-white px-4 py-5 sm:px-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)] space-y-2">
           <div className="flex items-center justify-between">
             <label className="text-xs font-black uppercase tracking-wider text-[#111111]">
               Observaciones Generales de la Atención

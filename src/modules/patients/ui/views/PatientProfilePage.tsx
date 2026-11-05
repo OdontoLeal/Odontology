@@ -2,8 +2,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { PatientListItem } from '../hooks/usePatients';
 import { PatientForm, PatientFormData } from '../components/PatientForm';
-import { Button } from '../../../../shared/ui/components/Button';
-import { Badge } from '../../../../shared/ui/components/Badge';
 import { Modal } from '../../../../shared/ui/components/Modal';
 import { useClinicalRecord, ClinicalEvolutionEntry } from '../../../clinical-records/ui/hooks/useClinicalRecord';
 import { EvolutionDetailModal } from '../../../clinical-records/ui/components/EvolutionDetailModal';
@@ -11,6 +9,25 @@ import { printCompleteClinicalHistory } from '../../../clinical-records/applicat
 import { useConsents } from '../../../consents/ui/hooks/useConsents';
 import { QuickScheduleModal, DoctorCandidate } from '../../../appointments/ui/components/QuickScheduleModal';
 import { useAlertModal } from '../../../../shared/ui/hooks/useAlertModal';
+import {
+  CalendarIcon,
+  ClipboardIcon,
+  FileTextIcon,
+  PrinterIcon,
+  UserIcon,
+} from '../../../../shared/ui/components/Icons';
+import {
+  DetailAction,
+  DetailPageContainer,
+  DetailPageHeader,
+  EmptyState,
+  PatientSummaryBanner,
+  SectionAction,
+  SectionCard,
+  StatusBadge,
+  StatusTone,
+} from '../../../../shared/ui/components/DetailPage';
+import { formatDateCO, formatTimeCO } from '../../../../shared/ui/format';
 
 export interface PatientProfilePageProps {
   patient: PatientListItem;
@@ -193,375 +210,276 @@ export const PatientProfilePage: React.FC<PatientProfilePageProps> = ({
     }
   };
 
-  // Helper para formatear bloque horario
+  // Helper para formatear el bloque horario (RQNF-USA-002): "01/11/2026 · 09:30 a. m."
   const formatSlot = (bloques: string[]) => {
     if (!bloques || bloques.length === 0) return 'Horario por confirmar';
-    const first = bloques[0];
-    const parts = first.split(' ');
-    const date = parts[0] || '';
-    const time = (parts[1] || '').slice(0, 5);
-    return `${date} • ${time} hrs`;
+    const [date = '', time = ''] = bloques[0].split(' ');
+    return `${formatDateCO(date)} · ${formatTimeCO(time.slice(0, 5))}`;
   };
 
-  // Iniciales para el avatar
-  const initials = patient.nombreCompleto
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w) => w[0].toUpperCase())
-    .join('');
+  const appointmentTone = (estado: string): StatusTone =>
+    estado === 'Atendida' || estado === 'Confirmada'
+      ? 'success'
+      : estado === 'Cancelada' || estado === 'Inasistencia'
+        ? 'danger'
+        : estado === 'En consulta'
+          ? 'dark'
+          : 'warning';
+
+  const restrictedNotice = (title: string, text: string) => (
+    <div className="rounded-lg border border-[#FDE68A] bg-[#FFFBEB] p-6 text-center">
+      <p className="text-[14px] font-semibold text-[#92400E]">🔒 {title}</p>
+      <p className="mt-1 text-[13px] leading-5 text-[#B45309]">{text}</p>
+    </div>
+  );
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
-      {/* Botón Volver */}
-      <div className="flex items-center justify-between">
-        <button
-          type="button"
-          onClick={onBack}
-          className="inline-flex items-center gap-2 text-xs font-bold text-[#687380] hover:text-[#1E242B] transition-colors"
-        >
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-          </svg>
-          Volver a Pacientes
-        </button>
-
-        <div className="flex items-center gap-2">
-          {history.length > 0 && !isCoordinator && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => printCompleteClinicalHistory({ patient, history })}
-              leftIcon={<span>🖨️</span>}
+    <DetailPageContainer className="space-y-6">
+      <DetailPageHeader
+        backLabel="Volver a Pacientes"
+        onBack={onBack}
+        title="Ficha Médica del Paciente"
+        badge={
+          <>
+            <StatusBadge tone="success">Expediente activo</StatusBadge>
+            {patient.datosIncompletos && <StatusBadge tone="warning">Datos incompletos</StatusBadge>}
+          </>
+        }
+        subtitle="Expediente clínico integral, historial de citas, evoluciones clínicas y consentimientos."
+        actions={
+          <>
+            {history.length > 0 && !isCoordinator && (
+              <DetailAction
+                onClick={() => printCompleteClinicalHistory({ patient, history })}
+                leftIcon={<PrinterIcon size={16} />}
+              >
+                Imprimir historia completa
+              </DetailAction>
+            )}
+            <DetailAction
+              variant="primary"
+              onClick={() => setIsEditModalOpen(true)}
+              leftIcon={
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                </svg>
+              }
             >
-              Imprimir Historia Completa
-            </Button>
-          )}
-          <Button
-            size="sm"
-            variant="primary"
-            onClick={() => setIsEditModalOpen(true)}
-            leftIcon={
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-              </svg>
-            }
-          >
-            Editar Paciente
-          </Button>
-        </div>
-      </div>
+              Editar paciente
+            </DetailAction>
+          </>
+        }
+      />
 
-      {/* Header Ficha Médica */}
-      <div>
-        <div className="flex items-center gap-2">
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-[#1E242B]">
-            Ficha Médica del Paciente
-          </h1>
-          <Badge label="Expediente Activo" variant="success" size="sm" />
-          {patient.datosIncompletos && (
-            <Badge label="Datos Incompletos" variant="warning" size="sm" />
-          )}
-        </div>
-        <p className="mt-1 text-xs sm:text-sm text-[#687380]">
-          Expediente clínico integral, historial de citas, evoluciones clínicas y consentimientos.
-        </p>
-      </div>
+      {/* Banner de identificación del paciente */}
+      <SectionCard title="Información del Paciente" icon={<UserIcon />}>
+        <PatientSummaryBanner
+          nombre={patient.nombreCompleto}
+          documento={`C.C. ${patient.documentoIdentidad}`}
+          edad={patient.edad ?? null}
+          fechaNacimiento={patient.fechaNacimiento ? formatDateCO(patient.fechaNacimiento) : null}
+          sexo={patient.sexo ?? null}
+          telefono={patient.telefono ? `+57 ${patient.telefono}` : null}
+          correo={patient.correo}
+        />
+      </SectionCard>
 
-      {/* Tarjeta de Resumen del Paciente */}
-      <div className="rounded-3xl border border-[#E2E6EA] bg-white p-6 shadow-xs flex flex-col md:flex-row items-start md:items-center gap-6">
-        <div className="h-16 w-16 rounded-2xl bg-[#1E242B] text-[#D4AF37] font-extrabold text-xl flex items-center justify-center flex-shrink-0 shadow-inner">
-          {initials}
-        </div>
-        <div className="space-y-1.5 flex-1">
-          <div className="flex flex-wrap items-center gap-3">
-            <h2 className="text-xl font-extrabold text-[#1E242B]">
-              {patient.nombreCompleto}
-            </h2>
-            <Badge label={`C.C. ${patient.documentoIdentidad}`} variant="neutral" />
-          </div>
-          <div className="flex flex-wrap items-center gap-4 text-xs text-[#687380]">
-            <span>🎂 {patient.edad ?? 28} años ({patient.fechaNacimiento})</span>
-            <span>⚧ {patient.sexo}</span>
-            <span>📞 +57 {patient.telefono}</span>
-            <span>✉️ {patient.correo}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Contenedores en 2 Columnas: Citas vs Historias */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Columna Izquierda: Citas Agendadas e Historial */}
-        <div className="space-y-4 rounded-3xl border border-[#E2E6EA] bg-white p-6 shadow-xs">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-lg">📅</span>
-              <h3 className="text-base font-extrabold text-[#1E242B]">
-                Citas Agendadas e Historial
-              </h3>
-            </div>
-            {canScheduleAppointment && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setIsScheduleModalOpen(true)}
-                leftIcon={
-                  <svg className="h-4 w-4 text-[#D4AF37]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
+      {/* 2 columnas: Citas | Historias clínicas */}
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-2">
+        <SectionCard
+          title="Citas Agendadas e Historial"
+          icon={<CalendarIcon />}
+          action={
+            canScheduleAppointment ? (
+              <DetailAction onClick={() => setIsScheduleModalOpen(true)} leftIcon={<span>+</span>}>
+                Agendar cita
+              </DetailAction>
+            ) : undefined
+          }
+        >
+          <div className="space-y-5">
+            {/* Próxima cita activa */}
+            {isAppointmentsLoading ? (
+              <EmptyState>Cargando citas del paciente...</EmptyState>
+            ) : upcomingAppointments.length > 0 ? (
+              (() => {
+                const nextAppt = upcomingAppointments[0];
+                return (
+                  <div className="space-y-3 rounded-lg border border-[#D4AF37]/60 bg-[#FFFBEB]/60 p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <StatusBadge tone="dark">Próxima cita</StatusBadge>
+                        <span className="text-[14px] font-semibold text-[#1E242B]">
+                          {formatSlot(nextAppt.bloques)}
+                        </span>
+                      </div>
+                      <StatusBadge tone={appointmentTone(nextAppt.estado)}>{nextAppt.estado}</StatusBadge>
+                    </div>
+                    <div className="min-w-0">
+                      <h3 className="text-break text-[14px] font-semibold text-[#1E242B]">{nextAppt.titulo}</h3>
+                      <p className="mt-0.5 text-[13px] text-[#64748B]">
+                        {nextAppt.nombreProfesional || 'Dr. Eduar Leal Álvarez'} · Agendado por:{' '}
+                        {nextAppt.agendadoPor || 'Portal Web'}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap items-center justify-end gap-2 border-t border-[#EAD89B]/50 pt-3">
+                      {!isCoordinator && canStartAttention ? (
+                        <DetailAction
+                          variant="primary"
+                          onClick={() => onOpenConsultation(patient, nextAppt.idCita)}
+                        >
+                          Iniciar atención odontológica →
+                        </DetailAction>
+                      ) : (
+                        <span className="text-[13px] italic text-[#64748B]">
+                          Atención clínica a cargo del profesional asignado
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()
+            ) : (
+              <EmptyState
+                action={
+                  canScheduleAppointment ? (
+                    <DetailAction onClick={() => setIsScheduleModalOpen(true)}>
+                      + Programar nueva cita
+                    </DetailAction>
+                  ) : undefined
                 }
               >
-                Agendar Cita
-              </Button>
-            )}
-          </div>
-
-          {/* Próxima Cita Activa */}
-          {isAppointmentsLoading ? (
-            <div className="p-8 rounded-2xl bg-[#F8F9FA] border border-[#E2E6EA] text-center space-y-2">
-              <div className="w-5 h-5 mx-auto border-2 border-[#D4AF37] border-t-transparent rounded-full animate-spin" />
-              <p className="text-xs font-bold text-[#1E242B]">Cargando citas del paciente...</p>
-            </div>
-          ) : upcomingAppointments.length > 0 ? (
-            (() => {
-              const nextAppt = upcomingAppointments[0];
-              return (
-                <div className="rounded-2xl border-2 border-[#D4AF37]/50 bg-[#FBF6E6]/30 p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="px-2 py-0.5 rounded-lg bg-[#111111] text-[#D4AF37] text-[13px] font-extrabold uppercase">
-                        Próxima Cita
-                      </span>
-                      <span className="text-xs font-bold text-[#1E242B]">
-                        {formatSlot(nextAppt.bloques)}
-                      </span>
-                    </div>
-                    <Badge
-                      label={nextAppt.estado}
-                      variant={nextAppt.estado === 'En consulta' ? 'gold' : 'info'}
-                      size="sm"
-                    />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-extrabold text-[#1E242B]">
-                      {nextAppt.titulo}
-                    </h4>
-                    <p className="text-xs text-[#687380] mt-0.5">
-                      👨‍⚕️ {nextAppt.nombreProfesional || 'Dr. Eduar Leal Álvarez'}
-                    </p>
-                    <p className="text-[13px] text-[#687380] mt-0.5">
-                      <span className="font-semibold text-[#1E242B]">Agendado por:</span>{' '}
-                      {nextAppt.agendadoPor || 'Portal Web'}
-                    </p>
-                  </div>
-                  <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#EAD89B]/40">
-                    {!isCoordinator && canStartAttention ? (
-                      <Button
-                        size="sm"
-                        variant="primary"
-                        onClick={() => onOpenConsultation(patient, nextAppt.idCita)}
-                      >
-                        Iniciar Atención Odontológica →
-                      </Button>
-                    ) : (
-                      <span className="text-xs text-[#687380] italic">
-                        Atención clínica a cargo del profesional asignado
-                      </span>
-                    )}
-                  </div>
-                </div>
-              );
-            })()
-          ) : (
-            <div className="rounded-2xl border border-dashed border-[#E2E6EA] p-6 text-center space-y-2">
-              <span className="text-2xl">🗓️</span>
-              <p className="text-xs font-semibold text-[#687380]">
                 No hay citas activas o próximas programadas para este paciente.
-              </p>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setIsScheduleModalOpen(true)}
-              >
-                + Programar Nueva Cita
-              </Button>
-            </div>
-          )}
-
-          {/* Historial de Citas Pasadas */}
-          <div className="space-y-2 pt-2">
-            <h4 className="text-xs font-extrabold uppercase tracking-wider text-[#8F99A3]">
-              Citas Anteriores
-            </h4>
-
-            {pastAppointments.length > 0 ? (
-              pastAppointments.map((appt) => (
-                <div
-                  key={appt.idCita}
-                  className="flex items-center justify-between p-3 rounded-xl bg-[#F8F9FA] border border-[#E2E6EA] text-xs"
-                >
-                  <div>
-                    <p className="font-bold text-[#1E242B]">{formatSlot(appt.bloques)}</p>
-                    <p className="text-[#687380]">{appt.titulo} • {appt.nombreProfesional}</p>
-                    <p className="text-[13px] text-[#8F99A3] mt-0.5">
-                      <span className="font-semibold text-[#687380]">Agendado por:</span>{' '}
-                      {appt.agendadoPor || 'Portal Web'}
-                    </p>
-                  </div>
-                  <Badge
-                    label={appt.estado}
-                    variant={appt.estado === 'Atendida' ? 'success' : appt.estado === 'Cancelada' ? 'danger' : 'warning'}
-                    size="sm"
-                  />
-                </div>
-              ))
-            ) : (
-              <p className="text-xs text-[#8F99A3] italic py-2">
-                No registra citas anteriores finalizadas.
-              </p>
+              </EmptyState>
             )}
-          </div>
-        </div>
 
-        {/* Columna Derecha: Historias Clínicas y Evoluciones */}
-        <div className="space-y-4 rounded-3xl border border-[#E2E6EA] bg-white p-6 shadow-xs">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-lg">📋</span>
-              <h3 className="text-base font-extrabold text-[#1E242B]">
-                Historias Clínicas y Evoluciones
-              </h3>
-            </div>
-            <span className="text-xs text-[#8F99A3]">Seguimiento por procedimiento</span>
-          </div>
-
-          {isCoordinator ? (
-            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-center space-y-2">
-              <span className="text-2xl">🔒</span>
-              <p className="text-xs font-bold text-amber-800">
-                Acceso clínico restringido a profesionales de la salud
-              </p>
-              <p className="text-[13px] text-amber-700">
-                El perfil de Coordinadora de Atención (ROL-COA) no tiene permisos para consultar o auditar evoluciones clínicas (Ley 1581 / Res. 1995 de 1999).
-              </p>
-            </div>
-          ) : isHistoryLoading ? (
-            <div className="p-8 rounded-2xl bg-[#F8F9FA] border border-[#E2E6EA] text-center space-y-2">
-              <div className="w-5 h-5 mx-auto border-2 border-[#D4AF37] border-t-transparent rounded-full animate-spin" />
-              <p className="text-xs font-bold text-[#1E242B]">Cargando historial clínico...</p>
-            </div>
-          ) : history.length > 0 ? (
-            <div className="space-y-3">
-              <div className="space-y-2">
-                {history.map((item) => (
-                  <div
-                    key={item.idEvolucion}
-                    onClick={() => setSelectedEvolutionForView(item)}
-                    className="flex items-center justify-between p-3.5 rounded-xl border border-[#E2E6EA] bg-[#F8F9FA] hover:bg-white hover:border-[#D4AF37] transition-all cursor-pointer group shadow-xs"
-                  >
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-extrabold text-[#1E242B]">{item.fechaRegistro}</span>
-                        <Badge label="Solo Lectura" variant="neutral" size="sm" />
-                      </div>
-                      <p className="text-xs text-[#687380] mt-0.5">{item.profesional.nombreCompleto}</p>
-                      <p className="text-[13px] text-[#8F99A3] truncate max-w-xs">{item.procedimientoRealizado || item.motivoConsulta}</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedEvolutionForView(item);
-                      }}
-                      className="text-xs font-bold text-[#D4AF37] group-hover:text-[#B8942A] inline-flex items-center gap-1"
+            {/* Citas anteriores */}
+            <div className="space-y-2">
+              <h3 className="text-[14px] font-semibold text-[#64748B]">Citas anteriores</h3>
+              {pastAppointments.length > 0 ? (
+                <ul className="divide-y divide-[#F3F4F6]">
+                  {pastAppointments.map((appt) => (
+                    <li
+                      key={appt.idCita}
+                      className="flex min-w-0 flex-wrap items-start justify-between gap-2 py-3 first:pt-1"
                     >
-                      Ver Evolución 👁️
-                    </button>
-                  </div>
-                ))}
-              </div>
-              <div className="pt-2 text-right">
-                <button
-                  type="button"
-                  onClick={() => onViewClinicalHistoryDetail(history[0]?.idHistoriaClinica || 1)}
-                  className="text-xs font-bold text-[#687380] hover:text-[#1E242B] transition-colors"
-                >
-                  Ver expediente histórico completo →
-                </button>
-              </div>
+                      <div className="min-w-0">
+                        <p className="text-[14px] font-semibold text-[#1E242B]">{formatSlot(appt.bloques)}</p>
+                        <p className="text-break text-[13px] text-[#64748B]">
+                          {appt.titulo} · {appt.nombreProfesional}
+                        </p>
+                        <p className="text-[13px] text-[#64748B]">
+                          Agendado por: {appt.agendadoPor || 'Portal Web'}
+                        </p>
+                      </div>
+                      <StatusBadge tone={appointmentTone(appt.estado)}>{appt.estado}</StatusBadge>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <EmptyState>No registra citas anteriores finalizadas.</EmptyState>
+              )}
             </div>
+          </div>
+        </SectionCard>
+
+        <SectionCard
+          title="Historias Clínicas y Evoluciones"
+          icon={<ClipboardIcon />}
+          count={!isCoordinator && history.length > 0 ? `${history.length}` : undefined}
+          action={
+            !isCoordinator && history.length > 0 ? (
+              <SectionAction
+                onClick={() => onViewClinicalHistoryDetail(history[0]?.idHistoriaClinica || 1)}
+              >
+                Ver expediente histórico completo →
+              </SectionAction>
+            ) : undefined
+          }
+        >
+          {isCoordinator ? (
+            restrictedNotice(
+              'Acceso clínico restringido a profesionales de la salud',
+              'El perfil de Coordinadora de Atención (ROL-COA) no tiene permisos para consultar o auditar evoluciones clínicas (Ley 1581 / Res. 1995 de 1999).'
+            )
+          ) : isHistoryLoading ? (
+            <EmptyState>Cargando historial clínico...</EmptyState>
+          ) : history.length > 0 ? (
+            <ul className="space-y-2">
+              {history.map((item) => (
+                <li key={item.idEvolucion}>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedEvolutionForView(item)}
+                    className="group flex w-full min-w-0 flex-wrap items-center justify-between gap-2 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] p-3.5 text-left transition-colors hover:border-[#D4AF37] hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37]"
+                  >
+                    <span className="min-w-0">
+                      <span className="flex flex-wrap items-center gap-2">
+                        <span className="text-[14px] font-semibold text-[#1E242B]">{item.fechaRegistro}</span>
+                        <StatusBadge tone="neutral">Solo lectura</StatusBadge>
+                      </span>
+                      <span className="mt-0.5 block text-[13px] text-[#64748B]">
+                        {item.profesional.nombreCompleto}
+                      </span>
+                      <span className="text-break block text-[13px] text-[#64748B]">
+                        {item.procedimientoRealizado || item.motivoConsulta}
+                      </span>
+                    </span>
+                    <span className="text-[14px] font-semibold text-[#B8942A] group-hover:underline">
+                      Ver evolución →
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
           ) : (
-            <div className="rounded-2xl border border-dashed border-[#E2E6EA] p-6 text-center space-y-2">
-              <span className="text-2xl">📋</span>
-              <p className="text-xs font-semibold text-[#687380]">
-                No hay notas de evolución clínica registradas aún para este paciente.
-              </p>
-              <p className="text-[13px] text-[#8F99A3]">
-                Las evoluciones se registrarán automáticamente al atender una cita.
-              </p>
-            </div>
+            <EmptyState>
+              No hay notas de evolución clínica registradas aún para este paciente. Las evoluciones se
+              registran automáticamente al atender una cita.
+            </EmptyState>
           )}
-        </div>
+        </SectionCard>
       </div>
 
-      {/* Sección Inferior: Consentimientos Informados */}
-      <div className="rounded-3xl border border-[#E2E6EA] bg-white p-6 shadow-xs space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-lg">✍️</span>
-            <div>
-              <h3 className="text-base font-extrabold text-[#1E242B]">
-                Consentimientos Informados
-              </h3>
-              <p className="text-xs text-[#8F99A3]">
-                Documentación médico-legal validada y suscrita digitalmente.
-              </p>
-            </div>
-          </div>
-        </div>
-
+      {/* Consentimientos informados */}
+      <SectionCard
+        title="Consentimientos Informados"
+        icon={<FileTextIcon />}
+        count={!isCoordinator ? `${patientConsents.length} firmado${patientConsents.length !== 1 ? 's' : ''}` : undefined}
+        description="Documentación médico-legal validada y suscrita digitalmente."
+      >
         {isCoordinator ? (
-          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-center space-y-2">
-            <span className="text-2xl">🔒</span>
-            <p className="text-xs font-bold text-amber-800">
-              Gestión de consentimientos clínicos restringida
-            </p>
-            <p className="text-[13px] text-amber-700">
-              Solo el personal asistencial y odontólogos tratantes pueden visualizar y suscribir consentimientos informados médicos.
-            </p>
-          </div>
+          restrictedNotice(
+            'Gestión de consentimientos clínicos restringida',
+            'Solo el personal asistencial y odontólogos tratantes pueden visualizar y suscribir consentimientos informados médicos.'
+          )
         ) : isConsentsLoading ? (
-          <div className="p-4 rounded-2xl bg-[#F8F9FA] text-center text-xs text-[#687380]">
-            Cargando consentimientos...
-          </div>
+          <EmptyState>Cargando consentimientos...</EmptyState>
         ) : (
           <div className="space-y-6">
-            {/* Consentimientos Firmados */}
             <div>
-              <h4 className="text-xs font-extrabold uppercase tracking-wider text-[#687380] mb-3">
-                Consentimientos Firmados ({patientConsents.length})
-              </h4>
+              <h3 className="mb-3 text-[14px] font-semibold text-[#64748B]">
+                Consentimientos firmados ({patientConsents.length})
+              </h3>
               {patientConsents.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-[minmax(0,1fr)] gap-4 md:grid-cols-2 xl:grid-cols-3">
                   {patientConsents.map((c) => (
                     <div
                       key={c.idConsentimientoFirmado || c.idConsentimiento}
-                      className="rounded-2xl border border-[#E2E6EA] bg-[#F8F9FA] p-4 flex flex-col justify-between space-y-3"
+                      className="flex min-w-0 flex-col justify-between gap-3 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] p-4"
                     >
-                      <div>
-                        <div className="flex items-center justify-between">
-                          <Badge label={`v${c.version}.0`} variant="neutral" size="sm" />
-                          <Badge label="Firmado" variant="success" size="sm" />
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <StatusBadge tone="neutral">{`v${c.version}.0`}</StatusBadge>
+                          <StatusBadge tone="success">Firmado</StatusBadge>
                         </div>
-                        <h4 className="mt-2 text-xs font-extrabold text-[#1E242B]">
-                          {c.titulo}
-                        </h4>
-                        <p className="text-[13px] text-[#8F99A3] mt-1">
-                          {c.fechaFirma || 'Fecha registrada'} • {c.firmadoPor}
+                        <h4 className="text-break mt-2 text-[14px] font-semibold text-[#1E242B]">{c.titulo}</h4>
+                        <p className="mt-1 text-[13px] text-[#64748B]">
+                          {c.fechaFirma ? formatDateCO(c.fechaFirma) : 'Fecha registrada'} · {c.firmadoPor}
                         </p>
                       </div>
-                      <button
-                        type="button"
+                      <SectionAction
+                        className="self-end"
                         onClick={() => {
                           if (c.idConsentimientoFirmado) {
                             downloadConsentPdf(
@@ -570,24 +488,21 @@ export const PatientProfilePage: React.FC<PatientProfilePageProps> = ({
                             );
                           }
                         }}
-                        className="text-xs font-bold text-[#D4AF37] hover:underline self-end flex items-center gap-1 cursor-pointer"
                       >
-                        Descargar PDF 📄
-                      </button>
+                        Descargar PDF
+                      </SectionAction>
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="text-xs text-[#8F99A3] italic">El paciente no tiene consentimientos firmados aún.</p>
+                <EmptyState>El paciente no tiene consentimientos firmados aún.</EmptyState>
               )}
             </div>
 
-            {/* Plantillas Disponibles para Suscribir (RF-CON-001) */}
-            <div className="pt-4 border-t border-[#E2E6EA]">
-              <h4 className="text-xs font-extrabold uppercase tracking-wider text-[#687380] mb-3">
-                Plantillas Médicas Disponibles
-              </h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* Plantillas disponibles para suscribir (RF-CON-001) */}
+            <div className="border-t border-[#F3F4F6] pt-4">
+              <h3 className="mb-3 text-[14px] font-semibold text-[#64748B]">Plantillas médicas disponibles</h3>
+              <div className="grid grid-cols-[minmax(0,1fr)] gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {templates
                   // RF-CON-005 (ERS v1.3): a un menor solo se le toma la plantilla de menores (firma el acudiente);
                   // a un adulto, cualquiera excepto esa.
@@ -599,38 +514,30 @@ export const PatientProfilePage: React.FC<PatientProfilePageProps> = ({
                     return (
                       <div
                         key={tpl.idPlantilla}
-                        className="rounded-2xl border border-[#E2E6EA] bg-[#F8F9FA] p-4 flex flex-col justify-between space-y-3"
+                        className="flex min-w-0 flex-col justify-between gap-3 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] p-4"
                       >
-                        <div>
-                          <div className="flex items-center justify-between">
-                            <Badge label={`v${tpl.version}.0`} variant="neutral" size="sm" />
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <StatusBadge tone="neutral">{`v${tpl.version}.0`}</StatusBadge>
                             {alreadySigned ? (
-                              <Badge label="Ya suscrito" variant="neutral" size="sm" />
+                              <StatusBadge tone="neutral">Ya suscrito</StatusBadge>
                             ) : (
-                              <Badge label="Disponible" variant="info" size="sm" />
+                              <StatusBadge tone="info">Disponible</StatusBadge>
                             )}
                           </div>
-                          <h4 className="mt-2 text-xs font-extrabold text-[#1E242B]">
-                            {tpl.titulo}
-                          </h4>
-                          <p className="text-[13px] text-[#8F99A3] mt-1">
+                          <h4 className="text-break mt-2 text-[14px] font-semibold text-[#1E242B]">{tpl.titulo}</h4>
+                          <p className="mt-1 text-[13px] text-[#64748B]">
                             {alreadySigned
-                              ? `El paciente ya firmó este consentimiento el ${alreadySigned.fechaFirma || 'previamente'}`
+                              ? `El paciente ya firmó este consentimiento el ${alreadySigned.fechaFirma ? formatDateCO(alreadySigned.fechaFirma) : 'previamente'}`
                               : 'Listo para toma de consentimiento'}
                           </p>
                         </div>
                         {!alreadySigned ? (
-                          <button
-                            type="button"
-                            onClick={() => onSignConsent(tpl)}
-                            className="text-xs font-bold text-[#D4AF37] hover:underline self-end inline-flex items-center gap-1 cursor-pointer"
-                          >
-                            Tomar Firma ✍️
-                          </button>
+                          <DetailAction className="self-end" onClick={() => onSignConsent(tpl)}>
+                            Tomar firma
+                          </DetailAction>
                         ) : (
-                          <span className="text-[13px] text-[#137333] font-semibold self-end">
-                            ✓ Vigente
-                          </span>
+                          <span className="self-end text-[13px] font-semibold text-[#047857]">✓ Vigente</span>
                         )}
                       </div>
                     );
@@ -639,7 +546,7 @@ export const PatientProfilePage: React.FC<PatientProfilePageProps> = ({
             </div>
           </div>
         )}
-      </div>
+      </SectionCard>
 
       {/* Modal de Edición del Paciente */}
       <Modal
@@ -696,6 +603,6 @@ export const PatientProfilePage: React.FC<PatientProfilePageProps> = ({
 
       {/* Alerta modal en capa superior */}
       <AlertModalComponent />
-    </div>
+    </DetailPageContainer>
   );
 };

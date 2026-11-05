@@ -8,6 +8,16 @@ import {
   FileTextIcon,
   SearchIcon,
 } from '../../../../shared/ui/components/Icons';
+import {
+  DetailAction,
+  DetailPageContainer,
+  DetailPageHeader,
+  EmptyState,
+  SECTION_CARD_CLASS,
+  SectionCardHeader,
+  StatusBadge,
+} from '../../../../shared/ui/components/DetailPage';
+import { formatDateCO, formatDateTimeCO, formatTimeCO } from '../../../../shared/ui/format';
 
 export interface HolderDataQueryPageProps {
   patients?: PatientListItem[];
@@ -168,11 +178,18 @@ export const HolderDataQueryPage: React.FC<HolderDataQueryPageProps> = ({
     (data ? `Titular Doc. ${data.documentoConsultado}` : '');
 
   const cuvNumber = data ? `CUV-HD-${data.documentoConsultado}-${new Date().getFullYear()}` : '';
-  const fechaExpedicion = new Intl.DateTimeFormat('es-CO', {
-    timeZone: 'America/Bogota',
-    dateStyle: 'long',
-    timeStyle: 'medium',
-  }).format(new Date());
+  // RQNF-USA-002: DD/MM/AAAA hh:mm a. m./p. m.
+  const fechaExpedicion = formatDateTimeCO(new Date());
+
+  /** "AAAA-MM-DD HH:mm" o fecha ISO → "DD/MM/AAAA hh:mm a. m."; deja intacto lo que no sea fecha. */
+  const formatMaybeDateTime = (value?: string | null) => {
+    if (!value) return '';
+    const str = String(value).trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return formatDateCO(str);
+    if (/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}/.test(str)) return formatDateTimeCO(str);
+    if (/^\d{1,2}:\d{2}/.test(str)) return formatTimeCO(str);
+    return str;
+  };
 
   // Clases responsivas según el tamaño de hoja para previsualización en pantalla
   const getPaperSizeClass = () => {
@@ -190,7 +207,7 @@ export const HolderDataQueryPage: React.FC<HolderDataQueryPageProps> = ({
   };
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto p-4 sm:p-6 lg:p-8">
+    <DetailPageContainer className="space-y-6">
       {/* Reglas de impresión CSS profesionales y adaptables a Carta, A4 y Oficio */}
       <style
         dangerouslySetInnerHTML={{
@@ -242,95 +259,69 @@ export const HolderDataQueryPage: React.FC<HolderDataQueryPageProps> = ({
 
       {/* Barra Superior con Controles (no-print) */}
       <div className="no-print space-y-4">
-        {onBack && (
-          <button
-            type="button"
-            onClick={onBack}
-            className="inline-flex items-center gap-2 text-xs font-bold text-[#687380] hover:text-[#1E242B] transition-colors cursor-pointer"
-          >
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            Volver al Directorio de Pacientes
-          </button>
-        )}
-
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-[#E2E6EA]">
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-extrabold text-[#1E242B]">
-                Certificación de Datos del Titular (Habeas Data)
-              </h1>
-              <Badge label="Ley 1581 de 2012" variant="gold" size="sm" />
-            </div>
-            <p className="mt-1 text-xs text-[#687380]">
-              Módulo oficial de certificación de autodeterminación informativa y prueba de tratamiento de datos personales conforme al estándar legal colombiano (RF-HCL-010).
-            </p>
-          </div>
-
-          {/* Acciones de Exportación e Impresión */}
-          {data && (
-            <div className="flex flex-wrap items-center gap-2.5">
-              <Button
-                variant="primary"
-                onClick={handlePrint}
-                leftIcon={<PrinterIcon size={16} />}
-              >
-                Imprimir Certificado 🖨️
-              </Button>
-              <Button
-                variant="outline"
-                onClick={handleExportPDF}
-                leftIcon={<FileTextIcon size={16} />}
-              >
-                Descargar PDF 📥
-              </Button>
-            </div>
-          )}
-        </div>
+        <DetailPageHeader
+          backLabel={onBack ? 'Volver a Pacientes' : undefined}
+          onBack={onBack}
+          title="Certificación de Datos del Titular (Habeas Data)"
+          badge={<StatusBadge tone="gold">Ley 1581 de 2012</StatusBadge>}
+          subtitle="Módulo oficial de certificación de autodeterminación informativa y prueba de tratamiento de datos personales conforme al estándar legal colombiano (RF-HCL-010)."
+          actions={
+            data ? (
+              <>
+                <DetailAction onClick={handleExportPDF} leftIcon={<FileTextIcon size={16} />}>
+                  Descargar PDF
+                </DetailAction>
+                <DetailAction variant="primary" onClick={handlePrint} leftIcon={<PrinterIcon size={16} />}>
+                  Imprimir certificado
+                </DetailAction>
+              </>
+            ) : undefined
+          }
+        />
 
         {/* Panel de Selección de Paciente / Búsqueda (no-print) */}
-        <div className="rounded-2xl border border-[#E2E6EA] bg-white p-5 shadow-xs space-y-4">
-          <div className="flex items-center justify-between border-b border-[#E2E6EA] pb-3">
-            <div className="flex items-center gap-3">
+        <div className={`${SECTION_CARD_CLASS} space-y-4`}>
+          <SectionCardHeader title="Seleccionar Titular" icon={<SearchIcon />} />
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#F3F4F6] pb-3">
+            <div role="tablist" className="flex flex-wrap items-center gap-x-4 gap-y-1">
               <button
                 type="button"
                 onClick={() => setActiveTab('SELECT')}
-                className={`text-xs font-extrabold pb-1 cursor-pointer transition-colors border-b-2 ${
+                className={`min-h-[44px] text-[14px] font-semibold cursor-pointer transition-colors border-b-2 ${
                   activeTab === 'SELECT'
                     ? 'border-[#D4AF37] text-[#1E242B]'
                     : 'border-transparent text-[#687380] hover:text-[#1E242B]'
                 }`}
               >
-                👤 Seleccionar Titular del Directorio ({patients.length})
+                Titular del directorio ({patients.length})
               </button>
               <button
                 type="button"
                 onClick={() => setActiveTab('MANUAL')}
-                className={`text-xs font-extrabold pb-1 cursor-pointer transition-colors border-b-2 ${
+                className={`min-h-[44px] text-[14px] font-semibold cursor-pointer transition-colors border-b-2 ${
                   activeTab === 'MANUAL'
                     ? 'border-[#D4AF37] text-[#1E242B]'
                     : 'border-transparent text-[#687380] hover:text-[#1E242B]'
                 }`}
               >
-                🔍 Consultar por Documento Manual
+                Consulta manual por documento
               </button>
             </div>
 
             {/* Selector de Tamaño de Papel para Previsualización */}
-            <div className="flex items-center gap-2 text-xs">
-              <span className="font-bold text-[#687380]">Tamaño de hoja:</span>
+            <label className="flex flex-wrap items-center gap-2 text-[14px]">
+              <span className="font-semibold text-[#64748B]">Tamaño de hoja:</span>
               <select
                 value={paperSize}
                 onChange={(e) => setPaperSize(e.target.value as PaperSize)}
-                className="rounded-lg border border-[#E2E6EA] bg-[#F8F9FA] px-2.5 py-1 text-xs font-bold text-[#1E242B] focus:border-[#D4AF37] focus:outline-none"
+                className="min-h-[44px] max-w-full rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] px-2.5 text-[14px] font-semibold text-[#1E242B] focus:border-[#D4AF37] focus:outline-none md:min-h-[38px]"
               >
                 <option value="LETTER">Carta (US Letter - 8.5" × 11")</option>
                 <option value="A4">A4 (ISO 216 - 210 × 297 mm)</option>
                 <option value="LEGAL">Oficio / Legal (8.5" × 13/14")</option>
                 <option value="AUTO">Pantalla Completa</option>
               </select>
-            </div>
+            </label>
           </div>
 
           {activeTab === 'SELECT' ? (
@@ -345,7 +336,7 @@ export const HolderDataQueryPage: React.FC<HolderDataQueryPageProps> = ({
                     placeholder="Filtrar por nombre completo o documento de identidad..."
                     value={patientFilterTerm}
                     onChange={(e) => setPatientFilterTerm(e.target.value)}
-                    className="w-full pl-9 pr-4 py-2 rounded-xl border border-[#E2E6EA] text-xs text-[#1E242B] focus:border-[#D4AF37] focus:outline-none"
+                    className="w-full min-h-[44px] pl-9 pr-4 py-2 rounded-lg border border-[#E2E8F0] text-[14px] text-[#1E242B] focus:border-[#D4AF37] focus:outline-none"
                   />
                 </div>
 
@@ -353,7 +344,7 @@ export const HolderDataQueryPage: React.FC<HolderDataQueryPageProps> = ({
                   <select
                     value={selectedPatientDoc}
                     onChange={(e) => handleSelectPatient(e.target.value)}
-                    className="w-full py-2 px-3 rounded-xl border border-[#E2E6EA] text-xs font-semibold text-[#1E242B] bg-[#F8F9FA] focus:border-[#D4AF37] focus:outline-none"
+                    className="w-full min-h-[44px] py-2 px-3 rounded-lg border border-[#E2E8F0] text-[14px] font-semibold text-[#1E242B] bg-[#F8F9FA] focus:border-[#D4AF37] focus:outline-none"
                   >
                     <option value="">-- Elija un paciente para certificar --</option>
                     {filteredPatients.map((p) => (
@@ -374,7 +365,7 @@ export const HolderDataQueryPage: React.FC<HolderDataQueryPageProps> = ({
                       key={p.idPaciente}
                       type="button"
                       onClick={() => handleSelectPatient(p.documentoIdentidad)}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer border ${
+                      className={`min-h-[36px] px-2.5 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer border ${
                         selectedPatientDoc === p.documentoIdentidad
                           ? 'bg-[#111827] text-white border-[#111827]'
                           : 'bg-[#F8F9FA] text-[#1E242B] border-[#E2E6EA] hover:border-[#D4AF37]'
@@ -393,7 +384,7 @@ export const HolderDataQueryPage: React.FC<HolderDataQueryPageProps> = ({
                 placeholder="Ingrese número de documento de identidad exacto (sin puntos ni guiones)..."
                 value={manualDocumentQuery}
                 onChange={(e) => setManualDocumentQuery(e.target.value)}
-                className="flex-1 min-h-[42px] rounded-xl border border-[#E2E6EA] px-4 text-xs sm:text-sm text-[#1E242B] focus:border-[#D4AF37] focus:outline-none"
+                className="flex-1 min-w-0 min-h-[44px] rounded-lg border border-[#E2E8F0] px-4 text-[14px] text-[#1E242B] focus:border-[#D4AF37] focus:outline-none"
               />
               <Button type="submit" variant="primary" disabled={isLoading}>
                 {isLoading ? 'Consultando...' : 'Consultar Titular'}
@@ -414,9 +405,7 @@ export const HolderDataQueryPage: React.FC<HolderDataQueryPageProps> = ({
 
       {/* ESTADO DE CARGA */}
       {isLoading && (
-        <div className="p-12 text-center text-sm font-bold text-[#687380] animate-pulse">
-          Generando certificación oficial de Habeas Data...
-        </div>
+        <EmptyState>Generando certificación oficial de Habeas Data...</EmptyState>
       )}
 
       {/* DOCUMENTO PROFESIONAL DE HABEAS DATA */}
@@ -454,7 +443,7 @@ export const HolderDataQueryPage: React.FC<HolderDataQueryPageProps> = ({
                 <p className="text-[13px] font-extrabold text-[#111827] font-mono">
                   {cuvNumber}
                 </p>
-                <p className="text-[9.5px] text-[#687380]">
+                <p className="text-[13px] text-[#687380]">
                   Emisión: {fechaExpedicion}
                 </p>
                 <div className="pt-0.5">
@@ -496,7 +485,7 @@ export const HolderDataQueryPage: React.FC<HolderDataQueryPageProps> = ({
                 </div>
                 <div className="p-2.5 rounded-xl bg-[#F8F9FA] border border-[#E2E6EA]">
                   <span className="text-[13px] font-bold text-[#687380] block">Fecha de Nacimiento:</span>
-                  <span className="font-bold text-[#111827]">{paciente?.fechaNacimiento || 'No registrada'}</span>
+                  <span className="font-bold text-[#111827]">{paciente?.fechaNacimiento ? formatDateCO(paciente.fechaNacimiento) : 'No registrada'}</span>
                 </div>
                 <div className="p-2.5 rounded-xl bg-[#F8F9FA] border border-[#E2E6EA]">
                   <span className="text-[13px] font-bold text-[#687380] block">Sexo Biológico:</span>
@@ -508,7 +497,7 @@ export const HolderDataQueryPage: React.FC<HolderDataQueryPageProps> = ({
                 </div>
                 <div className="p-2.5 rounded-xl bg-[#F8F9FA] border border-[#E2E6EA]">
                   <span className="text-[13px] font-bold text-[#687380] block">Correo Electrónico:</span>
-                  <span className="font-bold text-[#111827] truncate block">{paciente?.correo || solicitantes[0]?.correoSolicitante || 'Sin correo registrado'}</span>
+                  <span className="font-bold text-[#111827] text-break block">{paciente?.correo || solicitantes[0]?.correoSolicitante || 'Sin correo registrado'}</span>
                 </div>
               </div>
             </div>
@@ -539,7 +528,7 @@ export const HolderDataQueryPage: React.FC<HolderDataQueryPageProps> = ({
                     <div className="space-y-1">
                       {solicitantes.map((sol: any, idx: number) => (
                         <p key={idx} className="text-[13px] text-[#687380] pl-2 border-l-2 border-[#111827]">
-                          Solicitud #{sol.idSolicitud} - Bloque: {sol.bloqueSolicitado} ({sol.estadoSolicitud})
+                          Solicitud #{sol.idSolicitud} - Bloque: {formatMaybeDateTime(sol.bloqueSolicitado)} ({sol.estadoSolicitud})
                         </p>
                       ))}
                     </div>
@@ -570,7 +559,7 @@ export const HolderDataQueryPage: React.FC<HolderDataQueryPageProps> = ({
                           {aut.tipo === 'CONSENTIMIENTO_FIRMADO'
                             ? `firmada${aut.firmadoPorAcudiente ? ' por acudiente' : ''}${aut.diligenciadoPor ? `, tomada por ${aut.diligenciadoPor}` : ''}`
                             : 'aceptada en la solicitud web (firma pendiente en el consultorio)'}{' '}
-                          ({aut.fechaHora || 'sin fecha'})
+                          ({formatMaybeDateTime(aut.fechaHora) || 'sin fecha'})
                         </span>
                       </div>
                     ))}
@@ -630,7 +619,7 @@ export const HolderDataQueryPage: React.FC<HolderDataQueryPageProps> = ({
                       {citas.map((c: any, idx: number) => (
                         <tr key={idx} className="hover:bg-[#F8F9FA]">
                           <td className="py-1.5 px-3 font-mono font-bold text-[#111827]">#{c.idCita}</td>
-                          <td className="py-1.5 px-3">{c.fechaHora || c.fecha || 'Fecha no registrada'}</td>
+                          <td className="py-1.5 px-3">{formatMaybeDateTime(c.fechaHora || c.fecha) || 'Fecha no registrada'}</td>
                           <td className="py-1.5 px-3">{c.servicio || c.titulo || 'Consulta Odontológica'}</td>
                           <td className="py-1.5 px-3">{c.profesional || 'Odontólogo Tratante'}</td>
                           <td className="py-1.5 px-3 text-right">
@@ -691,6 +680,6 @@ export const HolderDataQueryPage: React.FC<HolderDataQueryPageProps> = ({
           </div>
         </div>
       )}
-    </div>
+    </DetailPageContainer>
   );
 };

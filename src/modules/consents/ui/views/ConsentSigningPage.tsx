@@ -6,6 +6,14 @@ import React, { useState, useMemo } from 'react';
 import { SignaturePadCanvas } from '../components/SignaturePadCanvas';
 import { Button } from '../../../../shared/ui/components/Button';
 import { Badge } from '../../../../shared/ui/components/Badge';
+import { FileTextIcon, UserIcon } from '../../../../shared/ui/components/Icons';
+import {
+  DetailPageHeader,
+  SectionCard,
+  SectionCardHeader,
+  StatusBadge,
+  UserAvatar,
+} from '../../../../shared/ui/components/DetailPage';
 import { Input } from '../../../../shared/ui/components/Input';
 import { useAlertModal } from '../../../../shared/ui/hooks/useAlertModal';
 import { interpolateConsentTemplate } from '../../domain/consent-template-interpolator';
@@ -125,6 +133,14 @@ export const ConsentSigningPage: React.FC<ConsentSigningPageProps> = ({
     setIsSuccess(true);
   };
 
+  const handleExit = () => {
+    if (onExit) {
+      onExit();
+    } else if (typeof window !== 'undefined') {
+      window.history.back();
+    }
+  };
+
   if (isSuccess) {
     return (
       <div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center p-6 text-center">
@@ -151,50 +167,40 @@ export const ConsentSigningPage: React.FC<ConsentSigningPageProps> = ({
   return (
     <div className="min-h-screen bg-[#F8F9FA] text-[#1E242B] p-4 sm:p-6 lg:p-8 flex flex-col justify-between">
       <AlertModalComponent />
-      {/* Header Fijo Kiosco Tablet */}
-      <header className="max-w-4xl w-full mx-auto pb-4 border-b border-[#E2E6EA] flex flex-wrap items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-3">
-          <div className="h-10 w-10 shrink-0 rounded-2xl bg-[#111111] text-[#D4AF37] font-black flex items-center justify-center text-sm shadow-xs">
-            OL
-          </div>
-          <div className="min-w-0">
-            <h1 className="text-base font-extrabold text-[#1E242B] text-break">
-              Terminal Táctil de Consentimiento Informado
-            </h1>
-            <p className="text-xs text-[#687380]">
-              Consultorio OdontoLeal • Dr. Eduar Leal Álvarez
-            </p>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {activeIsMinor && <Badge label="Menor de Edad (Acudiente Obligatorio)" variant="neutral" size="sm" />}
-          <Badge label="Dispositivo Seguro" variant="gold" size="sm" />
-        </div>
-      </header>
+      <main className="max-w-4xl w-full min-w-0 mx-auto space-y-6">
+        <DetailPageHeader
+          backLabel="Volver a la Ficha del Paciente"
+          onBack={handleExit}
+          title="Firma de Consentimiento Informado"
+          badge={
+            <>
+              <StatusBadge tone="gold">Dispositivo seguro</StatusBadge>
+              {activeIsMinor && <StatusBadge tone="warning">Acudiente obligatorio</StatusBadge>}
+            </>
+          }
+          subtitle="Terminal táctil de lectura y firma · Consultorio OdontoLeal (RF-CON-001, RF-CON-002, RF-CON-005)."
+        />
 
-      {/* Contenido Central: Lectura y Firma */}
-      <main className="max-w-4xl w-full min-w-0 mx-auto my-6 space-y-6">
-        {/* Ficha del Titular */}
-        <div className="rounded-2xl border border-[#E2E6EA] bg-white p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
-          <div className="min-w-0">
-            <span className="text-[13px] font-extrabold uppercase text-[#687380]">
-              Paciente Titular
-            </span>
-            <p className="text-sm font-extrabold text-[#1E242B] text-break">
-              {activePatientName}
-            </p>
-            <p className="text-xs text-[#687380]">
-              Documento de Identidad: {activePatientDoc}
-            </p>
+        {/* Ficha del titular */}
+        <SectionCard
+          title="Paciente Titular"
+          icon={<UserIcon />}
+          action={<StatusBadge tone="neutral">{activeIsMinor ? 'Menor de 18 años' : 'Adulto'}</StatusBadge>}
+        >
+          <div className="flex min-w-0 items-center gap-4">
+            <UserAvatar name={activePatientName} size="md" />
+            <div className="min-w-0">
+              <p className="text-break text-[18px] font-bold leading-6 text-[#1E242B]">{activePatientName}</p>
+              {activePatientDoc && (
+                <p className="mt-0.5 text-[14px] text-[#64748B]">Documento: {activePatientDoc}</p>
+              )}
+            </div>
           </div>
-          <Badge label={activeIsMinor ? 'Menor de 18 años' : 'Adulto'} variant="neutral" />
-        </div>
+        </SectionCard>
 
         {/* Texto Legal del Consentimiento */}
-        <div className="rounded-3xl border border-[#E2E6EA] bg-white p-4 sm:p-6 shadow-xs space-y-4">
-          <h2 className="text-base font-extrabold text-[#1E242B] text-break">
-            {activeTitle}
-          </h2>
+        <div className="rounded-xl border border-[#E2E8F0] bg-white px-4 py-5 sm:px-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)] space-y-4">
+          <SectionCardHeader title={activeTitle} icon={<FileTextIcon />} />
           <div className="max-h-60 overflow-y-auto rounded-2xl bg-[#F8F9FA] border border-[#E2E6EA] p-4 text-sm leading-relaxed text-[#1E242B] space-y-3">
             <div className="whitespace-pre-line text-break">{interpolatedText}</div>
             <p className="text-[13px] text-[#687380] italic pt-2 border-t border-[#E2E6EA]">
@@ -250,22 +256,21 @@ export const ConsentSigningPage: React.FC<ConsentSigningPageProps> = ({
 
         {/* Lienzo de Firma Digital (RQNF-COM-002: controles >= 44x44px) */}
         {!isRejecting ? (
-          <div className="min-w-0 rounded-3xl border border-[#E2E6EA] bg-white p-4 sm:p-6 shadow-xs space-y-3">
-            <div className="flex flex-wrap items-start justify-between gap-2">
-              <div className="min-w-0">
-                <h3 className="text-xs font-extrabold uppercase tracking-wider text-[#1E242B] text-break">
-                  {isGuardianSigning
-                    ? `Firma del acudiente / representante legal del paciente ${activePatientName}`
-                    : 'Firma del paciente'}
-                </h3>
-                <p className="text-[13px] text-[#687380]">
-                  Realice su trazo manuscrito en el recuadro con el dedo, lápiz óptico o mouse (RF-CON-002 / RF-CON-005)
-                </p>
-              </div>
-              {signatureData && (
-                <Badge label="Firma capturada ✓" variant="success" size="sm" />
-              )}
-            </div>
+          <div className="min-w-0 rounded-xl border border-[#E2E8F0] bg-white px-4 py-5 sm:px-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)] space-y-3">
+            <SectionCardHeader
+              title={
+                isGuardianSigning
+                  ? `Firma del Acudiente / Representante Legal de ${activePatientName}`
+                  : 'Firma del Paciente'
+              }
+              icon={
+                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                </svg>
+              }
+              description="Realice su trazo manuscrito en el recuadro con el dedo, lápiz óptico o mouse (RF-CON-002 / RF-CON-005)."
+              action={signatureData ? <StatusBadge tone="success">Firma capturada</StatusBadge> : undefined}
+            />
 
             <SignaturePadCanvas
               onSaveSignature={(data) => setSignatureData(data)}
@@ -274,7 +279,7 @@ export const ConsentSigningPage: React.FC<ConsentSigningPageProps> = ({
           </div>
         ) : (
           <div className="rounded-3xl border border-[#DC2626] bg-[#FEF2F2] p-4 sm:p-6 shadow-xs space-y-3">
-            <h3 className="text-xs font-extrabold uppercase tracking-wider text-[#DC2626]">
+            <h3 className="text-[16px] font-bold leading-6 text-[#B91C1C]">
               Constancia de No Aceptación / Disentimiento
             </h3>
             <p className="text-xs text-[#687380]">
@@ -298,13 +303,7 @@ export const ConsentSigningPage: React.FC<ConsentSigningPageProps> = ({
             type="button"
             variant="outline"
             className="min-h-[48px] min-w-[44px] w-full sm:w-auto px-6 text-xs font-extrabold text-[#687380] border-[#CBD2D9] hover:bg-[#F8F9FA] hover:text-[#1E242B]"
-            onClick={() => {
-              if (onExit) {
-                onExit();
-              } else if (typeof window !== 'undefined') {
-                window.history.back();
-              }
-            }}
+            onClick={handleExit}
             leftIcon={<span>←</span>}
           >
             Salir

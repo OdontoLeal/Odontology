@@ -41,9 +41,9 @@ export const AnamnesisTab: React.FC<AnamnesisTabProps> = ({
   };
 
   return (
-    <div className="rounded-3xl border border-[#E7E7E3] bg-white p-6 shadow-xs space-y-6">
-      <div className="pb-3 border-b border-[#E7E7E3]">
-        <h3 className="text-base font-black text-[#111111]">1. Anamnesis (Interrogatorio)</h3>
+    <div className="rounded-xl border border-[#E2E8F0] bg-white px-4 py-5 sm:px-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)] space-y-6">
+      <div className="pb-3 border-b border-[#F3F4F6]">
+        <h3 className="text-[16px] font-bold leading-6 text-[#1E242B]">1. Anamnesis (Interrogatorio)</h3>
         <p className="text-xs text-[#687380]">
           Registro de la información aportada directamente por el paciente al inicio de la valoración o tratamiento odontológico.
         </p>

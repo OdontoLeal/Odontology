@@ -1,5 +1,7 @@
 // src/modules/appointments/ui/components/AppointmentDetailModal.tsx
 import React, { useState } from 'react';
+import { UserAvatar } from '../../../../shared/ui/components/DetailPage';
+import { formatLongDateCO, formatTimeRangeCO } from '../../../../shared/ui/format';
 import { Modal } from '../../../../shared/ui/components/Modal';
 import { Button } from '../../../../shared/ui/components/Button';
 import { Badge } from '../../../../shared/ui/components/Badge';
@@ -123,7 +125,7 @@ export const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
           />
         </div>
       }
-      subtitle={`📅 ${appointment.fecha} • ${appointment.horaInicio} - ${appointment.horaFin} • Sillón: ${appointment.sillon || 'Gabinete 02'} • Agendado por: ${appointment.agendadoPor || 'Portal Web'}`}
+      subtitle={`📅 ${formatLongDateCO(appointment.fecha)} · ${formatTimeRangeCO(appointment.horaInicio, appointment.horaFin)} • Sillón: ${appointment.sillon || 'Gabinete 02'} • Agendado por: ${appointment.agendadoPor || 'Portal Web'}`}
       maxWidth="4xl"
       footer={
         <div className="flex items-center gap-3">
@@ -262,13 +264,7 @@ export const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
             Información del Paciente
           </span>
           <div className="flex items-center gap-4">
-            <div className="h-12 w-12 rounded-xl bg-[#1E242B] text-[#D4AF37] font-bold flex items-center justify-center flex-shrink-0">
-              {appointment.nombrePaciente
-                .split(' ')
-                .slice(0, 2)
-                .map((w) => w[0])
-                .join('')}
-            </div>
+            <UserAvatar name={appointment.nombrePaciente} size="md" />
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 flex-1 text-xs">
               <div>
                 <span className="text-[#8F99A3]">Nombre:</span>

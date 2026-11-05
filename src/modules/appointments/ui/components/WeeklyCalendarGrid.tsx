@@ -1,5 +1,6 @@
 // src/modules/appointments/ui/components/WeeklyCalendarGrid.tsx
 import React from 'react';
+import { formatTimeCO } from '../../../../shared/ui/format';
 import {
   CalendarIcon,
   ClockIcon,
@@ -138,7 +139,7 @@ export const WeeklyCalendarGrid: React.FC<WeeklyCalendarGridProps> = ({
           <div className="w-6 h-6 border-3 border-[#D4AF37] border-t-transparent rounded-full animate-spin" />
         </div>
         <div>
-          <h3 className="text-base font-extrabold text-[#1E242B]">
+          <h3 className="text-[16px] font-bold leading-6 text-[#1E242B]">
             Cargando bloques de horario...
           </h3>
           <p className="mt-1 text-xs text-[#687380] max-w-md mx-auto">
@@ -170,7 +171,7 @@ export const WeeklyCalendarGrid: React.FC<WeeklyCalendarGridProps> = ({
           <CalendarIcon size={24} color="#D4AF37" />
         </div>
         <div>
-          <h3 className="text-base font-extrabold text-[#1E242B]">
+          <h3 className="text-[16px] font-bold leading-6 text-[#1E242B]">
             No hay bloques de horario generados para este día
           </h3>
           <p className="mt-1 text-xs text-[#687380] max-w-md mx-auto leading-relaxed">
@@ -214,9 +215,9 @@ export const WeeklyCalendarGrid: React.FC<WeeklyCalendarGridProps> = ({
           return (
             <div key={slot.idBloque} className="flex min-w-0 items-center gap-2 sm:gap-4">
               {/* Horario a la izquierda */}
-              <div className="w-12 shrink-0 text-center sm:w-16 font-extrabold text-[#1E242B] text-sm select-none">
-                <div className="leading-tight">{slot.horaInicio}</div>
-                <div className="text-xs text-[#8F99A3] font-semibold mt-0.5">{slot.horaFin}</div>
+              <div className="w-[68px] shrink-0 text-center sm:w-20 font-extrabold text-[#1E242B] text-sm select-none">
+                <div className="leading-tight">{formatTimeCO(slot.horaInicio)}</div>
+                <div className="text-xs text-[#8F99A3] font-semibold mt-0.5">{formatTimeCO(slot.horaFin)}</div>
               </div>
 
               {/* Tarjeta de Cita con Borde Izquierdo Dorado */}
@@ -265,9 +266,9 @@ export const WeeklyCalendarGrid: React.FC<WeeklyCalendarGridProps> = ({
         return (
           <div key={slot.idBloque} className="flex min-w-0 items-center gap-2 sm:gap-4">
             {/* Horario a la izquierda */}
-            <div className="w-12 shrink-0 text-center sm:w-16 font-extrabold text-[#8F99A3] text-sm select-none">
-              <div className="leading-tight">{slot.horaInicio}</div>
-              <div className="text-xs text-[#CBD2D9] font-medium mt-0.5">{slot.horaFin}</div>
+            <div className="w-[68px] shrink-0 text-center sm:w-20 font-extrabold text-[#8F99A3] text-sm select-none">
+              <div className="leading-tight">{formatTimeCO(slot.horaInicio)}</div>
+              <div className="text-xs text-[#CBD2D9] font-medium mt-0.5">{formatTimeCO(slot.horaFin)}</div>
             </div>
 
             {/* Tarjeta: Sin cita asignada vs Bloque no habilitado */}
