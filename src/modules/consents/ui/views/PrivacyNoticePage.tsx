@@ -17,7 +17,7 @@ export const PrivacyNoticePage: React.FC<PrivacyNoticePageProps> = ({ onBack, on
     <div className="min-h-screen bg-[#F8F9FA] p-6 flex justify-center">
       <article className="max-w-3xl w-full rounded-3xl bg-white border border-[#E2E6EA] border-t-4 border-t-[#D4AF37] p-8 shadow-sm space-y-5">
         <header className="space-y-1">
-          <p className="text-[11px] font-bold uppercase tracking-widest text-[#D4AF37]">Ley 1581 de 2012 · Decreto 1377 de 2013</p>
+          <p className="text-[13px] font-bold uppercase tracking-widest text-[#D4AF37]">Ley 1581 de 2012 · Decreto 1377 de 2013</p>
           <h1 className="text-2xl font-extrabold text-[#1E242B]">
             {notice?.nombre ?? 'Aviso de privacidad y política de tratamiento de datos'}
           </h1>

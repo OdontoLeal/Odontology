@@ -112,7 +112,7 @@ export const RequestReviewModal: React.FC<RequestReviewModalProps> = ({
         {/* Fecha y Horario */}
         <div className="rounded-2xl border border-[#E2E6EA] p-4 bg-[#F8F9FA] grid grid-cols-2 gap-4">
           <div>
-            <span className="text-[11px] font-extrabold uppercase text-[#8F99A3]">
+            <span className="text-[13px] font-extrabold uppercase text-[#8F99A3]">
               Fecha Solicitada
             </span>
             <p className="text-sm font-extrabold text-[#1E242B] mt-0.5">
@@ -120,7 +120,7 @@ export const RequestReviewModal: React.FC<RequestReviewModalProps> = ({
             </p>
           </div>
           <div>
-            <span className="text-[11px] font-extrabold uppercase text-[#8F99A3]">
+            <span className="text-[13px] font-extrabold uppercase text-[#8F99A3]">
               Hora Solicitada
             </span>
             <p className="text-sm font-extrabold text-[#1E242B] mt-0.5">

@@ -75,11 +75,11 @@ export const AppointmentConsentsCard: React.FC<AppointmentConsentsCardProps> = (
                   {c.nombre_plantilla || c.nombre_documento || c.title || 'Consentimiento Odontológico'}
                 </h4>
                 <div className="mt-1 flex items-center gap-2">
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#F3F4F6] text-[#687380] text-[11px] font-semibold">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#F3F4F6] text-[#687380] text-[13px] font-semibold">
                     ⚪ {c.firmado ? 'Firmado' : 'Sin firmar'}
                   </span>
                   {c.fecha_creacion && (
-                    <span className="text-[11px] text-[#8F99A3]">{String(c.fecha_creacion).split('T')[0]}</span>
+                    <span className="text-[13px] text-[#8F99A3]">{String(c.fecha_creacion).split('T')[0]}</span>
                   )}
                 </div>
               </div>

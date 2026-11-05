@@ -304,7 +304,7 @@ export const AppointmentRequestDetailPage: React.FC<AppointmentRequestDetailPage
                 Estamos registrando la cita en la base de datos, ocupando los bloques seleccionados y enviando las confirmaciones por correo electrónico al paciente y al doctor...
               </p>
             </div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#F3F4F6] text-[11px] font-semibold text-[#8F99A3]">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#F3F4F6] text-[13px] font-semibold text-[#8F99A3]">
               <span className="h-2 w-2 rounded-full bg-[#D4AF37] animate-pulse"></span>
               Por favor espere un momento
             </div>
@@ -404,7 +404,7 @@ export const AppointmentRequestDetailPage: React.FC<AppointmentRequestDetailPage
 
             <div className="rounded-2xl border border-[#E2E6EA] bg-[#F8F9FA] p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div>
-                <span className="text-[11px] font-extrabold uppercase text-[#8F99A3] tracking-wider flex items-center gap-1.5">
+                <span className="text-[13px] font-extrabold uppercase text-[#8F99A3] tracking-wider flex items-center gap-1.5">
                   <svg className="w-3.5 h-3.5 text-[#D4AF37]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                   </svg>
@@ -416,7 +416,7 @@ export const AppointmentRequestDetailPage: React.FC<AppointmentRequestDetailPage
               </div>
 
               <div className="sm:text-right">
-                <span className="text-[11px] font-extrabold uppercase text-[#8F99A3] tracking-wider flex items-center sm:justify-end gap-1.5">
+                <span className="text-[13px] font-extrabold uppercase text-[#8F99A3] tracking-wider flex items-center sm:justify-end gap-1.5">
                   <svg className="w-3.5 h-3.5 text-[#D4AF37]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
@@ -536,7 +536,7 @@ export const AppointmentRequestDetailPage: React.FC<AppointmentRequestDetailPage
                   DNI: {formatDni(request.documentoIdentidad)}
                 </p>
                 <div className="mt-1.5">
-                  <span className="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-[#F3F4F6] text-[#4B5563]">
+                  <span className="inline-block px-2.5 py-0.5 rounded-full text-[13px] font-semibold bg-[#F3F4F6] text-[#4B5563]">
                     {request.sexo || 'Femenino'} • {request.edad || 29} años
                   </span>
                 </div>
@@ -551,7 +551,7 @@ export const AppointmentRequestDetailPage: React.FC<AppointmentRequestDetailPage
                   </svg>
                 </div>
                 <div>
-                  <span className="block text-[10px] font-extrabold uppercase text-[#8F99A3]">
+                  <span className="block text-[13px] font-extrabold uppercase text-[#8F99A3]">
                     Teléfono Móvil
                   </span>
                   <span className="font-bold text-[#1E242B]">
@@ -567,7 +567,7 @@ export const AppointmentRequestDetailPage: React.FC<AppointmentRequestDetailPage
                   </svg>
                 </div>
                 <div>
-                  <span className="block text-[10px] font-extrabold uppercase text-[#8F99A3]">
+                  <span className="block text-[13px] font-extrabold uppercase text-[#8F99A3]">
                     Correo Electrónico
                   </span>
                   <span className="font-bold text-[#1E242B] break-all">

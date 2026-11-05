@@ -304,7 +304,7 @@ export const ActiveConsultationPage: React.FC<ActiveConsultationPageProps> = ({
             <strong className="font-black text-[#926C15] block">
               Precarga Automática de la Consulta Anterior ({previousEvolution.fechaRegistro})
             </strong>
-            <p className="text-[#687380] text-[11px] mt-0.5">
+            <p className="text-[#687380] text-[13px] mt-0.5">
               Se han precargado los antecedentes clínicos, hábitos higiénicos, examen físico estomatognático y el último odontograma registrado en el historial médico del paciente. Cada evolución es independiente y se guardará como un registro nuevo para esta cita.
             </p>
           </div>

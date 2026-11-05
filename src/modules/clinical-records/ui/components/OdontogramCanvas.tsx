@@ -218,7 +218,7 @@ export const OdontogramCanvas: React.FC<OdontogramCanvasProps> = ({
     return (
       <div key={toothKey} className="flex flex-col items-center p-1 select-none shrink-0">
         {/* Código FDI */}
-        <span className="text-[10px] font-extrabold text-[#687380] mb-0.5">
+        <span className="text-[13px] font-extrabold text-[#687380] mb-0.5">
           {toothKey}
         </span>
 
@@ -350,7 +350,7 @@ export const OdontogramCanvas: React.FC<OdontogramCanvasProps> = ({
         {tooth.nota_clinica?.descripcion && (
           <span
             title={tooth.nota_clinica.descripcion}
-            className="text-[9px] text-[#D4AF37] font-extrabold cursor-pointer mt-0.5"
+            className="text-[13px] text-[#D4AF37] font-extrabold cursor-pointer mt-0.5"
             onClick={() => {
               setSelectedToothForNote(Number(toothKey));
               setToothNoteInput(tooth.nota_clinica?.descripcion || '');
@@ -370,7 +370,7 @@ export const OdontogramCanvas: React.FC<OdontogramCanvasProps> = ({
         <div className="rounded-2xl border border-[#E2E6EA] bg-[#F8F9FA] p-3 space-y-3">
           {/* Fila 1: Patologías y Colores */}
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[11px] font-extrabold uppercase text-[#687380] mr-1">
+            <span className="text-[13px] font-extrabold uppercase text-[#687380] mr-1">
               Patología / Color:
             </span>
             <button
@@ -436,7 +436,7 @@ export const OdontogramCanvas: React.FC<OdontogramCanvasProps> = ({
 
           {/* Fila 2: Símbolos Técnicos */}
           <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-[#E2E6EA]">
-            <span className="text-[11px] font-extrabold uppercase text-[#687380] mr-1">
+            <span className="text-[13px] font-extrabold uppercase text-[#687380] mr-1">
               Símbolos Técnicos:
             </span>
             <button
@@ -502,7 +502,7 @@ export const OdontogramCanvas: React.FC<OdontogramCanvasProps> = ({
       <div className="rounded-3xl border border-[#CBD2D9] bg-white p-4 overflow-x-auto shadow-inner space-y-4">
         {/* Maxilar Superior (Cuadrante 1 y Cuadrante 2) */}
         <div className="w-max min-w-full mx-auto px-2">
-          <div className="flex justify-between text-[11px] font-extrabold text-[#8F99A3] pb-1 px-2">
+          <div className="flex justify-between text-[13px] font-extrabold text-[#8F99A3] pb-1 px-2">
             <span>CUADRANTE 1 — MAXILAR SUPERIOR DERECHO</span>
             <span>CUADRANTE 2 — MAXILAR SUPERIOR IZQUIERDO</span>
           </div>
@@ -524,7 +524,7 @@ export const OdontogramCanvas: React.FC<OdontogramCanvasProps> = ({
         </div>
 
         {/* Línea Oclusal Media */}
-        <div className="text-center text-[10px] font-extrabold text-[#D4AF37] uppercase tracking-widest">
+        <div className="text-center text-[13px] font-extrabold text-[#D4AF37] uppercase tracking-widest">
           • LÍNEA OCLUSAL MEDIA FDI •
         </div>
 
@@ -545,7 +545,7 @@ export const OdontogramCanvas: React.FC<OdontogramCanvasProps> = ({
             </div>
           </div>
 
-          <div className="flex justify-between text-[11px] font-extrabold text-[#8F99A3] pt-2 px-2 border-t border-[#CBD2D9]">
+          <div className="flex justify-between text-[13px] font-extrabold text-[#8F99A3] pt-2 px-2 border-t border-[#CBD2D9]">
             <span>CUADRANTE 4 — MANDÍBULA INFERIOR DERECHA</span>
             <span>CUADRANTE 3 — MANDÍBULA INFERIOR IZQUIERDA</span>
           </div>

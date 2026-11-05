@@ -60,7 +60,7 @@ export const AppointmentHistoryCard: React.FC<AppointmentHistoryCardProps> = ({
             <div key={i} className="py-3.5 flex items-center justify-between gap-4 text-xs">
               <div>
                 <span className="font-bold text-[#1E242B]">{h.title}</span>
-                {h.doctor && <span className="block text-[11px] text-[#687380] mt-0.5">{h.doctor}</span>}
+                {h.doctor && <span className="block text-[13px] text-[#687380] mt-0.5">{h.doctor}</span>}
               </div>
               <div className="flex items-center gap-4 shrink-0">
                 <span className="text-[#687380] font-medium">{h.fecha}</span>

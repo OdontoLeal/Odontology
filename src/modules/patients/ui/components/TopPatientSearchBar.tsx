@@ -157,7 +157,7 @@ export const TopPatientSearchBar: React.FC<TopPatientSearchBarProps> = ({
   };
 
   return (
-    <div ref={containerRef} className="relative w-full max-w-md">
+    <div ref={containerRef} className="relative w-full min-w-0 md:max-w-md">
       {/* Icono Buscador / Spinner */}
       <span
         className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#D4AF37]"
@@ -188,7 +188,7 @@ export const TopPatientSearchBar: React.FC<TopPatientSearchBarProps> = ({
         aria-expanded={isOpen}
         aria-autocomplete="list"
         role="combobox"
-        className="w-full min-h-[42px] rounded-xl border border-[#E2E6EA] bg-[#F8F9FA]/70 pl-10 pr-9 py-2 text-[13px] sm:text-sm text-[#1E242B] placeholder-[#94A3B8] focus:border-[#D4AF37] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/20 transition-all shadow-2xs"
+        className="w-full min-h-[44px] rounded-xl border border-[#E2E6EA] bg-[#F8F9FA]/70 pl-10 pr-9 py-2 text-[13px] sm:text-sm text-[#1E242B] placeholder-[#94A3B8] focus:border-[#D4AF37] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/20 transition-all shadow-2xs"
       />
 
       {/* Botón de limpiar búsqueda */}
@@ -197,7 +197,7 @@ export const TopPatientSearchBar: React.FC<TopPatientSearchBarProps> = ({
           type="button"
           onClick={handleClear}
           aria-label="Limpiar búsqueda rápida"
-          className="absolute right-2.5 top-1/2 -translate-y-1/2 flex h-6 w-6 items-center justify-center rounded-md text-[#94A3B8] hover:text-[#1E242B] hover:bg-gray-100 transition-colors"
+          className="absolute right-2.5 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-md text-[#94A3B8] hover:text-[#1E242B] hover:bg-gray-100 transition-colors"
         >
           ✕
         </button>
@@ -207,7 +207,7 @@ export const TopPatientSearchBar: React.FC<TopPatientSearchBarProps> = ({
       {isOpen && (
         <div className="absolute left-0 right-0 top-full mt-2 z-50 rounded-2xl border border-[#E2E6EA] bg-white shadow-2xl overflow-hidden animate-fadeIn">
           {/* Header de sugerencias */}
-          <div className="px-4 py-2 bg-[#F8F9FA] border-b border-[#E2E6EA] flex items-center justify-between text-[11px] font-bold text-[#8F99A3]">
+          <div className="px-4 py-2 bg-[#F8F9FA] border-b border-[#E2E6EA] flex items-center justify-between text-[13px] font-bold text-[#8F99A3]">
             <span>Sugerencias de pacientes</span>
             <span>{suggestions.length} {suggestions.length === 1 ? 'coincidencia' : 'coincidencias'}</span>
           </div>
@@ -251,7 +251,7 @@ export const TopPatientSearchBar: React.FC<TopPatientSearchBarProps> = ({
                         </strong>
                         <Badge label={`CC ${patient.documentoIdentidad}`} variant="neutral" size="sm" />
                         {patient.edad !== undefined && (
-                          <span className="text-[10px] text-[#687380] font-semibold">
+                          <span className="text-[13px] text-[#687380] font-semibold">
                             ({patient.edad} años)
                           </span>
                         )}
@@ -259,7 +259,7 @@ export const TopPatientSearchBar: React.FC<TopPatientSearchBarProps> = ({
                           <Badge label="Incompleto" variant="warning" size="sm" />
                         )}
                       </div>
-                      <div className="flex items-center gap-3 text-[11px] text-[#687380] mt-0.5 truncate">
+                      <div className="flex items-center gap-3 text-[13px] text-[#687380] mt-0.5 truncate">
                         {patient.telefono && <span>📞 +57 {patient.telefono}</span>}
                         {patient.correo && <span className="truncate">✉️ {patient.correo}</span>}
                       </div>
@@ -277,7 +277,7 @@ export const TopPatientSearchBar: React.FC<TopPatientSearchBarProps> = ({
             <div className="p-6 text-center text-xs text-[#8F99A3] space-y-1">
               <span className="text-xl block">🔍</span>
               <p className="font-bold text-[#1E242B]">No se encontraron pacientes</p>
-              <p className="text-[11px]">
+              <p className="text-[13px]">
                 No hay resultados para "{query}". Verifique el documento o nombre ingresado.
               </p>
             </div>
@@ -285,7 +285,7 @@ export const TopPatientSearchBar: React.FC<TopPatientSearchBarProps> = ({
 
           {/* Footer de Ayuda */}
           {suggestions.length > 0 && (
-            <div className="px-4 py-1.5 bg-[#F8F9FA] border-t border-[#E2E6EA] text-[10px] text-[#94A3B8] flex justify-between items-center">
+            <div className="px-4 py-1.5 bg-[#F8F9FA] border-t border-[#E2E6EA] text-[13px] text-[#94A3B8] flex justify-between items-center">
               <span>Navegue con ↑ ↓ y presione Enter</span>
               <span className="font-semibold text-[#D4AF37]">OdontoLeal Búsqueda Rápida</span>
             </div>

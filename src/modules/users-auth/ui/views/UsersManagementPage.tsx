@@ -458,7 +458,7 @@ export const UsersManagementPage: React.FC<UsersManagementPageProps> = ({
           aria-label="Buscar por nombre, especialidad, documento o correo"
         />
 
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex w-full flex-col items-stretch gap-3 md:w-auto md:flex-row md:flex-wrap md:items-center">
           <ToolbarSegmented
             aria-label="Filtrar por estado del usuario"
             value={estadoFilter}
@@ -470,7 +470,7 @@ export const UsersManagementPage: React.FC<UsersManagementPageProps> = ({
             value={rolIdFilter}
             onChange={(e) => setRolIdFilter(e.target.value)}
             aria-label="Filtrar por rol"
-            className="w-52"
+            className="w-full md:w-52"
           >
             <option value="ALL">Todos los roles</option>
             {roles
@@ -595,7 +595,7 @@ export const UsersManagementPage: React.FC<UsersManagementPageProps> = ({
                     <div className="flex flex-wrap items-center gap-2">
                       <h2
                         title={user.nombreCompleto}
-                        className={`min-w-0 max-w-full truncate text-[15px] font-bold leading-snug ${
+                        className={`text-break max-w-full text-[15px] font-bold leading-snug ${
                           isInactive ? 'text-[#94A3B8]' : 'text-[#1E242B]'
                         }`}
                       >
@@ -605,7 +605,7 @@ export const UsersManagementPage: React.FC<UsersManagementPageProps> = ({
                       {activeRoles.map((role) => (
                         <span
                           key={role.idRol}
-                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-bold ${getRoleBadgeStyle(
+                          className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[13px] font-bold ${getRoleBadgeStyle(
                             role.nombreRol,
                             user.estado
                           )}`}
@@ -615,7 +615,7 @@ export const UsersManagementPage: React.FC<UsersManagementPageProps> = ({
                       ))}
 
                       {isInactive && (
-                        <span className="inline-flex items-center rounded-md bg-[#FEE2E2] px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-[#B91C1C]">
+                        <span className="inline-flex items-center rounded-md bg-[#FEE2E2] px-2 py-0.5 text-[13px] font-extrabold uppercase tracking-wider text-[#B91C1C]">
                           INACTIVO
                         </span>
                       )}
@@ -651,12 +651,12 @@ export const UsersManagementPage: React.FC<UsersManagementPageProps> = ({
                         <span className="font-semibold text-[#94A3B8]" aria-hidden="true">
                           @
                         </span>
-                        <span className="min-w-0 truncate" title={user.correo}>
+                        <span className="text-break" title={user.correo}>
                           {user.correo}
                         </span>
                       </span>
 
-                      <span className="inline-flex items-center gap-1 text-[12px] font-mono text-[#94A3B8]">
+                      <span className="inline-flex items-center gap-1 text-[13px] font-mono text-[#94A3B8]">
                         • Doc: {user.documentoIdentidad}
                       </span>
                     </div>
@@ -664,7 +664,7 @@ export const UsersManagementPage: React.FC<UsersManagementPageProps> = ({
                 </div>
 
                 {/* Derecha: Botones Editar y Desactivar / Reactivar */}
-                <div className="flex items-center gap-2.5 self-end sm:self-center shrink-0">
+                <div className="flex w-full flex-wrap items-center gap-2 md:w-auto md:shrink-0 md:justify-end [&>*]:flex-[1_1_auto] md:[&>*]:flex-none">
                   <button
                     type="button"
                     onClick={() => handleOpenEditModal(user)}

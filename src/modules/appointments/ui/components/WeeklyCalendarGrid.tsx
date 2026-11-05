@@ -212,9 +212,9 @@ export const WeeklyCalendarGrid: React.FC<WeeklyCalendarGridProps> = ({
         // CASO 1: BLOQUE CON CITA O SOLICITUD ASIGNADA (Imagen 3)
         if (hasAppointment || isPending) {
           return (
-            <div key={slot.idBloque} className="flex items-center gap-4">
+            <div key={slot.idBloque} className="flex min-w-0 items-center gap-2 sm:gap-4">
               {/* Horario a la izquierda */}
-              <div className="w-16 shrink-0 text-center font-extrabold text-[#1E242B] text-sm select-none">
+              <div className="w-12 shrink-0 text-center sm:w-16 font-extrabold text-[#1E242B] text-sm select-none">
                 <div className="leading-tight">{slot.horaInicio}</div>
                 <div className="text-xs text-[#8F99A3] font-semibold mt-0.5">{slot.horaFin}</div>
               </div>
@@ -228,16 +228,16 @@ export const WeeklyCalendarGrid: React.FC<WeeklyCalendarGridProps> = ({
                     onSelectSlot?.(slot);
                   }
                 }}
-                className="flex-1 rounded-2xl border border-[#E2E6EA] border-l-5 border-l-[#D4AF37] bg-white p-4 shadow-xs hover:border-[#D4AF37] hover:shadow-sm transition-all cursor-pointer flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 group"
+                className="min-w-0 flex-1 rounded-2xl border border-[#E2E6EA] border-l-5 border-l-[#D4AF37] bg-white p-4 shadow-xs hover:border-[#D4AF37] hover:shadow-sm transition-all cursor-pointer flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 group"
               >
-                <div className="space-y-1">
-                  <div className="flex items-center gap-3 flex-wrap">
-                    <h4 className="text-sm font-extrabold text-[#1E242B] group-hover:text-[#D4AF37] transition-colors">
+                <div className="min-w-0 space-y-1">
+                  <div className="flex items-center gap-x-3 gap-y-1 flex-wrap">
+                    <h4 className="text-break text-sm font-extrabold text-[#1E242B] group-hover:text-[#B8942A] transition-colors">
                       {slot.pacienteNombre}
                     </h4>
                     {renderStatusBadge(slot.estadoCita)}
                   </div>
-                  <div className="flex items-center gap-2 text-xs text-[#687380] font-medium">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-[#687380] font-medium">
                     <ToothIcon size={14} color="#D4AF37" />
                     <span>{slot.tratamiento || 'Consulta Odontológica'}</span>
                     {slot.doctorNombre && (
@@ -263,16 +263,16 @@ export const WeeklyCalendarGrid: React.FC<WeeklyCalendarGridProps> = ({
         const isEnabled = slot.habilitado;
 
         return (
-          <div key={slot.idBloque} className="flex items-center gap-4">
+          <div key={slot.idBloque} className="flex min-w-0 items-center gap-2 sm:gap-4">
             {/* Horario a la izquierda */}
-            <div className="w-16 shrink-0 text-center font-extrabold text-[#8F99A3] text-sm select-none">
+            <div className="w-12 shrink-0 text-center sm:w-16 font-extrabold text-[#8F99A3] text-sm select-none">
               <div className="leading-tight">{slot.horaInicio}</div>
               <div className="text-xs text-[#CBD2D9] font-medium mt-0.5">{slot.horaFin}</div>
             </div>
 
             {/* Tarjeta: Sin cita asignada vs Bloque no habilitado */}
             <div
-              className={`flex-1 rounded-2xl border p-3.5 transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${
+              className={`min-w-0 flex-1 rounded-2xl border p-3.5 transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${
                 isEnabled
                   ? 'border-[#E2E6EA] bg-white shadow-2xs'
                   : 'border-[#E2E6EA] bg-[#F1F3F5] text-[#8F99A3]'
@@ -296,9 +296,9 @@ export const WeeklyCalendarGrid: React.FC<WeeklyCalendarGridProps> = ({
                 )}
               </div>
 
-              <div className="flex items-center gap-2 self-end sm:self-center">
+              <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end [&>button]:flex-1 sm:[&>button]:flex-none">
                 {isPastDate ? (
-                  <span className="text-[11px] font-bold text-[#8F99A3] px-2 py-1 rounded-lg bg-gray-100">
+                  <span className="text-[13px] font-bold text-[#8F99A3] px-2 py-1 rounded-lg bg-gray-100">
                     Fecha pasada
                   </span>
                 ) : isEnabled ? (
@@ -307,7 +307,7 @@ export const WeeklyCalendarGrid: React.FC<WeeklyCalendarGridProps> = ({
                       <button
                         type="button"
                         onClick={() => onToggleSlotStatus(slot)}
-                        className="text-xs font-semibold px-3 py-1.5 rounded-xl border border-[#E2E6EA] bg-white text-[#B45309] hover:bg-[#FFFBEB] transition-colors inline-flex items-center gap-1.5 shadow-2xs"
+                        className="text-xs font-semibold min-h-[44px] justify-center px-3 py-1.5 rounded-xl border border-[#E2E6EA] bg-white text-[#B45309] hover:bg-[#FFFBEB] transition-colors inline-flex items-center gap-1.5 shadow-2xs"
                       >
                         <UnlockIcon size={14} className="text-[#B45309]" /> Deshabilitar bloque
                       </button>
@@ -316,7 +316,7 @@ export const WeeklyCalendarGrid: React.FC<WeeklyCalendarGridProps> = ({
                       <button
                         type="button"
                         onClick={() => onScheduleSlot(slot)}
-                        className="text-xs font-bold px-3 py-1.5 rounded-xl border border-[#E2E6EA] bg-white text-[#1E242B] hover:bg-[#F3F4F6] transition-colors inline-flex items-center gap-1 shadow-2xs"
+                        className="text-xs font-bold min-h-[44px] justify-center px-3 py-1.5 rounded-xl border border-[#E2E6EA] bg-white text-[#1E242B] hover:bg-[#F3F4F6] transition-colors inline-flex items-center gap-1 shadow-2xs"
                       >
                         <span className="font-extrabold text-sm leading-none">+</span> Agendar
                       </button>
@@ -328,7 +328,7 @@ export const WeeklyCalendarGrid: React.FC<WeeklyCalendarGridProps> = ({
                     <button
                       type="button"
                       onClick={() => onToggleSlotStatus(slot)}
-                      className="text-xs font-semibold px-3 py-1.5 rounded-xl border border-[#E2E6EA] bg-white text-[#B45309] hover:bg-[#FFFBEB] transition-colors inline-flex items-center gap-1.5 shadow-2xs"
+                      className="text-xs font-semibold min-h-[44px] justify-center px-3 py-1.5 rounded-xl border border-[#E2E6EA] bg-white text-[#B45309] hover:bg-[#FFFBEB] transition-colors inline-flex items-center gap-1.5 shadow-2xs"
                     >
                       <LockIcon size={14} className="text-[#B45309]" /> Habilitar bloque
                     </button>

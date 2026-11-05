@@ -368,7 +368,7 @@ export const HolderDataQueryPage: React.FC<HolderDataQueryPageProps> = ({
               {/* Chips rápidos de pacientes */}
               {filteredPatients.length > 0 && (
                 <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                  <span className="text-[11px] font-bold text-[#687380]">Acceso rápido:</span>
+                  <span className="text-[13px] font-bold text-[#687380]">Acceso rápido:</span>
                   {filteredPatients.slice(0, 6).map((p) => (
                     <button
                       key={p.idPaciente}
@@ -434,12 +434,12 @@ export const HolderDataQueryPage: React.FC<HolderDataQueryPageProps> = ({
                     <h2 className="text-lg font-black tracking-tight text-[#111827] uppercase">
                       Consultorio Odontológico OdontoLeal
                     </h2>
-                    <p className="text-[11px] font-bold text-[#687380]">
+                    <p className="text-[13px] font-bold text-[#687380]">
                       OdontoLeal S.A.S. • NIT: 901.458.723-1
                     </p>
                   </div>
                 </div>
-                <p className="text-[10px] text-[#687380] leading-tight">
+                <p className="text-[13px] text-[#687380] leading-tight">
                   Código de Habilitación en Salud (REPS): 110010923401 • Sede Principal: Calle 127 # 19A - 28, Cons. 504, Bogotá D.C.
                   <br />
                   PBX: (601) 745-8920 • WhatsApp: +57 310 892 4512 • Correo Oficial: habeasdata@odontoleal.com.co
@@ -448,17 +448,17 @@ export const HolderDataQueryPage: React.FC<HolderDataQueryPageProps> = ({
 
               {/* Recuadro de Metadatos de Certificación */}
               <div className="text-right sm:text-right border border-[#E2E6EA] rounded-xl p-2.5 bg-[#F8F9FA] min-w-[210px] space-y-0.5">
-                <span className="text-[9px] font-black uppercase tracking-wider text-[#D4AF37] block">
+                <span className="text-[13px] font-black uppercase tracking-wider text-[#D4AF37] block">
                   Certificación de Habeas Data
                 </span>
-                <p className="text-[11px] font-extrabold text-[#111827] font-mono">
+                <p className="text-[13px] font-extrabold text-[#111827] font-mono">
                   {cuvNumber}
                 </p>
                 <p className="text-[9.5px] text-[#687380]">
                   Emisión: {fechaExpedicion}
                 </p>
                 <div className="pt-0.5">
-                  <span className="inline-block px-1.5 py-0.5 rounded text-[9px] font-bold bg-[#E6F4EA] text-[#137333] border border-[#CEEAD6]">
+                  <span className="inline-block px-1.5 py-0.5 rounded text-[13px] font-bold bg-[#E6F4EA] text-[#137333] border border-[#CEEAD6]">
                     Vigente y Verificado
                   </span>
                 </div>
@@ -473,7 +473,7 @@ export const HolderDataQueryPage: React.FC<HolderDataQueryPageProps> = ({
               <p className="text-xs font-bold text-[#D4AF37] uppercase tracking-wide">
                 Garantía del Derecho Fundamental de Autodeterminación Informativa
               </p>
-              <p className="text-[10px] text-[#687380] max-w-2xl mx-auto">
+              <p className="text-[13px] text-[#687380] max-w-2xl mx-auto">
                 Expedido en estricto cumplimiento del Artículo 15 de la Constitución Política de Colombia, la Ley Estatutaria 1581 de 2012, el Decreto Reglamentario 1377 de 2013 y la Circular Única de la Superintendencia de Industria y Comercio.
               </p>
             </div>
@@ -487,27 +487,27 @@ export const HolderDataQueryPage: React.FC<HolderDataQueryPageProps> = ({
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 text-xs">
                 <div className="p-2.5 rounded-xl bg-[#F8F9FA] border border-[#E2E6EA]">
-                  <span className="text-[10px] font-bold text-[#687380] block">Nombre Completo:</span>
+                  <span className="text-[13px] font-bold text-[#687380] block">Nombre Completo:</span>
                   <span className="font-extrabold text-[#111827]">{titularNombre}</span>
                 </div>
                 <div className="p-2.5 rounded-xl bg-[#F8F9FA] border border-[#E2E6EA]">
-                  <span className="text-[10px] font-bold text-[#687380] block">Documento Consultado:</span>
+                  <span className="text-[13px] font-bold text-[#687380] block">Documento Consultado:</span>
                   <span className="font-extrabold text-[#111827]">{data.documentoConsultado}</span>
                 </div>
                 <div className="p-2.5 rounded-xl bg-[#F8F9FA] border border-[#E2E6EA]">
-                  <span className="text-[10px] font-bold text-[#687380] block">Fecha de Nacimiento:</span>
+                  <span className="text-[13px] font-bold text-[#687380] block">Fecha de Nacimiento:</span>
                   <span className="font-bold text-[#111827]">{paciente?.fechaNacimiento || 'No registrada'}</span>
                 </div>
                 <div className="p-2.5 rounded-xl bg-[#F8F9FA] border border-[#E2E6EA]">
-                  <span className="text-[10px] font-bold text-[#687380] block">Sexo Biológico:</span>
+                  <span className="text-[13px] font-bold text-[#687380] block">Sexo Biológico:</span>
                   <span className="font-bold text-[#111827]">{paciente?.sexo || 'No registrado'}</span>
                 </div>
                 <div className="p-2.5 rounded-xl bg-[#F8F9FA] border border-[#E2E6EA]">
-                  <span className="text-[10px] font-bold text-[#687380] block">Teléfono de Contacto:</span>
+                  <span className="text-[13px] font-bold text-[#687380] block">Teléfono de Contacto:</span>
                   <span className="font-bold text-[#111827]">{paciente?.telefono || solicitantes[0]?.telefonoSolicitante || 'Sin teléfono'}</span>
                 </div>
                 <div className="p-2.5 rounded-xl bg-[#F8F9FA] border border-[#E2E6EA]">
-                  <span className="text-[10px] font-bold text-[#687380] block">Correo Electrónico:</span>
+                  <span className="text-[13px] font-bold text-[#687380] block">Correo Electrónico:</span>
                   <span className="font-bold text-[#111827] truncate block">{paciente?.correo || solicitantes[0]?.correoSolicitante || 'Sin correo registrado'}</span>
                 </div>
               </div>
@@ -525,7 +525,7 @@ export const HolderDataQueryPage: React.FC<HolderDataQueryPageProps> = ({
                   <div className="p-2.5 rounded-xl border border-[#E2E6EA] bg-[#FFFFFF] flex items-center justify-between">
                     <div>
                       <span className="font-bold text-[#111827]">Calidad de Paciente:</span>
-                      <p className="text-[11px] text-[#687380] mt-0.5">
+                      <p className="text-[13px] text-[#687380] mt-0.5">
                         Expediente de historia clínica activo registrado con Identificador #{paciente.idPaciente}.
                       </p>
                     </div>
@@ -538,7 +538,7 @@ export const HolderDataQueryPage: React.FC<HolderDataQueryPageProps> = ({
                     <span className="font-bold text-[#111827]">Calidad de Solicitante en Portal Digital:</span>
                     <div className="space-y-1">
                       {solicitantes.map((sol: any, idx: number) => (
-                        <p key={idx} className="text-[11px] text-[#687380] pl-2 border-l-2 border-[#111827]">
+                        <p key={idx} className="text-[13px] text-[#687380] pl-2 border-l-2 border-[#111827]">
                           Solicitud #{sol.idSolicitud} - Bloque: {sol.bloqueSolicitado} ({sol.estadoSolicitud})
                         </p>
                       ))}
@@ -556,14 +556,14 @@ export const HolderDataQueryPage: React.FC<HolderDataQueryPageProps> = ({
                 </span>
               </div>
               <div className="rounded-xl border border-[#CEEAD6] bg-[#F6FBF7] p-3 text-xs space-y-2">
-                <p className="text-[11px] text-[#137333] leading-relaxed">
+                <p className="text-[13px] text-[#137333] leading-relaxed">
                   Prueba de las autorizaciones del titular (Ley 1581 de 2012, arts. 9 y 12): consentimientos firmados del
                   Módulo D y aceptaciones de la autorización vigente en solicitudes de cita.
                 </p>
                 {autorizaciones.length > 0 ? (
                   <div className="space-y-1 pl-2">
                     {autorizaciones.map((aut: any, idx: number) => (
-                      <div key={idx} className="text-[11px] text-[#137333] flex items-center gap-2">
+                      <div key={idx} className="text-[13px] text-[#137333] flex items-center gap-2">
                         <span>✔</span>
                         <span>
                           <strong>{aut.plantilla}</strong> (versión {aut.versionPlantilla ?? '-'}) —{' '}
@@ -576,7 +576,7 @@ export const HolderDataQueryPage: React.FC<HolderDataQueryPageProps> = ({
                     ))}
                   </div>
                 ) : (
-                  <p className="text-[11px] text-[#DC2626]">
+                  <p className="text-[13px] text-[#DC2626]">
                     No hay autorizaciones firmadas ni aceptadas registradas para este titular.
                   </p>
                 )}
@@ -590,7 +590,7 @@ export const HolderDataQueryPage: React.FC<HolderDataQueryPageProps> = ({
                   4. Finalidades del Tratamiento Autorizadas
                 </span>
               </div>
-              <ul className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-[11px] text-[#687380] pl-4 list-disc">
+              <ul className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-[13px] text-[#687380] pl-4 list-disc">
                 <li>Prestación de servicios de atención, diagnóstico y tratamiento en salud oral.</li>
                 <li>Gestión de la agenda médico-odontológica, confirmación y recordatorio de citas.</li>
                 <li>Facturación electrónica, recaudo y cumplimiento de obligaciones tributarias (DIAN).</li>
@@ -606,18 +606,18 @@ export const HolderDataQueryPage: React.FC<HolderDataQueryPageProps> = ({
                 <span className="text-xs font-black text-[#111827] uppercase tracking-wider">
                   5. Trazabilidad Administrativa de Servicios y Citas
                 </span>
-                <span className="text-[10px] font-bold text-[#687380]">
+                <span className="text-[13px] font-bold text-[#687380]">
                   Reserva Legal de Historia Clínica
                 </span>
               </div>
-              <div className="p-2.5 rounded-xl bg-[#F8F9FA] border border-[#E2E6EA] text-[10.5px] text-[#687380] leading-tight">
+              <div className="p-2.5 rounded-xl bg-[#F8F9FA] border border-[#E2E6EA] text-[13px] text-[#687380] leading-tight">
                 <strong>Cláusula de Confidencialidad y Secreto Profesional (Ley 23 de 1981 / Res. 1995 de 1999):</strong> La presente certificación da cuenta de la existencia de atenciones y solicitudes administrativas; por reserva legal estricta y protección de datos sensibles (RF-HCL-010 / RQNF-SEG-007), <strong>no contiene diagnósticos odontológicos, evoluciones clínicas ni notas terapéuticas confidenciales</strong>.
               </div>
 
               {citas.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs border border-[#E2E6EA] rounded-xl overflow-hidden print-table">
-                    <thead className="bg-[#F8F9FA] text-[10px] font-bold uppercase text-[#687380] border-b border-[#E2E6EA]">
+                    <thead className="bg-[#F8F9FA] text-[13px] font-bold uppercase text-[#687380] border-b border-[#E2E6EA]">
                       <tr>
                         <th className="py-2 px-3">Cita #</th>
                         <th className="py-2 px-3">Fecha y Hora</th>
@@ -634,7 +634,7 @@ export const HolderDataQueryPage: React.FC<HolderDataQueryPageProps> = ({
                           <td className="py-1.5 px-3">{c.servicio || c.titulo || 'Consulta Odontológica'}</td>
                           <td className="py-1.5 px-3">{c.profesional || 'Odontólogo Tratante'}</td>
                           <td className="py-1.5 px-3 text-right">
-                            <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-[#F3F4F6] text-[#1F2937]">
+                            <span className="inline-block px-2 py-0.5 rounded text-[13px] font-bold bg-[#F3F4F6] text-[#1F2937]">
                               {c.estado}
                             </span>
                           </td>
@@ -657,19 +657,19 @@ export const HolderDataQueryPage: React.FC<HolderDataQueryPageProps> = ({
                   6. Procedimiento para el Ejercicio de Derechos ARCO
                 </span>
               </div>
-              <p className="text-[10.5px] text-[#687380] leading-relaxed">
+              <p className="text-[13px] text-[#687380] leading-relaxed">
                 El titular podrá en todo momento conocer, actualizar, rectificar y suprimir sus datos personales o revocar la autorización enviando una solicitud formal al correo <strong>habeasdata@odontoleal.com.co</strong> o mediante comunicación radicada en nuestra sede. Las consultas serán atendidas en un plazo máximo de diez (10) días hábiles y los reclamos en quince (15) días hábiles conforme a los Artículos 14 y 15 de la Ley 1581 de 2012.
               </p>
             </div>
 
             {/* 9. FIRMA Y CONSTANCIA INSTITUCIONAL */}
             <div className="avoid-break pt-6 border-t border-[#E2E6EA] flex flex-col sm:flex-row justify-between items-end gap-6">
-              <div className="text-[10px] text-[#687380] space-y-1 max-w-sm">
+              <div className="text-[13px] text-[#687380] space-y-1 max-w-sm">
                 <p className="font-bold text-[#111827]">Constancia de Verificación:</p>
                 <p>
                   Documento emitido por el sistema central de OdontoLeal para fines probatorios de autodeterminación informativa.
                 </p>
-                <p className="font-mono text-[9px] text-[#9CA3AF]">
+                <p className="font-mono text-[13px] text-[#9CA3AF]">
                   Hash de Seguridad: SHA256:{cuvNumber}-SECURE-VERIFIED
                 </p>
               </div>
@@ -683,7 +683,7 @@ export const HolderDataQueryPage: React.FC<HolderDataQueryPageProps> = ({
                 <p className="text-xs font-extrabold text-[#111827]">
                   OFICIAL DE PROTECCIÓN DE DATOS
                 </p>
-                <p className="text-[10px] font-bold text-[#D4AF37]">
+                <p className="text-[13px] font-bold text-[#D4AF37]">
                   OdontoLeal S.A.S. • Responsable del Tratamiento
                 </p>
               </div>

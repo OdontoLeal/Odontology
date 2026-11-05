@@ -201,7 +201,7 @@ export const ConsentTemplatesAdminPage: React.FC = () => {
 
       {/* Grid de Plantillas */}
       {!isLoading && filteredTemplates.length > 0 && (
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-3 lg:grid-cols-[repeat(2,minmax(0,1fr))]">
           {filteredTemplates.map((tpl) => (
             <article
               key={tpl.idPlantilla}
@@ -212,7 +212,7 @@ export const ConsentTemplatesAdminPage: React.FC = () => {
               }`}
             >
               <div className="min-w-0 space-y-2">
-                <div className="flex items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <Badge label={`Versión v${tpl.version}.0`} variant="neutral" size="sm" />
                   {tpl.tipo !== 'PROCEDIMIENTO' && (
                     <Badge
@@ -235,7 +235,7 @@ export const ConsentTemplatesAdminPage: React.FC = () => {
 
                 <h2
                   title={tpl.titulo}
-                  className="truncate text-[15px] font-bold leading-snug text-[#1E242B]"
+                  className="text-break text-[15px] font-bold leading-snug text-[#1E242B]"
                 >
                   {tpl.titulo}
                 </h2>
@@ -244,16 +244,16 @@ export const ConsentTemplatesAdminPage: React.FC = () => {
                   {tpl.cuerpoTexto}
                 </p>
 
-                <div className="text-[11px] text-[#64748B]">
+                <div className="text-[13px] text-[#64748B]">
                   Fecha actualización: {tpl.fechaCreacion}
                 </div>
               </div>
 
-              <div className="flex items-center justify-between gap-3 border-t border-[#E2E8F0] pt-3">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#E2E8F0] pt-3">
                 <button
                   type="button"
                   onClick={() => toggleTemplateStatus(tpl.idPlantilla)}
-                  className="text-xs font-bold text-[#64748B] hover:text-[#1E242B] underline"
+                  className="min-h-[44px] text-xs font-bold text-[#64748B] hover:text-[#1E242B] underline"
                 >
                   {tpl.activo ? 'Inactivar Plantilla' : 'Activar Plantilla'}
                 </button>
@@ -303,7 +303,7 @@ export const ConsentTemplatesAdminPage: React.FC = () => {
                 </option>
                 <option value="MENORES">Plantilla de menores de edad (firma el acudiente)</option>
               </select>
-              <p className="mt-1 text-[11px] text-[#8F99A3]">
+              <p className="mt-1 text-[13px] text-[#8F99A3]">
                 Solo puede haber una plantilla activa de autorización de datos y una de menores.
               </p>
             </div>
@@ -314,7 +314,7 @@ export const ConsentTemplatesAdminPage: React.FC = () => {
               <label className="block text-xs font-extrabold uppercase tracking-wider text-[#687380]">
                 Cuerpo Legal del Documento <span className="text-[#DC2626]">*</span>
               </label>
-              <span className="text-[11px] text-[#8F99A3]">
+              <span className="text-[13px] text-[#8F99A3]">
                 Haga clic en una variable para insertarla en el texto
               </span>
             </div>
@@ -327,10 +327,10 @@ export const ConsentTemplatesAdminPage: React.FC = () => {
                   type="button"
                   onClick={() => handleInsertVariable(v.placeholder)}
                   title={`${v.descripcion} (Ejemplo: ${v.ejemplo})`}
-                  className="inline-flex items-center gap-1 rounded-lg border border-[#D4AF37]/40 bg-[#FBF6E6] px-2 py-1 text-[11px] font-mono font-bold text-[#B8942A] hover:bg-[#D4AF37] hover:text-[#111111] transition-colors"
+                  className="inline-flex items-center gap-1 rounded-lg border border-[#D4AF37]/40 bg-[#FBF6E6] px-2 py-1 text-[13px] font-mono font-bold text-[#B8942A] hover:bg-[#D4AF37] hover:text-[#111111] transition-colors"
                 >
                   <span>{v.placeholder}</span>
-                  <span className="text-[10px] opacity-70">+</span>
+                  <span className="text-[13px] opacity-70">+</span>
                 </button>
               ))}
             </div>

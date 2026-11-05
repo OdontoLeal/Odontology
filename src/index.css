@@ -3,6 +3,11 @@
 
 @theme {
   --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+  /* RQNF-USA-001: ningún texto por debajo de 13px. `text-xs` pasa de 12px a 13px
+     con interlineado proporcional para que no se solape al hacer zoom al 200%. */
+  --text-xs: 0.8125rem;
+  --text-xs--line-height: 1.4;
 }
 
 :root {
@@ -21,6 +26,8 @@
 
 html {
   scrollbar-gutter: stable;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 html,
@@ -33,4 +40,78 @@ body {
   font-size: 16px;
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
+}
+
+body {
+  /* RQNF-COM-002: cadenas largas sin espacios (correos, nombres de prueba) se parten
+     en lugar de empujar el ancho del contenedor. */
+  overflow-wrap: break-word;
+}
+
+/* Medios nunca más anchos que su contenedor. */
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+}
+
+/* Campos de formulario fluidos dentro de contenedores flex/grid estrechos. */
+input,
+select,
+textarea {
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* Texto que debe partirse en cualquier punto si no cabe (nombres, correos, códigos). */
+.text-break {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  min-width: 0;
+}
+
+/* RF-CON-002 / RQNF-COM-002: casilla táctil con área interactiva de 44 × 44 px. */
+.touch-checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  margin: 0;
+  border: 2px solid #8f99a3;
+  border-radius: 10px;
+  background-color: #ffffff;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 26px 26px;
+  cursor: pointer;
+  transition: background-color 120ms, border-color 120ms;
+}
+
+.touch-checkbox:hover:not(:disabled) {
+  border-color: #b8942a;
+}
+
+.touch-checkbox:focus-visible {
+  outline: 3px solid #111111;
+  outline-offset: 2px;
+}
+
+.touch-checkbox:checked {
+  border-color: #b8942a;
+  background-color: #d4af37;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23111111' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 13l4 4L19 7'/%3E%3C/svg%3E");
+}
+
+.touch-checkbox:disabled {
+  cursor: not-allowed;
+  opacity: 0.75;
+}
+
+/* Bloquea el scroll de la página mientras el menú lateral móvil está abierto. */
+body.drawer-open {
+  overflow: hidden;
 }

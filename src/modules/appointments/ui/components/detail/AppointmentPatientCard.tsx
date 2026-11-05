@@ -27,7 +27,7 @@ export const AppointmentPatientCard: React.FC<AppointmentPatientCardProps> = ({
             {getInitials(appointment.nombrePaciente)}
           </div>
           <div>
-            <span className="block text-[11px] font-bold text-[#8F99A3]">Nombre del Paciente</span>
+            <span className="block text-[13px] font-bold text-[#8F99A3]">Nombre del Paciente</span>
             <button
               type="button"
               onClick={() => onNavigateToPatientProfile?.(appointment.idPaciente)}
@@ -43,13 +43,13 @@ export const AppointmentPatientCard: React.FC<AppointmentPatientCardProps> = ({
 
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 text-xs">
           <div>
-            <span className="block text-[11px] font-bold text-[#8F99A3] flex items-center gap-1.5">
+            <span className="block text-[13px] font-bold text-[#8F99A3] flex items-center gap-1.5">
               <PhoneIcon size={12} color="#D4AF37" /> Teléfono
             </span>
             <span className="font-extrabold text-[#1E242B]">{appointment.telefono}</span>
           </div>
           <div>
-            <span className="block text-[11px] font-bold text-[#8F99A3] flex items-center gap-1.5">
+            <span className="block text-[13px] font-bold text-[#8F99A3] flex items-center gap-1.5">
               <span className="text-[#D4AF37]">✉</span> Correo Electrónico
             </span>
             <span className="font-extrabold text-[#1E242B]">{appointment.correo}</span>

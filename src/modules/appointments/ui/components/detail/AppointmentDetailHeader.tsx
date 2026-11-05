@@ -157,19 +157,19 @@ export const AppointmentDetailHeader: React.FC<AppointmentDetailHeaderProps> = (
           )}
 
           {appointment.estado === 'Inasistencia' && (
-            <div className="px-3 py-1.5 rounded-xl bg-[#FEF2F2] border border-[#FCA5A5] text-[11px] font-bold text-[#DC2626] flex items-center gap-1.5">
+            <div className="px-3 py-1.5 rounded-xl bg-[#FEF2F2] border border-[#FCA5A5] text-[13px] font-bold text-[#DC2626] flex items-center gap-1.5">
               <span>⚠️</span> Inasistencia registrada (Bloques conservados)
             </div>
           )}
 
           {appointment.estado === 'Cancelada' && (
-            <div className="px-3 py-1.5 rounded-xl bg-[#F3F4F6] border border-[#E5E7EB] text-[11px] font-bold text-[#687380] flex items-center gap-1.5">
+            <div className="px-3 py-1.5 rounded-xl bg-[#F3F4F6] border border-[#E5E7EB] text-[13px] font-bold text-[#687380] flex items-center gap-1.5">
               <span>🚫</span> Cita cancelada (Bloques liberados)
             </div>
           )}
 
           {(appointment.estado === 'Atendida') && (
-            <div className="px-3 py-1.5 rounded-xl bg-[#ECFDF5] border border-[#A7F3D0] text-[11px] font-bold text-[#059669] flex items-center gap-1.5">
+            <div className="px-3 py-1.5 rounded-xl bg-[#ECFDF5] border border-[#A7F3D0] text-[13px] font-bold text-[#059669] flex items-center gap-1.5">
               <span>✓</span> Atención finalizada ({appointment.estado})
             </div>
           )}

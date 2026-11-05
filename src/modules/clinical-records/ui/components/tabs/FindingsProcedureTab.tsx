@@ -53,7 +53,7 @@ export const FindingsProcedureTab: React.FC<FindingsProcedureTabProps> = ({
                 <h3 className="text-sm font-black text-[#111111]">
                   Odontograma Clínico Registrado (FDI Universal)
                 </h3>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-[#FBF6E6] text-[#926C15] border border-[#E9C765]">
+                <span className="px-2 py-0.5 rounded-full text-[13px] font-black bg-[#FBF6E6] text-[#926C15] border border-[#E9C765]">
                   Esquema Activo
                 </span>
               </div>
@@ -100,11 +100,11 @@ export const FindingsProcedureTab: React.FC<FindingsProcedureTabProps> = ({
         <div className="flex items-center justify-between">
           <label className="text-xs font-black uppercase tracking-wider text-[#111111] flex items-center gap-2">
             <span>Procedimiento Realizado</span>
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-red-100 text-red-700">
+            <span className="px-2 py-0.5 rounded-full text-[13px] font-black bg-red-100 text-red-700">
               OBLIGATORIO
             </span>
           </label>
-          <span className="text-[11px] text-[#8F99A3]">
+          <span className="text-[13px] text-[#8F99A3]">
             Descripción minuciosa del acto operatorio, técnica, instrumental y materiales empleados
           </span>
         </div>
@@ -154,7 +154,7 @@ export const FindingsProcedureTab: React.FC<FindingsProcedureTabProps> = ({
             <label className="text-xs font-black uppercase tracking-wider text-[#111111]">
               Observaciones Generales de la Atención
             </label>
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#F6F6F4] text-[#687380]">
+            <span className="px-2 py-0.5 rounded-full text-[13px] font-semibold bg-[#F6F6F4] text-[#687380]">
               Opcional
             </span>
           </div>

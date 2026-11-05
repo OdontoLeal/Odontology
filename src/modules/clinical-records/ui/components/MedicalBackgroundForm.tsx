@@ -330,7 +330,7 @@ export const MedicalBackgroundForm: React.FC<MedicalBackgroundFormProps> = ({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-[10px] font-extrabold tracking-wider text-[#B8942A] uppercase">
+                <span className="text-[13px] font-extrabold tracking-wider text-[#B8942A] uppercase">
                   MÓDULO CLÍNICO
                 </span>
               </div>
@@ -356,7 +356,7 @@ export const MedicalBackgroundForm: React.FC<MedicalBackgroundFormProps> = ({
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
-            <thead className="bg-[#F8F9FA] text-[10px] font-extrabold uppercase text-[#6B7280] border-b border-[#E7E7E3]">
+            <thead className="bg-[#F8F9FA] text-[13px] font-extrabold uppercase text-[#6B7280] border-b border-[#E7E7E3]">
               <tr>
                 <th className="p-3 w-1/3">Tipo de Antecedente</th>
                 <th className="p-3 text-center w-36">¿Presenta?</th>
@@ -373,7 +373,7 @@ export const MedicalBackgroundForm: React.FC<MedicalBackgroundFormProps> = ({
                         {icon}
                         <div>
                           <p className="font-extrabold text-[#111111] text-xs">{label}</p>
-                          <p className="text-[11px] text-[#6B7280] mt-0.5 leading-tight">{descripcion}</p>
+                          <p className="text-[13px] text-[#6B7280] mt-0.5 leading-tight">{descripcion}</p>
                         </div>
                       </div>
                     </td>
@@ -455,7 +455,7 @@ export const MedicalBackgroundForm: React.FC<MedicalBackgroundFormProps> = ({
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-extrabold tracking-wider text-[#B8942A] uppercase">
+              <span className="text-[13px] font-extrabold tracking-wider text-[#B8942A] uppercase">
                 ESTILO DE VIDA • Factores de Riesgo
               </span>
             </div>
@@ -470,7 +470,7 @@ export const MedicalBackgroundForm: React.FC<MedicalBackgroundFormProps> = ({
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
-            <thead className="bg-[#F8F9FA] text-[10px] font-extrabold uppercase text-[#6B7280] border-b border-[#E7E7E3]">
+            <thead className="bg-[#F8F9FA] text-[13px] font-extrabold uppercase text-[#6B7280] border-b border-[#E7E7E3]">
               <tr>
                 <th className="p-3 w-1/4">Hábito / Práctica</th>
                 <th className="p-3 text-center w-36">¿Aplica?</th>
@@ -488,7 +488,7 @@ export const MedicalBackgroundForm: React.FC<MedicalBackgroundFormProps> = ({
                         {icon}
                         <div>
                           <p className="font-extrabold text-[#111111] text-xs">{label}</p>
-                          <p className="text-[11px] text-[#6B7280] mt-0.5 leading-tight">{descripcion}</p>
+                          <p className="text-[13px] text-[#6B7280] mt-0.5 leading-tight">{descripcion}</p>
                         </div>
                       </div>
                     </td>

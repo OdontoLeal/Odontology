@@ -329,7 +329,7 @@ export const PatientProfilePage: React.FC<PatientProfilePageProps> = ({
                 <div className="rounded-2xl border-2 border-[#D4AF37]/50 bg-[#FBF6E6]/30 p-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="px-2 py-0.5 rounded-lg bg-[#111111] text-[#D4AF37] text-[10px] font-extrabold uppercase">
+                      <span className="px-2 py-0.5 rounded-lg bg-[#111111] text-[#D4AF37] text-[13px] font-extrabold uppercase">
                         Próxima Cita
                       </span>
                       <span className="text-xs font-bold text-[#1E242B]">
@@ -349,7 +349,7 @@ export const PatientProfilePage: React.FC<PatientProfilePageProps> = ({
                     <p className="text-xs text-[#687380] mt-0.5">
                       👨‍⚕️ {nextAppt.nombreProfesional || 'Dr. Eduar Leal Álvarez'}
                     </p>
-                    <p className="text-[11px] text-[#687380] mt-0.5">
+                    <p className="text-[13px] text-[#687380] mt-0.5">
                       <span className="font-semibold text-[#1E242B]">Agendado por:</span>{' '}
                       {nextAppt.agendadoPor || 'Portal Web'}
                     </p>
@@ -403,7 +403,7 @@ export const PatientProfilePage: React.FC<PatientProfilePageProps> = ({
                   <div>
                     <p className="font-bold text-[#1E242B]">{formatSlot(appt.bloques)}</p>
                     <p className="text-[#687380]">{appt.titulo} • {appt.nombreProfesional}</p>
-                    <p className="text-[11px] text-[#8F99A3] mt-0.5">
+                    <p className="text-[13px] text-[#8F99A3] mt-0.5">
                       <span className="font-semibold text-[#687380]">Agendado por:</span>{' '}
                       {appt.agendadoPor || 'Portal Web'}
                     </p>
@@ -441,7 +441,7 @@ export const PatientProfilePage: React.FC<PatientProfilePageProps> = ({
               <p className="text-xs font-bold text-amber-800">
                 Acceso clínico restringido a profesionales de la salud
               </p>
-              <p className="text-[11px] text-amber-700">
+              <p className="text-[13px] text-amber-700">
                 El perfil de Coordinadora de Atención (ROL-COA) no tiene permisos para consultar o auditar evoluciones clínicas (Ley 1581 / Res. 1995 de 1999).
               </p>
             </div>
@@ -465,7 +465,7 @@ export const PatientProfilePage: React.FC<PatientProfilePageProps> = ({
                         <Badge label="Solo Lectura" variant="neutral" size="sm" />
                       </div>
                       <p className="text-xs text-[#687380] mt-0.5">{item.profesional.nombreCompleto}</p>
-                      <p className="text-[11px] text-[#8F99A3] truncate max-w-xs">{item.procedimientoRealizado || item.motivoConsulta}</p>
+                      <p className="text-[13px] text-[#8F99A3] truncate max-w-xs">{item.procedimientoRealizado || item.motivoConsulta}</p>
                     </div>
                     <button
                       type="button"
@@ -496,7 +496,7 @@ export const PatientProfilePage: React.FC<PatientProfilePageProps> = ({
               <p className="text-xs font-semibold text-[#687380]">
                 No hay notas de evolución clínica registradas aún para este paciente.
               </p>
-              <p className="text-[11px] text-[#8F99A3]">
+              <p className="text-[13px] text-[#8F99A3]">
                 Las evoluciones se registrarán automáticamente al atender una cita.
               </p>
             </div>
@@ -526,7 +526,7 @@ export const PatientProfilePage: React.FC<PatientProfilePageProps> = ({
             <p className="text-xs font-bold text-amber-800">
               Gestión de consentimientos clínicos restringida
             </p>
-            <p className="text-[11px] text-amber-700">
+            <p className="text-[13px] text-amber-700">
               Solo el personal asistencial y odontólogos tratantes pueden visualizar y suscribir consentimientos informados médicos.
             </p>
           </div>
@@ -556,7 +556,7 @@ export const PatientProfilePage: React.FC<PatientProfilePageProps> = ({
                         <h4 className="mt-2 text-xs font-extrabold text-[#1E242B]">
                           {c.titulo}
                         </h4>
-                        <p className="text-[11px] text-[#8F99A3] mt-1">
+                        <p className="text-[13px] text-[#8F99A3] mt-1">
                           {c.fechaFirma || 'Fecha registrada'} • {c.firmadoPor}
                         </p>
                       </div>
@@ -613,7 +613,7 @@ export const PatientProfilePage: React.FC<PatientProfilePageProps> = ({
                           <h4 className="mt-2 text-xs font-extrabold text-[#1E242B]">
                             {tpl.titulo}
                           </h4>
-                          <p className="text-[11px] text-[#8F99A3] mt-1">
+                          <p className="text-[13px] text-[#8F99A3] mt-1">
                             {alreadySigned
                               ? `El paciente ya firmó este consentimiento el ${alreadySigned.fechaFirma || 'previamente'}`
                               : 'Listo para toma de consentimiento'}
@@ -628,7 +628,7 @@ export const PatientProfilePage: React.FC<PatientProfilePageProps> = ({
                             Tomar Firma ✍️
                           </button>
                         ) : (
-                          <span className="text-[11px] text-[#137333] font-semibold self-end">
+                          <span className="text-[13px] text-[#137333] font-semibold self-end">
                             ✓ Vigente
                           </span>
                         )}

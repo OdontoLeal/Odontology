@@ -15,7 +15,11 @@ export interface ListCardProps extends React.HTMLAttributes<HTMLElement> {
   muted?: boolean;
 }
 
-/** Tarjeta de fila: padding 16px 20px, radio 12px, borde 1px #E2E8F0, gap interno 12px. */
+/**
+ * Tarjeta de fila: padding 16px 20px, radio 12px, borde 1px #E2E8F0.
+ * < 768px: columna (info arriba, acciones debajo a ancho completo, gap 16px).
+ * >= 768px: fila con space-between.
+ */
 export const ListCard: React.FC<ListCardProps> = ({
   muted = false,
   className = '',
@@ -24,7 +28,7 @@ export const ListCard: React.FC<ListCardProps> = ({
 }) => (
   <article
     {...props}
-    className={`flex flex-col gap-3 rounded-xl border border-[#E2E8F0] px-5 py-4 transition-colors md:flex-row md:items-center md:justify-between ${
+    className={`flex min-w-0 flex-col items-stretch gap-4 rounded-xl border border-[#E2E8F0] px-4 py-4 transition-colors sm:px-5 md:flex-row md:items-center md:justify-between md:gap-3 ${
       muted ? 'bg-[#F8FAFC] opacity-80' : 'bg-white hover:border-[#D4AF37]/50'
     } ${className}`}
   >

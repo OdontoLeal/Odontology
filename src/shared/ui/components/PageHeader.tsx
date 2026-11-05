@@ -25,25 +25,30 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   actions,
 }) => (
   <header className="mb-6">
-    <div className="flex items-center gap-2 text-[12px] font-semibold leading-4 tracking-[0.05em] text-[#B8942A]">
+    <div className="flex items-center gap-2 text-[13px] font-semibold leading-5 tracking-[0.05em] text-[#B8942A]">
       <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#D4AF37]" aria-hidden="true" />
-      <span className="truncate">
+      <span className="min-w-0 text-break">
         <span className="uppercase">{eyebrow}</span>
         {eyebrowDetail && <span className="text-[#B8942A]"> · {eyebrowDetail}</span>}
       </span>
     </div>
 
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    {/* < 768px: columna con CTA a ancho completo; >= 768px: fila con acciones a la derecha */}
+    <div className="flex flex-col items-stretch gap-3 md:flex-row md:items-center md:justify-between md:gap-4">
       <div className="min-w-0">
-        <h1 className="mt-1 text-[28px] font-bold leading-9 text-[#1E242B]">{title}</h1>
+        <h1 className="mt-1 text-[24px] font-bold leading-8 text-[#1E242B] text-break sm:text-[28px] sm:leading-9">
+          {title}
+        </h1>
         {subtitle && (
-          <p className="mt-1 text-[14px] leading-5 text-[#64748B] lg:truncate" title={subtitle}>
-            {subtitle}
-          </p>
+          <p className="mt-1 text-[14px] leading-5 text-[#64748B] text-break">{subtitle}</p>
         )}
       </div>
 
-      {actions && <div className="flex shrink-0 flex-wrap items-center gap-3">{actions}</div>}
+      {actions && (
+        <div className="flex w-full flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap md:w-auto md:shrink-0 md:items-center [&>*]:w-full sm:[&>*]:w-auto">
+          {actions}
+        </div>
+      )}
     </div>
   </header>
 );
@@ -54,7 +59,7 @@ export interface PageHeaderActionProps
   leftIcon?: React.ReactNode;
 }
 
-/** Botón de acción del encabezado: 40px de alto, 8px de radio, padding 0 20px. */
+/** Botón de acción del encabezado: mínimo 44px de alto (área táctil), 8px de radio, padding 0 20px. */
 export const PageHeaderAction: React.FC<PageHeaderActionProps> = ({
   variant = 'primary',
   leftIcon,
@@ -71,7 +76,7 @@ export const PageHeaderAction: React.FC<PageHeaderActionProps> = ({
   return (
     <button
       type={type}
-      className={`inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-lg px-5 text-[14px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#111111] disabled:cursor-not-allowed disabled:opacity-50 ${variantClasses} ${className}`}
+      className={`inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg px-5 py-2 text-center text-[14px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#111111] disabled:cursor-not-allowed disabled:opacity-50 ${variantClasses} ${className}`}
       {...props}
     >
       {leftIcon && (

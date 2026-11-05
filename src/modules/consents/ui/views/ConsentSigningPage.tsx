@@ -149,38 +149,38 @@ export const ConsentSigningPage: React.FC<ConsentSigningPageProps> = ({
   }
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA] text-[#1E242B] p-4 sm:p-6 lg:p-8 flex flex-col justify-between select-none">
+    <div className="min-h-screen bg-[#F8F9FA] text-[#1E242B] p-4 sm:p-6 lg:p-8 flex flex-col justify-between">
       <AlertModalComponent />
       {/* Header Fijo Kiosco Tablet */}
-      <header className="max-w-4xl w-full mx-auto pb-4 border-b border-[#E2E6EA] flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-2xl bg-[#111111] text-[#D4AF37] font-black flex items-center justify-center text-sm shadow-xs">
+      <header className="max-w-4xl w-full mx-auto pb-4 border-b border-[#E2E6EA] flex flex-wrap items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="h-10 w-10 shrink-0 rounded-2xl bg-[#111111] text-[#D4AF37] font-black flex items-center justify-center text-sm shadow-xs">
             OL
           </div>
-          <div>
-            <h1 className="text-base font-extrabold text-[#1E242B]">
+          <div className="min-w-0">
+            <h1 className="text-base font-extrabold text-[#1E242B] text-break">
               Terminal Táctil de Consentimiento Informado
             </h1>
-            <p className="text-xs text-[#8F99A3]">
+            <p className="text-xs text-[#687380]">
               Consultorio OdontoLeal • Dr. Eduar Leal Álvarez
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {activeIsMinor && <Badge label="Menor de Edad (Acudiente Obligatorio)" variant="neutral" size="sm" />}
           <Badge label="Dispositivo Seguro" variant="gold" size="sm" />
         </div>
       </header>
 
       {/* Contenido Central: Lectura y Firma */}
-      <main className="max-w-4xl w-full mx-auto my-6 space-y-6">
+      <main className="max-w-4xl w-full min-w-0 mx-auto my-6 space-y-6">
         {/* Ficha del Titular */}
         <div className="rounded-2xl border border-[#E2E6EA] bg-white p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
-          <div>
-            <span className="text-[11px] font-extrabold uppercase text-[#8F99A3]">
+          <div className="min-w-0">
+            <span className="text-[13px] font-extrabold uppercase text-[#687380]">
               Paciente Titular
             </span>
-            <p className="text-sm font-extrabold text-[#1E242B]">
+            <p className="text-sm font-extrabold text-[#1E242B] text-break">
               {activePatientName}
             </p>
             <p className="text-xs text-[#687380]">
@@ -191,20 +191,20 @@ export const ConsentSigningPage: React.FC<ConsentSigningPageProps> = ({
         </div>
 
         {/* Texto Legal del Consentimiento */}
-        <div className="rounded-3xl border border-[#E2E6EA] bg-white p-6 shadow-xs space-y-4">
-          <h2 className="text-base font-extrabold text-[#1E242B]">
+        <div className="rounded-3xl border border-[#E2E6EA] bg-white p-4 sm:p-6 shadow-xs space-y-4">
+          <h2 className="text-base font-extrabold text-[#1E242B] text-break">
             {activeTitle}
           </h2>
-          <div className="max-h-60 overflow-y-auto rounded-2xl bg-[#F8F9FA] border border-[#E2E6EA] p-4 text-xs leading-relaxed text-[#1E242B] space-y-3">
-            <div className="whitespace-pre-line">{interpolatedText}</div>
-            <p className="text-[11px] text-[#8F99A3] italic pt-2 border-t border-[#E2E6EA]">
+          <div className="max-h-60 overflow-y-auto rounded-2xl bg-[#F8F9FA] border border-[#E2E6EA] p-4 text-sm leading-relaxed text-[#1E242B] space-y-3">
+            <div className="whitespace-pre-line text-break">{interpolatedText}</div>
+            <p className="text-[13px] text-[#687380] italic pt-2 border-t border-[#E2E6EA]">
               Conforme a la Ley 23 de 1981, Resolución 1995 de 1999 y Ley 1581 de 2012. Este documento certifica el consentimiento libre, previo y expreso.
             </p>
           </div>
 
           {/* RF-CON-005: Casilla y campo de acudiente */}
           <div className="p-4 rounded-2xl border border-[#E2E6EA] bg-[#F8F9FA] space-y-3">
-            <label className="flex items-center gap-3 cursor-pointer">
+            <label className="flex min-h-[44px] items-center gap-3 cursor-pointer">
               <input
                 type="checkbox"
                 checked={isGuardianSigning}
@@ -214,9 +214,9 @@ export const ConsentSigningPage: React.FC<ConsentSigningPageProps> = ({
                     setIsGuardianSigning(e.target.checked);
                   }
                 }}
-                className="h-4 w-4 rounded text-[#D4AF37] focus:ring-[#D4AF37] disabled:opacity-50"
+                className="touch-checkbox"
               />
-              <span className="text-xs font-bold text-[#1E242B]">
+              <span className="min-w-0 text-left text-sm font-bold text-[#1E242B]">
                 Firma en calidad de acudiente / representante legal
                 {activeIsMinor && ' (Obligatorio para menores de 18 años - RF-CON-005)'}
               </span>
@@ -235,14 +235,14 @@ export const ConsentSigningPage: React.FC<ConsentSigningPageProps> = ({
             )}
           </div>
 
-          <label className="flex items-start gap-3 p-3 rounded-xl bg-[#FBF6E6]/60 border border-[#EAD89B] cursor-pointer">
+          <label className="flex min-h-[44px] items-center gap-3 p-3 rounded-xl bg-[#FBF6E6]/60 border border-[#EAD89B] cursor-pointer">
             <input
               type="checkbox"
               checked={hasAcceptedTerms}
               onChange={(e) => setHasAcceptedTerms(e.target.checked)}
-              className="mt-0.5 h-4 w-4 rounded text-[#D4AF37] focus:ring-[#D4AF37]"
+              className="touch-checkbox"
             />
-            <span className="text-xs font-semibold text-[#1E242B]">
+            <span className="min-w-0 text-left text-sm font-semibold text-[#1E242B]">
               He leído y comprendido plenamente la totalidad del documento, se me han explicado los riesgos y alternativas, y otorgo mi consentimiento informado (RF-CON-002).
             </span>
           </label>
@@ -250,15 +250,15 @@ export const ConsentSigningPage: React.FC<ConsentSigningPageProps> = ({
 
         {/* Lienzo de Firma Digital (RQNF-COM-002: controles >= 44x44px) */}
         {!isRejecting ? (
-          <div className="rounded-3xl border border-[#E2E6EA] bg-white p-6 shadow-xs space-y-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-xs font-extrabold uppercase tracking-wider text-[#1E242B]">
+          <div className="min-w-0 rounded-3xl border border-[#E2E6EA] bg-white p-4 sm:p-6 shadow-xs space-y-3">
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div className="min-w-0">
+                <h3 className="text-xs font-extrabold uppercase tracking-wider text-[#1E242B] text-break">
                   {isGuardianSigning
                     ? `Firma del acudiente / representante legal del paciente ${activePatientName}`
                     : 'Firma del paciente'}
                 </h3>
-                <p className="text-[11px] text-[#8F99A3]">
+                <p className="text-[13px] text-[#687380]">
                   Realice su trazo manuscrito en el recuadro con el dedo, lápiz óptico o mouse (RF-CON-002 / RF-CON-005)
                 </p>
               </div>
@@ -273,7 +273,7 @@ export const ConsentSigningPage: React.FC<ConsentSigningPageProps> = ({
             />
           </div>
         ) : (
-          <div className="rounded-3xl border border-[#DC2626] bg-[#FEF2F2] p-6 shadow-xs space-y-3">
+          <div className="rounded-3xl border border-[#DC2626] bg-[#FEF2F2] p-4 sm:p-6 shadow-xs space-y-3">
             <h3 className="text-xs font-extrabold uppercase tracking-wider text-[#DC2626]">
               Constancia de No Aceptación / Disentimiento
             </h3>
@@ -285,19 +285,19 @@ export const ConsentSigningPage: React.FC<ConsentSigningPageProps> = ({
               value={rejectReason}
               onChange={(e) => setRejectReason(e.target.value)}
               placeholder="Indique las manifestaciones del paciente respecto a su negativa..."
-              className="w-full rounded-xl border border-[#DC2626]/40 p-3 text-xs text-[#1E242B] bg-white focus:outline-none"
+              className="w-full rounded-xl border border-[#DC2626]/40 p-3 text-sm text-[#1E242B] bg-white focus:outline-none"
             />
           </div>
         )}
       </main>
 
       {/* Botones de Acción Táctiles (mínimo 44px de alto) */}
-      <footer className="max-w-4xl w-full mx-auto pt-4 border-t border-[#E2E6EA] flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
+      <footer className="max-w-4xl w-full mx-auto pt-4 border-t border-[#E2E6EA] flex flex-col-reverse gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
           <Button
             type="button"
             variant="outline"
-            className="min-h-[48px] px-6 text-xs font-extrabold text-[#687380] border-[#CBD2D9] hover:bg-[#F8F9FA] hover:text-[#1E242B]"
+            className="min-h-[48px] min-w-[44px] w-full sm:w-auto px-6 text-xs font-extrabold text-[#687380] border-[#CBD2D9] hover:bg-[#F8F9FA] hover:text-[#1E242B]"
             onClick={() => {
               if (onExit) {
                 onExit();
@@ -315,7 +315,7 @@ export const ConsentSigningPage: React.FC<ConsentSigningPageProps> = ({
             <button
               type="button"
               onClick={() => setIsRejecting(true)}
-              className="min-h-[48px] px-5 py-2.5 rounded-xl border border-[#DC2626] text-xs font-extrabold text-[#DC2626] hover:bg-[#FEF2F2] transition-colors cursor-pointer"
+              className="min-h-[48px] min-w-[44px] w-full sm:w-auto px-5 py-2.5 rounded-xl border border-[#DC2626] text-xs font-extrabold text-[#DC2626] hover:bg-[#FEF2F2] transition-colors cursor-pointer"
             >
               Rechazar Procedimiento (No Acepto)
             </button>
@@ -323,7 +323,7 @@ export const ConsentSigningPage: React.FC<ConsentSigningPageProps> = ({
             <Button
               type="button"
               variant="outline"
-              className="min-h-[48px]"
+              className="min-h-[48px] w-full sm:w-auto"
               onClick={() => setIsRejecting(false)}
             >
               ← Volver a Firma
@@ -331,12 +331,12 @@ export const ConsentSigningPage: React.FC<ConsentSigningPageProps> = ({
           )}
         </div>
 
-        <div>
+        <div className="w-full sm:w-auto">
           {!isRejecting ? (
             <Button
               variant="primary"
               size="lg"
-              className="min-h-[50px] px-8 text-base shadow-lg"
+              className="min-h-[50px] min-w-[44px] w-full sm:w-auto px-6 sm:px-8 text-base shadow-lg text-center"
               onClick={handleFinishSigning}
               disabled={!signatureData || !hasAcceptedTerms || isSaving}
               leftIcon={<span>✍️</span>}
@@ -347,7 +347,7 @@ export const ConsentSigningPage: React.FC<ConsentSigningPageProps> = ({
             <Button
               variant="danger"
               size="lg"
-              className="min-h-[50px] px-8"
+              className="min-h-[50px] min-w-[44px] w-full sm:w-auto px-6 sm:px-8 text-center"
               onClick={handleFinishReject}
             >
               Confirmar Disentimiento (No Aceptado)

@@ -164,7 +164,7 @@ export const RolePermissionsMatrix: React.FC<RolePermissionsMatrixProps> = ({
         </div>
 
         <div className="flex items-center gap-2 self-start sm:self-center">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-[#FBF6E6] border border-[#D4AF37]/40 px-3 py-1 text-[12px] font-bold text-[#B8942A]">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-[#FBF6E6] border border-[#D4AF37]/40 px-3 py-1 text-[13px] font-bold text-[#B8942A]">
             <span className="h-2 w-2 rounded-full bg-[#D4AF37]" aria-hidden="true" />
             {selectedPermissions.length} permiso(s) activo(s)
           </span>
@@ -175,7 +175,7 @@ export const RolePermissionsMatrix: React.FC<RolePermissionsMatrixProps> = ({
       <div className="mt-4">
         <label
           htmlFor="permission-search-input"
-          className="block text-[12px] font-bold uppercase tracking-wider text-[#1E242B] mb-1.5"
+          className="block text-[13px] font-bold uppercase tracking-wider text-[#1E242B] mb-1.5"
         >
           Filtrar permisos
         </label>

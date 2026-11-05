@@ -219,16 +219,16 @@ export const PublicBookingPage: React.FC<PublicBookingPageProps> = ({
       <AlertModalComponent />
 
       {/* Header Superior del Portal */}
-      <header className="w-full border-b border-[#E2E6EA] bg-white px-6 py-4 flex items-center justify-between sticky top-0 z-10 shadow-2xs">
-        <div className="flex items-center gap-3">
+      <header className="w-full border-b border-[#E2E6EA] bg-white px-4 py-3 sm:px-6 sm:py-4 flex flex-wrap items-center justify-between gap-3 sticky top-0 z-10 shadow-2xs">
+        <div className="flex min-w-0 items-center gap-3">
           <div className="h-10 w-10 rounded-xl bg-[#111111] text-[#D4AF37] font-extrabold flex items-center justify-center text-sm shadow-xs">
             OL
           </div>
-          <div>
+          <div className="min-w-0">
             <span className="text-base font-extrabold text-[#1E242B] tracking-tight block">
               Portal OdontoLeal
             </span>
-            <span className="text-[11px] font-bold text-[#8F99A3]">
+            <span className="hidden text-[13px] font-bold text-[#687380] sm:block">
               Dr. Eduar Leal Álvarez • Dirección Médica
             </span>
           </div>
@@ -238,7 +238,7 @@ export const PublicBookingPage: React.FC<PublicBookingPageProps> = ({
           <button
             type="button"
             onClick={onNavigateToStaffLogin}
-            className="min-h-[40px] rounded-xl border border-[#E2E6EA] px-4 py-2 text-xs font-bold text-[#1E242B] hover:border-[#D4AF37] hover:bg-[#FBF6E6]/40 transition-colors inline-flex items-center gap-2 cursor-pointer"
+            className="min-h-[44px] rounded-xl border border-[#E2E6EA] px-3 sm:px-4 py-2 text-xs font-bold text-[#1E242B] hover:border-[#D4AF37] hover:bg-[#FBF6E6]/40 transition-colors inline-flex items-center gap-2 cursor-pointer"
           >
             <svg className="h-4 w-4 text-[#D4AF37]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
@@ -262,8 +262,8 @@ export const PublicBookingPage: React.FC<PublicBookingPageProps> = ({
           </p>
         </div>
 
-        <form onSubmit={handlePreConfirm} className="rounded-3xl border border-[#E2E6EA] border-t-4 border-t-[#D4AF37] bg-white p-6 sm:p-8 shadow-md space-y-8">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <form onSubmit={handlePreConfirm} className="rounded-3xl border border-[#E2E6EA] border-t-4 border-t-[#D4AF37] bg-white p-4 sm:p-8 shadow-md space-y-8">
+          <div className="grid grid-cols-[minmax(0,1fr)] lg:grid-cols-2 gap-8">
             {/* Columna 1: Datos del Paciente */}
             <div className="space-y-4">
               <h3 className="text-sm font-extrabold uppercase tracking-wider text-[#1E242B] flex items-center gap-2 pb-2 border-b border-[#E2E6EA]">
@@ -281,7 +281,7 @@ export const PublicBookingPage: React.FC<PublicBookingPageProps> = ({
                 onChange={(e) => setNombreCompleto(e.target.value)}
               />
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <Input
                   label="Documento de Identidad"
                   required
@@ -292,8 +292,8 @@ export const PublicBookingPage: React.FC<PublicBookingPageProps> = ({
 
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="min-w-0">
                   <label className="block text-xs font-extrabold uppercase tracking-wider text-[#687380] mb-1.5">
                     Fecha de Nacimiento <span className="text-[#DC2626]">*</span>
                   </label>
@@ -362,7 +362,7 @@ export const PublicBookingPage: React.FC<PublicBookingPageProps> = ({
                   onChange={(e) => setSelectedDate(e.target.value)}
                   className="w-full min-h-[44px] rounded-xl border border-[#E2E6EA] px-3 text-sm font-bold text-[#1E242B]"
                 />
-                <p className="text-[11px] text-[#8F99A3]">
+                <p className="text-[13px] text-[#8F99A3]">
                   💡 Reserva con antelación mínima de 5 días y máxima de 60 días (Regla 1).
                 </p>
               </div>
@@ -374,7 +374,7 @@ export const PublicBookingPage: React.FC<PublicBookingPageProps> = ({
                     Horario Disponible:
                   </label>
                   {isLoadingSlots && (
-                    <span className="text-[11px] font-medium text-[#D4AF37] animate-pulse">
+                    <span className="text-[13px] font-medium text-[#D4AF37] animate-pulse">
                       Consultando base de datos...
                     </span>
                   )}
@@ -390,12 +390,12 @@ export const PublicBookingPage: React.FC<PublicBookingPageProps> = ({
                     <p className="text-xs font-bold text-[#687380]">
                       No hay horarios disponibles en esta fecha
                     </p>
-                    <p className="text-[11px] text-[#8F99A3]">
+                    <p className="text-[13px] text-[#8F99A3]">
                       Por favor seleccione otra fecha en el calendario.
                     </p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-2 gap-2.5 max-h-60 overflow-y-auto pr-1">
+                  <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-2.5 max-h-60 overflow-y-auto pr-1">
                     {availableHours.map((slot, idx) => {
                       const isSelected = selectedSlot?.rawInicio === slot.rawInicio;
                       return (
@@ -420,12 +420,12 @@ export const PublicBookingPage: React.FC<PublicBookingPageProps> = ({
 
               {/* DEF-07 & CPS-AGE-003-03, CPS-AGE-003-05: Checkbox de Autorización Ley 1581 (ui_03) */}
               <div className="pt-2 border-t border-[#E2E6EA]">
-                <label className="flex items-start gap-2.5 text-xs text-[#687380] cursor-pointer">
+                <label className="flex items-start gap-3 text-xs text-[#687380] cursor-pointer">
                   <input
                     type="checkbox"
                     checked={autorizacionDatos}
                     onChange={(e) => setAutorizacionDatos(e.target.checked)}
-                    className="mt-0.5 h-4 w-4 rounded border-[#E2E6EA] text-[#D4AF37] focus:ring-[#D4AF37]"
+                    className="touch-checkbox"
                   />
                   <span>
                     He leído y acepto la{' '}
@@ -526,21 +526,21 @@ export const PublicBookingPage: React.FC<PublicBookingPageProps> = ({
       >
         <div className="space-y-4 text-xs">
           <div className="rounded-2xl border border-[#E2E6EA] p-3.5 bg-[#F8F9FA] space-y-1">
-            <span className="text-[10px] font-extrabold uppercase text-[#8F99A3]">Fecha y Horario Solicitado</span>
+            <span className="text-[13px] font-extrabold uppercase text-[#8F99A3]">Fecha y Horario Solicitado</span>
             <p className="font-extrabold text-[#1E242B] text-sm">
               {selectedDate} • {selectedSlot?.label || ''}
             </p>
           </div>
 
           <div className="rounded-2xl border border-[#E2E6EA] p-3.5 space-y-1">
-            <span className="text-[10px] font-extrabold uppercase text-[#8F99A3]">Paciente</span>
+            <span className="text-[13px] font-extrabold uppercase text-[#8F99A3]">Paciente</span>
             <p className="font-bold text-[#1E242B]">{nombreCompleto}</p>
             <p className="text-[#687380]">C.C. {documentoIdentidad} • Tel: +57 {telefono}</p>
             <p className="text-[#687380]">{correo}</p>
           </div>
 
           <div className="rounded-2xl border border-[#E2E6EA] p-3.5 space-y-1">
-            <span className="text-[10px] font-extrabold uppercase text-[#8F99A3]">Motivo</span>
+            <span className="text-[13px] font-extrabold uppercase text-[#8F99A3]">Motivo</span>
             <p className="italic text-[#1E242B]">&ldquo;{motivoConsulta || 'Valoración odontológica'}&rdquo;</p>
           </div>
         </div>
@@ -577,15 +577,15 @@ export const PublicBookingPage: React.FC<PublicBookingPageProps> = ({
 
           <div className="rounded-2xl border border-[#E2E6EA] p-4 bg-[#F8F9FA] space-y-2">
             <div>
-              <span className="text-[10px] font-bold text-[#8F99A3]">FECHA Y HORA SOLICITADA</span>
+              <span className="text-[13px] font-bold text-[#8F99A3]">FECHA Y HORA SOLICITADA</span>
               <p className="font-bold text-[#1E242B]">{selectedDate} • {selectedSlot?.label || ''}</p>
             </div>
             <div>
-              <span className="text-[10px] font-bold text-[#8F99A3]">PACIENTE</span>
+              <span className="text-[13px] font-bold text-[#8F99A3]">PACIENTE</span>
               <p className="font-bold text-[#1E242B]">{nombreCompleto} • {documentoIdentidad}</p>
             </div>
             <div>
-              <span className="text-[10px] font-bold text-[#8F99A3]">CORREO DE NOTIFICACIÓN</span>
+              <span className="text-[13px] font-bold text-[#8F99A3]">CORREO DE NOTIFICACIÓN</span>
               <p className="font-bold text-[#1E242B]">{correo}</p>
             </div>
           </div>

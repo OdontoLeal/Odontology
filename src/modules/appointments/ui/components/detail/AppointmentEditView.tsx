@@ -115,11 +115,11 @@ export const AppointmentEditView: React.FC<AppointmentEditViewProps> = ({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 border-t border-[#E2E6EA] text-xs">
                 <div>
-                  <span className="text-[11px] font-bold text-[#8F99A3] block">Teléfono</span>
+                  <span className="text-[13px] font-bold text-[#8F99A3] block">Teléfono</span>
                   <span className="font-semibold text-[#1E242B]">{appointment.telefono}</span>
                 </div>
                 <div>
-                  <span className="text-[11px] font-bold text-[#8F99A3] block">Correo</span>
+                  <span className="text-[13px] font-bold text-[#8F99A3] block">Correo</span>
                   <span className="font-semibold text-[#1E242B]">{appointment.correo}</span>
                 </div>
               </div>
@@ -227,15 +227,15 @@ export const AppointmentEditView: React.FC<AppointmentEditViewProps> = ({
 
                         <div>
                           {isOccupied ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#FEE2E2] text-[#DC2626]">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[13px] font-bold bg-[#FEE2E2] text-[#DC2626]">
                               🔒 Ocupado ({slot.occupantName || 'Dr. Asignado'})
                             </span>
                           ) : isSelected ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#D4AF37] text-white">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[13px] font-bold bg-[#D4AF37] text-white">
                               ✓ Asignado
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#ECFDF5] text-[#059669]">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[13px] font-bold bg-[#ECFDF5] text-[#059669]">
                               Disponible
                             </span>
                           )}

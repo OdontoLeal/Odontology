@@ -102,7 +102,7 @@ export const EditAppointmentModal: React.FC<EditAppointmentModalProps> = ({
         {/* Comparativa de Reprogramación (Page 14) */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="rounded-2xl border border-[#CBD2D9] bg-[#F8F9FA] p-4 space-y-1">
-            <span className="text-[11px] font-extrabold uppercase text-[#8F99A3]">
+            <span className="text-[13px] font-extrabold uppercase text-[#8F99A3]">
               Fecha y Hora Actual
             </span>
             <p className="text-sm font-extrabold text-[#1E242B]">
@@ -112,7 +112,7 @@ export const EditAppointmentModal: React.FC<EditAppointmentModalProps> = ({
           </div>
 
           <div className="rounded-2xl border-2 border-[#D4AF37] bg-[#FBF6E6]/60 p-4 space-y-1">
-            <span className="text-[11px] font-extrabold uppercase text-[#D4AF37]">
+            <span className="text-[13px] font-extrabold uppercase text-[#D4AF37]">
               Nueva Fecha y Hora Seleccionada
             </span>
             <p className="text-sm font-extrabold text-[#1E242B]">

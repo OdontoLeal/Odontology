@@ -235,7 +235,7 @@ export const QuickScheduleModal: React.FC<QuickScheduleModalProps> = ({
               <div className="h-6 w-6 border-2 border-white/20 border-t-[#D4AF37] rounded-full animate-spin" />
               <div className="text-left">
                 <p className="text-xs sm:text-sm font-bold text-white">Procesando agendamiento...</p>
-                <p className="text-[11px] text-gray-300">Reservando bloques y confirmando la cita médica</p>
+                <p className="text-[13px] text-gray-300">Reservando bloques y confirmando la cita médica</p>
               </div>
             </div>
           </div>
@@ -408,7 +408,7 @@ export const QuickScheduleModal: React.FC<QuickScheduleModalProps> = ({
                       }`}
                     >
                       <span className="block">{b}</span>
-                      <span className="text-[10px] text-[#8F99A3]">
+                      <span className="text-[13px] text-[#8F99A3]">
                         {isSelected ? '✓ Seleccionado' : 'Disponible'}
                       </span>
                     </button>

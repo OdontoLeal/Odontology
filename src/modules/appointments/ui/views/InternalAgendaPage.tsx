@@ -92,6 +92,9 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
   const [isQuickScheduleOpen, setIsQuickScheduleOpen] = useState(false);
   const [isSubmittingSchedule, setIsSubmittingSchedule] = useState(false);
 
+  // En < 768px el calendario mensual se colapsa y la agenda se recorre un día a la vez.
+  const [isMonthCalendarOpen, setIsMonthCalendarOpen] = useState(false);
+
   // Carga de doctores reales desde base de datos / API
   useEffect(() => {
     fetch('/api/v1/users')
@@ -489,13 +492,14 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
       />
 
       <PageToolbar aria-label="Filtros de la agenda">
-        <div className="flex flex-wrap items-center gap-6">
-          <div className="flex items-center gap-2">
+        <div className="flex w-full min-w-0 flex-col items-stretch gap-3 md:w-auto md:flex-row md:flex-wrap md:items-center md:gap-6">
+          <div className="flex min-w-0 flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-2">
             <ToolbarLabel>Filtrar bloques:</ToolbarLabel>
             <ToolbarSelect
               value={filterMode}
               onChange={(e) => setFilterMode(e.target.value as typeof filterMode)}
               aria-label="Filtrar bloques"
+              className="w-full sm:w-auto"
             >
               <option value="all">Todos los bloques</option>
               <option value="appointments_only">Solo bloques con citas</option>
@@ -503,12 +507,12 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
             </ToolbarSelect>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex min-w-0 flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-2">
             <ToolbarLabel>
               <DoctorIcon size={14} color="#D4AF37" /> Filtrar por doctor:
             </ToolbarLabel>
             <ToolbarSearch
-              wrapperClassName="w-64"
+              wrapperClassName="w-full sm:w-64"
               placeholder="Escribir o buscar doctor..."
               aria-label="Filtrar por doctor"
               value={doctorFilter}
@@ -517,11 +521,85 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
           </div>
         </div>
       </PageToolbar>
-      {/* Grid de 2 Columnas Principal (Imagen 3) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Columna Izquierda (4 columnas): Calendario Mensual + Sala de Espera */}
-        <div className="lg:col-span-4 space-y-6 lg:sticky lg:top-6">
-          {/* Widget Calendario Mensual Dinámico Traído de Base de Datos */}
+
+      {/*
+        >= 1024px: 2 columnas (calendario mensual a la izquierda + día seleccionado a la derecha).
+        <  1024px: 1 columna; el navegador de día va primero (un día a la vez), luego el
+        mini-calendario (colapsable en < 768px) y por último los bloques del día.
+      */}
+      <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 lg:grid-cols-12 lg:grid-rows-[auto_1fr] lg:gap-6">
+        {/* Navegador de día: Ayer | Fecha | Mañana (+ Crear bloques) */}
+        <div className="order-1 min-w-0 lg:col-span-8 lg:col-start-5 lg:row-start-1">
+          <div className="flex flex-col gap-2 rounded-xl border border-[#E2E8F0] bg-white p-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+            <nav
+              aria-label="Navegación por día"
+              className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-stretch gap-2 sm:flex sm:items-center"
+            >
+              <button
+                type="button"
+                onClick={() => handleNavigateDay(-1)}
+                aria-label="Ir al día anterior"
+                className="inline-flex min-h-[44px] min-w-[44px] cursor-pointer items-center justify-center gap-1 rounded-lg border border-[#E2E8F0] px-3 text-[13px] font-bold text-[#64748B] transition-colors hover:bg-[#F3F4F6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37]"
+              >
+                <span aria-hidden="true">←</span> Ayer
+              </button>
+
+              <div
+                aria-live="polite"
+                className="flex min-h-[44px] min-w-0 items-center justify-center gap-2 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] px-3 text-center text-[13px] font-extrabold leading-tight text-[#1E242B] sm:px-4"
+              >
+                <CalendarIcon size={14} color="#D4AF37" className="hidden shrink-0 sm:block" />
+                <span className="text-break">{formatHeaderDate(selectedDate)}</span>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => handleNavigateDay(1)}
+                aria-label="Ir al día siguiente"
+                className="inline-flex min-h-[44px] min-w-[44px] cursor-pointer items-center justify-center gap-1 rounded-lg border border-[#E2E8F0] px-3 text-[13px] font-bold text-[#64748B] transition-colors hover:bg-[#F3F4F6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37]"
+              >
+                Mañana <span aria-hidden="true">→</span>
+              </button>
+            </nav>
+
+            {/* Botón secundario Crear Bloques (ERS RF-AGE-001). Mientras el día no tenga
+                bloques, el flujo de creación vive únicamente en el estado vacío. */}
+            {canManageSlots && slots.length > 0 && (
+              <button
+                type="button"
+                disabled={isPastDate || isLoading}
+                onClick={handleGenerateDaySlots}
+                title={
+                  isPastDate
+                    ? 'No es posible crear bloques en fechas pasadas'
+                    : 'Crear bloques para este día'
+                }
+                className="inline-flex min-h-[44px] cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-[#E2E8F0] bg-white px-3.5 text-[13px] font-bold text-[#1E242B] transition-colors hover:border-[#D4AF37] hover:bg-[#FBF3D5]/40 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-[#E2E8F0] disabled:hover:bg-white md:min-h-[38px]"
+              >
+                <span className="text-[#B8942A]">+</span> Crear bloques
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Calendario mensual: columna izquierda en escritorio, colapsable en móvil */}
+        <div className="order-2 min-w-0 lg:sticky lg:top-24 lg:col-span-4 lg:col-start-1 lg:row-span-2 lg:row-start-1">
+          <button
+            type="button"
+            onClick={() => setIsMonthCalendarOpen((prev) => !prev)}
+            aria-expanded={isMonthCalendarOpen}
+            aria-controls="agenda-month-calendar"
+            className="flex min-h-[44px] w-full items-center justify-between gap-2 rounded-xl border border-[#E2E8F0] bg-white px-4 text-[13px] font-bold text-[#1E242B] transition-colors hover:border-[#D4AF37] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37] md:hidden"
+          >
+            <span className="inline-flex items-center gap-2">
+              <CalendarIcon size={16} color="#D4AF37" />
+              {isMonthCalendarOpen ? 'Ocultar calendario mensual' : 'Mostrar calendario mensual'}
+            </span>
+            <span aria-hidden="true" className={`transition-transform ${isMonthCalendarOpen ? 'rotate-180' : ''}`}>
+              ▾
+            </span>
+          </button>
+
           {(() => {
             const monthNames = [
               'Enero',
@@ -552,34 +630,46 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
             const trailingDays = Array.from({ length: trailingDaysCount }, (_, i) => i + 1);
 
             return (
-              <div className="rounded-xl border border-[#E2E8F0] bg-white p-5 space-y-4">
-                <div className="flex items-center justify-between pb-3 border-b border-[#E2E8F0]">
-                  <div className="flex items-center gap-2 text-sm font-extrabold text-[#1E242B]">
-                    <CalendarIcon size={16} color="#D4AF37" />
-                    <span className="capitalize">{currentMonthTitle}</span>
+              <div
+                id="agenda-month-calendar"
+                className={`${
+                  isMonthCalendarOpen ? 'mt-2 block' : 'hidden'
+                } space-y-3 rounded-xl border border-[#E2E8F0] bg-white p-3 sm:p-5 md:mt-0 md:block`}
+              >
+                <div className="flex items-center justify-between gap-2 border-b border-[#E2E8F0] pb-2">
+                  <div className="flex min-w-0 items-center gap-2 text-sm font-extrabold text-[#1E242B]">
+                    <CalendarIcon size={16} color="#D4AF37" className="shrink-0" />
+                    <span className="capitalize text-break" aria-live="polite">
+                      {currentMonthTitle}
+                    </span>
                   </div>
-                  <div className="flex items-center gap-1 text-[#687380]">
+                  <div className="flex shrink-0 items-center gap-1 text-[#687380]">
                     <button
                       type="button"
+                      aria-label="Mes anterior"
                       title="Mes anterior"
                       onClick={() => navigateMonth(-1)}
-                      className="h-7 w-7 rounded-lg hover:bg-[#F3F4F6] flex items-center justify-center text-xs font-bold transition-colors cursor-pointer"
+                      className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-lg text-base font-bold transition-colors hover:bg-[#F3F4F6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37]"
                     >
                       ‹
                     </button>
                     <button
                       type="button"
+                      aria-label="Mes siguiente"
                       title="Mes siguiente"
                       onClick={() => navigateMonth(1)}
-                      className="h-7 w-7 rounded-lg hover:bg-[#F3F4F6] flex items-center justify-center text-xs font-bold transition-colors cursor-pointer"
+                      className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-lg text-base font-bold transition-colors hover:bg-[#F3F4F6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37]"
                     >
                       ›
                     </button>
                   </div>
                 </div>
 
-                {/* Cabecera de Días de Semana: Lun a Dom */}
-                <div className="grid grid-cols-7 gap-1 text-center text-xs font-bold text-[#687380] pb-1">
+                {/* Cabecera de días de semana: Lun a Dom */}
+                <div
+                  aria-hidden="true"
+                  className="grid grid-cols-7 gap-0.5 pb-1 text-center text-[13px] font-bold text-[#687380] sm:gap-1"
+                >
                   <span>Lun</span>
                   <span>Mar</span>
                   <span>Mié</span>
@@ -589,19 +679,18 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
                   <span>Dom</span>
                 </div>
 
-                {/* Cuadrícula de Días Dinámica */}
-                <div className="grid grid-cols-7 gap-1 text-center text-xs">
-                  {/* Días del mes previo */}
+                {/* Cuadrícula de días: número + indicador visual (sin texto repetido por celda) */}
+                <div className="grid grid-cols-7 gap-0.5 text-center text-[13px] sm:gap-1">
                   {leadingDays.map((d, idx) => (
                     <div
                       key={`lead-${idx}`}
-                      className="h-13 flex flex-col items-center justify-center text-gray-300 font-medium"
+                      aria-hidden="true"
+                      className="flex min-h-[48px] items-center justify-center font-medium text-gray-400"
                     >
                       {d}
                     </div>
                   ))}
 
-                  {/* Días del mes actual traídos de la base de datos */}
                   {currentDays.map((day) => {
                     const dayStr = day.toString().padStart(2, '0');
                     const monthStr = calendarMonth.toString().padStart(2, '0');
@@ -613,104 +702,93 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
                     const totalCitas = daySummary?.totalCitas ?? 0;
                     const sinBloques = daySummary ? daySummary.sinBloques : true;
 
+                    const statusLabel = sinBloques
+                      ? 'sin bloques'
+                      : totalCitas > 0
+                        ? `${totalCitas} ${totalCitas === 1 ? 'cita' : 'citas'}`
+                        : 'con bloques disponibles';
+
                     return (
                       <button
                         key={day}
                         type="button"
-                        onClick={() => setSelectedDate(fullDateStr)}
-                        className={`h-13 w-full rounded-2xl flex flex-col items-center justify-center transition-all p-0.5 cursor-pointer ${
+                        onClick={() => {
+                          setSelectedDate(fullDateStr);
+                          setIsMonthCalendarOpen(false);
+                        }}
+                        aria-pressed={isSelected}
+                        aria-label={`${day} de ${monthNames[calendarMonth - 1]}: ${statusLabel}`}
+                        className={`flex min-h-[48px] w-full min-w-0 cursor-pointer flex-col items-center justify-center gap-0.5 rounded-xl p-0.5 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37] ${
                           isSelected
                             ? 'bg-[#111827] text-white shadow-xs'
-                            : 'hover:bg-[#F3F4F6] text-[#1E242B]'
+                            : 'text-[#1E242B] hover:bg-[#F3F4F6]'
                         }`}
                       >
                         <span
-                          className={`text-xs font-extrabold ${isSelected ? 'text-[#D4AF37]' : ''}`}
+                          className={`text-[13px] font-extrabold leading-none sm:text-sm ${
+                            isSelected ? 'text-[#D4AF37]' : sinBloques ? 'text-[#8F99A3]' : ''
+                          }`}
                         >
                           {day}
                         </span>
 
-                        {/* Badge dinámico */}
-                        {isSelected ? (
-                          <span className="mt-0.5 px-1.5 py-0.2 rounded-full text-[9px] font-extrabold bg-[#D4AF37] text-black whitespace-nowrap leading-tight">
-                            {totalCitas > 0 ? `${totalCitas} citas` : 'Seleccionado'}
-                          </span>
-                        ) : sinBloques ? (
-                          <span className="mt-0.5 px-1 py-0.2 rounded text-[8px] font-semibold bg-[#F3F4F6] text-[#8F99A3] whitespace-nowrap leading-tight">
-                            Sin bloques
-                          </span>
-                        ) : totalCitas > 0 ? (
-                          <span className="mt-0.5 h-4 w-4 rounded-full text-[10px] font-bold bg-[#FEF3C7] text-[#92400E] flex items-center justify-center">
+                        {/* Indicador: número de citas, punto de bloques libres o punto hueco sin bloques */}
+                        {totalCitas > 0 ? (
+                          <span
+                            aria-hidden="true"
+                            className={`flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[13px] font-bold leading-none ${
+                              isSelected ? 'bg-[#D4AF37] text-black' : 'bg-[#FEF3C7] text-[#92400E]'
+                            }`}
+                          >
                             {totalCitas}
                           </span>
+                        ) : sinBloques ? (
+                          <span
+                            aria-hidden="true"
+                            className="h-2 w-2 rounded-full border border-[#8F99A3]"
+                          />
                         ) : (
-                          <span className="h-4"></span>
+                          <span aria-hidden="true" className="h-2 w-2 rounded-full bg-[#16A34A]" />
                         )}
                       </button>
                     );
                   })}
 
-                  {/* Días del mes siguiente */}
                   {trailingDays.map((d, idx) => (
                     <div
                       key={`trail-${idx}`}
-                      className="h-13 flex flex-col items-center justify-center text-gray-300 font-medium"
+                      aria-hidden="true"
+                      className="flex min-h-[48px] items-center justify-center font-medium text-gray-400"
                     >
                       {d}
                     </div>
                   ))}
                 </div>
+
+                {/* Leyenda accesible de los indicadores */}
+                <ul className="flex flex-wrap gap-x-4 gap-y-1.5 border-t border-[#E2E8F0] pt-3 text-[13px] leading-5 text-[#687380]">
+                  <li className="inline-flex items-center gap-1.5">
+                    <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#FEF3C7] px-1 text-[13px] font-bold text-[#92400E]">
+                      n
+                    </span>
+                    Citas del día
+                  </li>
+                  <li className="inline-flex items-center gap-1.5">
+                    <span className="h-2 w-2 rounded-full bg-[#16A34A]" aria-hidden="true" />
+                    Bloques libres
+                  </li>
+                  <li className="inline-flex items-center gap-1.5">
+                    <span className="h-2 w-2 rounded-full border border-[#8F99A3]" aria-hidden="true" />
+                    Sin bloques
+                  </li>
+                </ul>
               </div>
             );
           })()}
         </div>
 
-        {/* Columna Derecha (8 columnas): Barra de Navegación del Día y Bloques de Horario */}
-        <div className="lg:col-span-8 space-y-4">
-          {/* Barra de Día con Navegación y Botón "Crear bloques" (Imagen 3) */}
-          <div className="flex flex-wrap items-center justify-between gap-2 bg-white rounded-xl border border-[#E2E8F0] p-2">
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => handleNavigateDay(-1)}
-                className="h-9 px-3 rounded-lg border border-[#E2E8F0] text-xs font-bold text-[#64748B] hover:bg-[#F3F4F6] transition-colors inline-flex items-center gap-1 cursor-pointer"
-              >
-                ← Ayer
-              </button>
-
-              <div className="h-9 px-4 rounded-lg bg-[#F8FAFC] border border-[#E2E8F0] text-xs font-extrabold text-[#1E242B] flex items-center gap-2">
-                <CalendarIcon size={14} color="#D4AF37" />
-                <span>{formatHeaderDate(selectedDate)}</span>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => handleNavigateDay(1)}
-                className="h-9 px-3 rounded-lg border border-[#E2E8F0] text-xs font-bold text-[#64748B] hover:bg-[#F3F4F6] transition-colors inline-flex items-center gap-1 cursor-pointer"
-              >
-                Mañana →
-              </button>
-            </div>
-
-            {/* Botón secundario Crear Bloques (ERS RF-AGE-001). Mientras el día no tenga
-                bloques, el flujo de creación vive únicamente en el estado vacío. */}
-            {canManageSlots && slots.length > 0 && (
-              <button
-                type="button"
-                disabled={isPastDate || isLoading}
-                onClick={handleGenerateDaySlots}
-                title={
-                  isPastDate
-                    ? 'No es posible crear bloques en fechas pasadas'
-                    : 'Crear bloques para este día'
-                }
-                className="h-9 px-3.5 rounded-lg border border-[#E2E8F0] bg-white text-xs font-bold text-[#1E242B] inline-flex items-center gap-1.5 transition-colors hover:border-[#D4AF37] hover:bg-[#FBF3D5]/40 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-[#E2E8F0] disabled:hover:bg-white"
-              >
-                <span className="text-[#B8942A]">+</span> Crear bloques
-              </button>
-            )}
-          </div>
-
+        {/* Bloques de horario del día seleccionado */}
+        <div className="order-3 min-w-0 lg:col-span-8 lg:col-start-5 lg:row-start-2">
           {/* Grilla de Bloques con Citas y Estado Vacío si no hay bloques en BD (Imagen 3) */}
           <WeeklyCalendarGrid
             slots={slots}

@@ -169,7 +169,7 @@ export const PatientsDirectoryPage: React.FC<PatientsDirectoryPageProps> = ({
           onChange={(e) => setSearchQuery(e.target.value)}
         />
 
-        <div className="flex flex-wrap items-center gap-4">
+        <div className="flex w-full flex-wrap items-center gap-x-4 gap-y-2 md:w-auto">
           <span className="whitespace-nowrap text-[13px] text-[#64748B]">
             <strong className="text-[#1E242B]">{filteredPatients.length}</strong>{' '}
             {filteredPatients.length === 1 ? 'registrado' : 'registrados'}
@@ -179,6 +179,7 @@ export const PatientsDirectoryPage: React.FC<PatientsDirectoryPageProps> = ({
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as 'name' | 'document' | 'date')}
             aria-label="Ordenar pacientes"
+            className="flex-1 md:flex-none"
           >
             <option value="name">Nombre (A - Z)</option>
             <option value="document">Documento de Identidad</option>
@@ -212,11 +213,11 @@ export const PatientsDirectoryPage: React.FC<PatientsDirectoryPageProps> = ({
                 <InitialsAvatar name={patient.nombreCompleto} />
 
                 <div className="min-w-0 flex-1">
-                  <div className="flex min-w-0 items-center gap-2">
+                  <div className="flex min-w-0 flex-wrap items-center gap-2">
                     <h2
                       onClick={() => onSelectPatient(patient)}
                       title={patient.nombreCompleto}
-                      className="min-w-0 cursor-pointer truncate text-[15px] font-bold leading-snug text-[#1E242B] transition-colors hover:text-[#B8942A]"
+                      className="text-break cursor-pointer text-[15px] font-bold leading-snug text-[#1E242B] transition-colors hover:text-[#B8942A]"
                     >
                       {patient.nombreCompleto}
                     </h2>
@@ -246,7 +247,7 @@ export const PatientsDirectoryPage: React.FC<PatientsDirectoryPageProps> = ({
                   </div>
 
                   {/* Datos de contacto */}
-                  <div className="mt-1 flex min-w-0 items-center gap-4 text-[13px] text-[#64748B]">
+                  <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 text-[13px] text-[#64748B]">
                     <span className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap">
                       <svg
                         className="h-3.5 w-3.5 text-[#D4AF37]"
@@ -263,7 +264,7 @@ export const PatientsDirectoryPage: React.FC<PatientsDirectoryPageProps> = ({
                       </svg>
                       +57 {patient.telefono}
                     </span>
-                    <span className="inline-flex min-w-0 items-center gap-1.5">
+                    <span className="inline-flex min-w-0 max-w-full items-center gap-1.5">
                       <svg
                         className="h-3.5 w-3.5 shrink-0 text-[#D4AF37]"
                         fill="none"
@@ -277,7 +278,7 @@ export const PatientsDirectoryPage: React.FC<PatientsDirectoryPageProps> = ({
                           d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
                         />
                       </svg>
-                      <span className="min-w-0 truncate" title={patient.correo}>
+                      <span className="text-break" title={patient.correo}>
                         {patient.correo}
                       </span>
                     </span>
@@ -286,7 +287,7 @@ export const PatientsDirectoryPage: React.FC<PatientsDirectoryPageProps> = ({
               </div>
 
               {/* Acciones de la tarjeta */}
-              <div className="flex shrink-0 flex-wrap items-center gap-2 self-end md:self-center">
+              <div className="flex w-full flex-wrap items-center gap-2 md:w-auto md:shrink-0 md:justify-end [&>*]:flex-[1_1_auto] md:[&>*]:flex-none">
                 {!isCoordinator && (
                   <Button
                     size="sm"
@@ -373,7 +374,7 @@ export const PatientsDirectoryPage: React.FC<PatientsDirectoryPageProps> = ({
       )}
 
       {/* Footer Ley 1581 Habeas Data */}
-      <div className="mt-6 flex flex-wrap items-center justify-between gap-2 border-t border-[#E2E8F0] pt-4 text-[11px] text-[#64748B]">
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-2 border-t border-[#E2E8F0] pt-4 text-[13px] text-[#64748B]">
         <div className="flex items-center gap-2">
           <svg
             className="h-4 w-4 text-[#137333]"

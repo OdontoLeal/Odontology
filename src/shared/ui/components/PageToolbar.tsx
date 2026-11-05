@@ -10,27 +10,27 @@ export interface PageToolbarProps {
 export const PageToolbar: React.FC<PageToolbarProps> = ({ children, ...props }) => (
   <section
     {...props}
-    className="mb-5 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-[#E2E8F0] bg-white px-4 py-3"
+    className="mb-5 flex min-w-0 flex-col items-stretch gap-3 rounded-xl border border-[#E2E8F0] bg-white px-4 py-3 md:flex-row md:flex-wrap md:items-center md:justify-between md:gap-4 [&>*]:min-w-0"
   >
     {children}
   </section>
 );
 
 const CONTROL_BASE =
-  'h-[38px] rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] text-[13px] text-[#1E242B] placeholder-[#94A3B8] focus:border-[#D4AF37] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/20 transition-colors';
+  'min-h-[44px] md:min-h-[38px] rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] text-[13px] text-[#1E242B] placeholder-[#94A3B8] focus:border-[#D4AF37] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/20 transition-colors';
 
 export interface ToolbarSearchProps
   extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'type'> {
   wrapperClassName?: string;
 }
 
-/** Buscador de 38px. */
+/** Buscador: 44px de alto en móvil (táctil) y 38px en escritorio; ancho completo en < 768px. */
 export const ToolbarSearch: React.FC<ToolbarSearchProps> = ({
-  wrapperClassName = 'min-w-[240px] flex-1 max-w-[480px]',
+  wrapperClassName = 'w-full md:w-auto md:min-w-[240px] md:flex-1 md:max-w-[480px]',
   className = '',
   ...props
 }) => (
-  <div className={`relative ${wrapperClassName}`}>
+  <div className={`relative min-w-0 ${wrapperClassName}`}>
     <span
       className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#94A3B8]"
       aria-hidden="true"
@@ -86,7 +86,7 @@ export function ToolbarSegmented<T extends string>({
     <div
       role="group"
       aria-label={ariaLabel}
-      className="inline-flex h-[38px] items-center rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] p-[3px]"
+      className="flex w-full min-h-[44px] flex-wrap items-stretch gap-[3px] rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] p-[3px] md:inline-flex md:min-h-[38px] md:w-auto"
     >
       {options.map((opt) => {
         const isSelected = value === opt.id;
@@ -96,7 +96,7 @@ export function ToolbarSegmented<T extends string>({
             type="button"
             onClick={() => onChange(opt.id)}
             aria-pressed={isSelected}
-            className={`h-[30px] whitespace-nowrap rounded-md px-3.5 text-[13px] transition-all ${
+            className={`min-h-[36px] flex-1 rounded-md px-3.5 text-[13px] leading-tight transition-all md:min-h-[30px] md:flex-none ${
               isSelected
                 ? 'bg-[#111111] font-semibold text-white'
                 : 'font-medium text-[#64748B] hover:text-[#1E242B]'
@@ -112,7 +112,7 @@ export function ToolbarSegmented<T extends string>({
 
 /** Etiqueta de texto para controles dentro del toolbar. */
 export const ToolbarLabel: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <span className="flex items-center gap-1.5 whitespace-nowrap text-[13px] font-semibold text-[#64748B]">
+  <span className="flex items-center gap-1.5 text-[13px] font-semibold text-[#64748B]">
     {children}
   </span>
 );

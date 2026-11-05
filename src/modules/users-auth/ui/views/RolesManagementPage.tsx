@@ -651,21 +651,21 @@ export const RolesManagementPage: React.FC<RolesManagementPageProps> = ({
                     <div className="flex flex-wrap items-center gap-2">
                       <h2
                         title={role.nombre_rol}
-                        className="min-w-0 max-w-full truncate text-[15px] font-bold leading-snug text-[#1E242B]"
+                        className="text-break max-w-full text-[15px] font-bold leading-snug text-[#1E242B]"
                       >
                         {role.nombre_rol}
                       </h2>
 
-                      <span className="inline-flex items-center rounded-md bg-[#111111] px-2 py-0.5 text-[11px] font-mono font-bold text-[#D4AF37]">
+                      <span className="inline-flex items-center rounded-md bg-[#111111] px-2 py-0.5 text-[13px] font-mono font-bold text-[#D4AF37]">
                         {role.codigo}
                       </span>
 
                       {isProtected ? (
-                        <span className="inline-flex items-center rounded-full bg-[#DBEAFE] px-2.5 py-0.5 text-[11px] font-bold text-[#1D4ED8]">
+                        <span className="inline-flex items-center rounded-full bg-[#DBEAFE] px-2.5 py-0.5 text-[13px] font-bold text-[#1D4ED8]">
                           🔒 Inicial del Sistema
                         </span>
                       ) : (
-                        <span className="inline-flex items-center rounded-full bg-[#DCFCE7] px-2.5 py-0.5 text-[11px] font-bold text-[#15803D]">
+                        <span className="inline-flex items-center rounded-full bg-[#DCFCE7] px-2.5 py-0.5 text-[13px] font-bold text-[#15803D]">
                           ✓ Personalizado
                         </span>
                       )}
@@ -677,7 +677,7 @@ export const RolesManagementPage: React.FC<RolesManagementPageProps> = ({
                     </p>
 
                     {/* Fila 3: Chips de resumen de permisos y usuarios asignados */}
-                    <div className="mt-2.5 flex flex-wrap items-center gap-2 text-[12px] text-[#687380]">
+                    <div className="mt-2.5 flex flex-wrap items-center gap-2 text-[13px] text-[#687380]">
                       <span className="inline-flex items-center gap-1 rounded-lg border border-[#E2E6EA] bg-[#F8F9FA] px-2.5 py-1 font-semibold">
                         <svg
                           className="h-3.5 w-3.5 text-[#D4AF37]"
@@ -716,7 +716,7 @@ export const RolesManagementPage: React.FC<RolesManagementPageProps> = ({
                 </div>
 
                 {/* Derecha: Botones de Acción (Configurar permisos y Eliminar) */}
-                <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                <div className="flex w-full flex-wrap items-center gap-2 md:w-auto md:shrink-0 md:justify-end [&>*]:flex-[1_1_auto] md:[&>*]:flex-none">
                   <button
                     type="button"
                     onClick={() => handleOpenEditModal(role)}
@@ -790,7 +790,7 @@ export const RolesManagementPage: React.FC<RolesManagementPageProps> = ({
             {/* Cabecera del Modal */}
             <div className="flex items-center justify-between border-b border-[#E2E6EA] bg-white px-6 py-4">
               <div>
-                <span className="inline-flex items-center rounded-full bg-[#FBF3D5] px-2.5 py-0.5 text-[11px] font-extrabold uppercase tracking-wider text-[#B8942A]">
+                <span className="inline-flex items-center rounded-full bg-[#FBF3D5] px-2.5 py-0.5 text-[13px] font-extrabold uppercase tracking-wider text-[#B8942A]">
                   {modalMode === 'CREATE' ? 'NUEVO ROL' : 'CONFIGURACIÓN DE ROL'}
                 </span>
                 <h2
