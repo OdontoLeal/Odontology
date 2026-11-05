@@ -12,6 +12,8 @@ export interface RoleDTO {
 export interface UserRoleAssignmentDTO {
   idRol: number;
   codigo?: string;
+  /** Alias de `codigo` que consume el frontend. */
+  codigoRol?: string;
   nombreRol: string;
   descripcion?: string;
   permisos?: string[];
@@ -151,7 +153,7 @@ export interface IMailerPort {
     nombreCompleto: string;
     recoveryLink: string;
     expiresInMinutes: number;
-  }): Promise<{ messageId?: string; previewUrl?: string | null } | void>;
+  }): Promise<{ messageId?: string; previewUrl?: string | null; failed?: boolean } | void>;
 }
 
 export interface IAuditLoggerPort {

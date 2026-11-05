@@ -1,5 +1,6 @@
 // src/shared/infrastructure/http/http-error.handler.ts
-import { Response } from 'express';
+import { Request, Response } from 'express';
+import { ACCESS_DENIED_MESSAGE, recordBlockedAccess } from '../security/access-control';
 
 /**
  * Manejador centralizado de errores HTTP (Clean Code & D-07)
@@ -63,4 +64,39 @@ export function handleHttpError(
   res.status(defaultStatus).json({
     message: message || 'Error interno procesando la solicitud.',
   });
+}
+
+/**
+ * Igual que `handleHttpError`, pero si el error es un acceso denegado (403)
+ * lo registra en la auditoría y responde con el mensaje único de la ERS
+ * (RQNF-SEG-003, RQNF-SEG-009). Útil para reglas que dependen del contexto
+ * (p. ej. profesional responsable o auxiliar con la cita En consulta).
+ */
+export async function handleRequestError(
+  req: Request,
+  res: Response,
+  error: any,
+  defaultStatus: number = 400
+): Promise<void> {
+  const status = typeof error?.statusCode === 'number' ? error.statusCode : error?.status;
+  if (status === 403 || error?.statusCode === 'FORBIDDEN') {
+    try {
+      await recordBlockedAccess(req, { causa: String(error?.message ?? '') });
+    } catch (auditError) {
+      console.error('No se pudo auditar el acceso bloqueado:', (auditError as Error).message);
+      res.status(500).json({ message: 'Error interno en el servidor. Por favor intente más tarde.' });
+      return;
+    }
+    res.status(403).json({ message: ACCESS_DENIED_MESSAGE });
+    return;
+  }
+  if (error?.statusCode === 'BAD_REQUEST') {
+    res.status(400).json({ message: error.message });
+    return;
+  }
+  if (error?.statusCode === 'NOT_FOUND') {
+    res.status(404).json({ message: error.message });
+    return;
+  }
+  handleHttpError(res, error, defaultStatus);
 }

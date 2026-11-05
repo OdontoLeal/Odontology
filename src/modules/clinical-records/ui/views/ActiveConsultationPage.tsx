@@ -31,6 +31,8 @@ export interface ActiveConsultationPageProps {
   appointmentTime?: string;
   onBackToAgenda: () => void;
   onFinishConsultation: (idCita: number) => void;
+  /** RF-AGE-009: solo el profesional responsable finaliza la atención (la auxiliar solo guarda). */
+  canFinishAttention?: boolean;
 }
 
 export const ActiveConsultationPage: React.FC<ActiveConsultationPageProps> = ({
@@ -50,25 +52,10 @@ export const ActiveConsultationPage: React.FC<ActiveConsultationPageProps> = ({
   appointmentTime,
   onBackToAgenda,
   onFinishConsultation,
+  canFinishAttention = false,
 }) => {
-  const { history, currentOdontogram, isLoading, saveEvolutionEntry } = useClinicalRecord(idPaciente);
+  const { history, currentOdontogram, isLoading, saveEvolutionEntry } = useClinicalRecord(idPaciente, '/api/v1', idCita);
   const { showAlert, showConfirm, AlertModalComponent } = useAlertModal();
-
-  // Asegurar que la cita esté en estado "En consulta" en la BD al abrir el espacio clínico
-  useEffect(() => {
-    if (idCita) {
-      fetch(`/api/v1/appointments/${idCita}/state`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          nuevoEstado: 'En consulta',
-          motivo: 'Atención odontológica activa en curso',
-        }),
-      }).catch((err) => {
-        console.error('Error sincronizando estado En consulta:', err);
-      });
-    }
-  }, [idCita]);
 
   // Datos del doctor asignado a la cita (asociación y firma digital del profesional)
   const [attendingDoctor, setAttendingDoctor] = useState<{
@@ -257,17 +244,6 @@ export const ActiveConsultationPage: React.FC<ActiveConsultationPageProps> = ({
 
   const handleOfficialSubmit = async (formData: EvolutionFormData) => {
     try {
-      if (idCita) {
-        await fetch(`/api/v1/appointments/${idCita}/state`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            nuevoEstado: 'En consulta',
-            motivo: 'Atención clínica activa en curso',
-          }),
-        }).catch(() => {});
-      }
-
       await saveEvolutionEntry({
         idCita,
         motivoConsulta: formData.motivoConsulta,
@@ -286,26 +262,24 @@ export const ActiveConsultationPage: React.FC<ActiveConsultationPageProps> = ({
         planManejo: formData.planManejo,
       });
 
-      if (idCita) {
-        await fetch(`/api/v1/appointments/${idCita}/state`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            nuevoEstado: 'Atendida',
-            motivo: 'Atención odontológica concluida con éxito tras registro de evolución clínica.',
-          }),
-        }).catch((err) => console.error('Error actualizando estado a Atendida:', err));
+      if (canFinishAttention) {
+        // RF-AGE-009: finalizar es una decisión explícita del profesional responsable
+        showConfirm({
+          title: 'Registro clínico guardado',
+          message:
+            '¿Desea finalizar la atención? La cita pasará a "Atendida" y la historia de esta consulta quedará en solo lectura (las correcciones posteriores se hacen con notas aclaratorias).',
+          confirmText: 'Finalizar atención',
+          cancelText: 'Seguir en la consulta',
+          onConfirm: () => onFinishConsultation(idCita),
+        });
+      } else {
+        showAlert({
+          title: 'Registro clínico guardado',
+          message: 'Los cambios quedaron en la historia clínica de esta consulta con su nombre como "Diligenciado por".',
+          type: 'success',
+          confirmText: 'Aceptar',
+        });
       }
-
-      showAlert({
-        title: '¡Evolución Registrada con Éxito!',
-        message:
-          'La evolución clínica, antecedentes, examen físico, plan de manejo y odontograma se han firmado y guardado inalterablemente en la Historia Clínica del paciente.',
-        type: 'success',
-        confirmText: 'Aceptar',
-        onConfirm: () => onFinishConsultation(idCita),
-        onCancel: () => onFinishConsultation(idCita),
-      });
     } catch (err: any) {
       showAlert({
         title: 'No se pudo guardar la evolución clínica',
@@ -317,16 +291,6 @@ export const ActiveConsultationPage: React.FC<ActiveConsultationPageProps> = ({
     }
   };
 
-  const handleFinishConsultationClick = () => {
-    showConfirm({
-      title: '¿Finalizar Atención de la Cita?',
-      message:
-        'Esta acción dará por concluida la consulta activa y registrará la cita como Atendida en la agenda médica sin registrar evolución.',
-      confirmText: 'Sí, finalizar cita',
-      cancelText: 'Volver a la consulta',
-      onConfirm: () => onFinishConsultation(idCita),
-    });
-  };
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 animate-fadeIn">
@@ -349,6 +313,8 @@ export const ActiveConsultationPage: React.FC<ActiveConsultationPageProps> = ({
 
       {/* Editor Completo de Evolución con 5 Pestañas y Diseño Exacto */}
       <EvolutionTemplateEditor
+        idPaciente={idPaciente}
+        idCita={idCita}
         patientName={patientName}
         patientDoc={patientDoc}
         patientAge={patientAge}

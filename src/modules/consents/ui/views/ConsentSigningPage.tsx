@@ -1,5 +1,8 @@
-// src/modules/consents/ui/views/TabletSigningPage.tsx
-import React, { useState, useMemo, useEffect } from 'react';
+// src/modules/consents/ui/views/ConsentSigningPage.tsx
+// RF-CON-001, RF-CON-002, RF-CON-005 (ERS v1.3): pantalla de lectura y firma dentro de la
+// sesión del profesional o la auxiliar, en tablet o computador. Ya no existe la firma por
+// enlace de un solo uso ni QR (RF-CON-006 se eliminó en la v1.2).
+import React, { useState, useMemo } from 'react';
 import { SignaturePadCanvas } from '../components/SignaturePadCanvas';
 import { Button } from '../../../../shared/ui/components/Button';
 import { Badge } from '../../../../shared/ui/components/Badge';
@@ -14,7 +17,7 @@ export interface ConsentSignPayload {
   textoFirmado: string;
 }
 
-export interface TabletSigningPageProps {
+export interface ConsentSigningPageProps {
   idConsentimiento?: number;
   idPaciente?: number;
   tituloConsentimiento?: string;
@@ -22,41 +25,29 @@ export interface TabletSigningPageProps {
   nombrePaciente?: string;
   documentoPaciente?: string;
   isMinor?: boolean;
-  token?: string;
-  onConsentSigned?: (result: string | ConsentSignPayload) => void;
+  /** Guarda la firma en el servidor; si lanza un error, la pantalla lo muestra y no da el éxito. */
+  onConsentSigned?: (result: ConsentSignPayload) => Promise<void> | void;
   onConsentRejected?: (motivo: string) => void;
   onExit?: () => void;
 }
 
-export const TabletSigningPage: React.FC<TabletSigningPageProps> = ({
+export const ConsentSigningPage: React.FC<ConsentSigningPageProps> = ({
   tituloConsentimiento = 'Consentimiento Informado para Procedimiento Odontológico',
   cuerpoTexto = 'Por medio del presente documento, manifiesto libre y voluntariamente que he sido informado(a) por el profesional tratante sobre el diagnóstico clínico, los objetivos del procedimiento, los riesgos inherentes y las posibles complicaciones. Declaro haber tenido la oportunidad de formular preguntas y resuelto todas mis dudas. Autorizo la realización del tratamiento acordado en las instalaciones de OdontoLeal.',
   nombrePaciente = 'Paciente Titular',
   documentoPaciente = '',
   isMinor = false,
-  token,
   onConsentSigned,
   onConsentRejected,
   onExit,
 }) => {
-  const [tokenFromUrl] = useState<string | null>(() => {
-    if (token) return token;
-    if (typeof window !== 'undefined') {
-      const match = window.location.pathname.match(/\/tablet-sign\/(.+)/);
-      if (match && match[1]) return match[1].split('?')[0];
-      const p = new URLSearchParams(window.location.search).get('token');
-      if (p) return p;
-    }
-    return null;
-  });
-
-  const [activeTitle, setActiveTitle] = useState(tituloConsentimiento);
-  const [activeBody, setActiveBody] = useState(cuerpoTexto);
-  const [activePatientName, setActivePatientName] = useState(nombrePaciente);
-  const [activePatientDoc, setActivePatientDoc] = useState(documentoPaciente);
-  const [activeIsMinor, setActiveIsMinor] = useState(isMinor);
-  const [isLoadingToken, setIsLoadingToken] = useState(false);
-  const [tokenError, setTokenError] = useState<string | null>(null);
+  const activeTitle = tituloConsentimiento;
+  const activeBody = cuerpoTexto;
+  const activePatientName = nombrePaciente;
+  const activePatientDoc = documentoPaciente;
+  // RF-CON-005: para un menor la casilla de acudiente aparece marcada y no se puede desmarcar
+  const activeIsMinor = isMinor;
+  const [isSaving, setIsSaving] = useState(false);
 
   const [signatureData, setSignatureData] = useState<string | null>(null);
   const [hasAcceptedTerms, setHasAcceptedTerms] = useState(false);
@@ -66,41 +57,6 @@ export const TabletSigningPage: React.FC<TabletSigningPageProps> = ({
   const [rejectReason, setRejectReason] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
   const { showAlert, AlertModalComponent } = useAlertModal();
-
-  useEffect(() => {
-    if (!tokenFromUrl) return;
-    setIsLoadingToken(true);
-    fetch(`/api/v1/consents/tablet-session/${tokenFromUrl}`)
-      .then(async (res) => {
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          throw new Error(err.message || 'El enlace de firma en tablet ha expirado o no es válido (vigencia 15 min).');
-        }
-        return res.json();
-      })
-      .then((json) => {
-        const d = json.data;
-        if (d) {
-          if (d.nombrePlantilla) setActiveTitle(d.nombrePlantilla);
-          if (d.textoPlantilla) setActiveBody(d.textoPlantilla);
-          if (d.nombrePaciente) setActivePatientName(d.nombrePaciente);
-          if (d.documentoPaciente) setActivePatientDoc(d.documentoPaciente);
-          if (typeof d.esMenorDeEdad === 'boolean') {
-            setActiveIsMinor(d.esMenorDeEdad);
-            setIsGuardianSigning(d.esMenorDeEdad);
-          }
-          if (d.acudiente?.nombreCompleto) {
-            setGuardianNameAndDoc(`${d.acudiente.nombreCompleto} - Doc: ${d.acudiente.documentoIdentidad || ''}`);
-          }
-        }
-      })
-      .catch((err) => {
-        setTokenError(err.message);
-      })
-      .finally(() => {
-        setIsLoadingToken(false);
-      });
-  }, [tokenFromUrl]);
 
   const interpolatedText = useMemo(() => {
     return interpolateConsentTemplate(activeBody, {
@@ -137,47 +93,23 @@ export const TabletSigningPage: React.FC<TabletSigningPageProps> = ({
       return;
     }
 
-    if (tokenFromUrl) {
-      fetch(`/api/v1/consents/tablet-sign/${tokenFromUrl}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          firmaBase64: signatureData,
-          firmaPorAcudiente: isGuardianSigning,
-          nombreDocumentoAcudiente: isGuardianSigning ? guardianNameAndDoc.trim() : null,
-          textoFirmado: interpolatedText,
-        }),
-      })
-        .then(async (res) => {
-          if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            throw new Error(err.message || 'Error al registrar la firma en el servidor.');
-          }
-          onConsentSigned?.({
-            firmaBase64: signatureData,
-            firmaPorAcudiente: isGuardianSigning,
-            nombreDocumentoAcudiente: isGuardianSigning ? guardianNameAndDoc.trim() : null,
-            textoFirmado: interpolatedText,
-          });
-          setIsSuccess(true);
-        })
-        .catch((err) => {
-          showAlert({
-            title: 'Error de Envío',
-            message: err.message,
-            type: 'error',
-          });
-        });
-      return;
-    }
-
-    onConsentSigned?.({
+    const payload: ConsentSignPayload = {
       firmaBase64: signatureData,
       firmaPorAcudiente: isGuardianSigning,
       nombreDocumentoAcudiente: isGuardianSigning ? guardianNameAndDoc.trim() : null,
       textoFirmado: interpolatedText,
-    });
-    setIsSuccess(true);
+    };
+    setIsSaving(true);
+    Promise.resolve(onConsentSigned?.(payload))
+      .then(() => setIsSuccess(true))
+      .catch((err: any) => {
+        showAlert({
+          title: 'No se guardó el consentimiento',
+          message: err?.message || 'Error al registrar la firma en el servidor.',
+          type: 'error',
+        });
+      })
+      .finally(() => setIsSaving(false));
   };
 
   const handleFinishReject = () => {
@@ -192,40 +124,6 @@ export const TabletSigningPage: React.FC<TabletSigningPageProps> = ({
     onConsentRejected?.(rejectReason.trim());
     setIsSuccess(true);
   };
-
-  if (isLoadingToken) {
-    return (
-      <div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center p-6 text-center">
-        <div className="space-y-3">
-          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-[#D4AF37] border-r-transparent" />
-          <p className="text-xs font-bold text-[#687380]">Cargando sesión segura de firma en tablet...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (tokenError) {
-    return (
-      <div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center p-6 text-center">
-        <div className="max-w-md w-full rounded-3xl bg-white border border-[#DC2626] border-t-4 border-t-[#DC2626] p-8 shadow-xl space-y-4">
-          <div className="h-16 w-16 rounded-full bg-[#FEF2F2] text-[#DC2626] flex items-center justify-center text-3xl mx-auto">
-            ⚠️
-          </div>
-          <h2 className="text-xl font-extrabold text-[#1E242B]">
-            Enlace de Firma No Disponible
-          </h2>
-          <p className="text-xs text-[#687380] leading-relaxed">
-            {tokenError}
-          </p>
-          <div className="pt-4">
-            <Button variant="primary" className="w-full min-h-[48px]" onClick={onExit || (() => { window.location.href = '/'; })}>
-              Regresar al Inicio
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   if (isSuccess) {
     return (
@@ -412,7 +310,8 @@ export const TabletSigningPage: React.FC<TabletSigningPageProps> = ({
             Salir
           </Button>
 
-          {!isRejecting ? (
+          {/* El rechazo solo se ofrece si hay dónde registrarlo; si no, mostraría un éxito falso */}
+          {!onConsentRejected ? null : !isRejecting ? (
             <button
               type="button"
               onClick={() => setIsRejecting(true)}
@@ -439,7 +338,7 @@ export const TabletSigningPage: React.FC<TabletSigningPageProps> = ({
               size="lg"
               className="min-h-[50px] px-8 text-base shadow-lg"
               onClick={handleFinishSigning}
-              disabled={!signatureData || !hasAcceptedTerms}
+              disabled={!signatureData || !hasAcceptedTerms || isSaving}
               leftIcon={<span>✍️</span>}
             >
               Guardar Consentimiento Firmado

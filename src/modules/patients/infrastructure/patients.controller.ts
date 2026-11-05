@@ -1,5 +1,7 @@
-import { handleHttpError } from '../../../shared/infrastructure/http/http-error.handler';
 import { Request, Response } from 'express';
+import { handleHttpError } from '../../../shared/infrastructure/http/http-error.handler';
+import { auditLog } from '../../../shared/infrastructure/audit/audit-log.service';
+import { getSessionUser } from '../../../shared/infrastructure/security/access-control';
 import { CreatePatientUseCase } from '../application/create-patient.use-case';
 import { ExportHolderDataUseCase } from '../application/export-holder-data.use-case';
 import { GetPatientProfileUseCase } from '../application/get-patient-profile.use-case';
@@ -38,44 +40,11 @@ export class PatientsController {
       new ExportHolderDataUseCase(patientRepo);
   }
 
-  // RF-HCL-001: Crear paciente
+  // RF-HCL-001: Crear paciente (ERS v1.3: sin acudiente ni autorización en la ficha)
   public createPatient = async (req: Request, res: Response): Promise<void> => {
     try {
-      const {
-        nombreCompleto,
-        documentoIdentidad,
-        correo,
-        telefono,
-        fechaNacimiento,
-        sexo,
-        contactoRespaldo,
-        acudiente,
-        autorizacionDatos,
-        creadoDesdeSolicitud,
-      } = req.body;
-
-      const user = (req as any).user;
-
-      // I3-007 (RQNF-SEG-005, RF-HCL-001, D-16):
-      // Si se suministra autorizacionDatos pero no viene idUsuarioRegistro, inyectar el usuario de la sesión autenticada.
-      // Conforme al DDL actual, si no se envía autorización explícita, proveer autorización por defecto para no bloquear la creación.
-      let processedAuth = autorizacionDatos;
-      if (processedAuth && typeof processedAuth === 'object') {
-        processedAuth = {
-          ...processedAuth,
-          idUsuarioRegistro:
-            processedAuth.idUsuarioRegistro !== undefined
-              ? processedAuth.idUsuarioRegistro
-              : (user?.idUsuario ?? null),
-        };
-      } else if (!processedAuth) {
-        processedAuth = {
-          autorizado: true,
-          medio: 'CONSULTORIO_WEB',
-          versionAvisoPrivacidad: 'v1.1',
-          idUsuarioRegistro: user?.idUsuario ?? null,
-        };
-      }
+      const user = getSessionUser(req)!;
+      const { nombreCompleto, documentoIdentidad, correo, telefono, fechaNacimiento, sexo } = req.body ?? {};
 
       const result = await this.createPatientUseCase.execute({
         nombreCompleto,
@@ -84,10 +53,7 @@ export class PatientsController {
         telefono,
         fechaNacimiento,
         sexo,
-        contactoRespaldo,
-        acudiente,
-        autorizacionDatos: processedAuth,
-        creadoDesdeSolicitud,
+        actor: { idUsuario: user.idUsuario, actor: user.correo },
       });
 
       res.status(201).json({
@@ -105,19 +71,15 @@ export class PatientsController {
   // RF-HCL-002: Editar paciente
   public updatePatient = async (req: Request, res: Response): Promise<void> => {
     try {
-      const idPaciente = Number(req.params.id);
-      const user = (req as any).user;
-
+      const user = getSessionUser(req)!;
       const updated = await this.updatePatientUseCase.execute({
-        idPaciente,
-        idUsuarioActor: user?.idUsuario,
-        changes: req.body,
+        idPaciente: Number(req.params.id),
+        idUsuarioActor: user.idUsuario,
+        actor: user.correo,
+        changes: req.body ?? {},
       });
 
-      res.json({
-        message: 'Datos del paciente actualizados.',
-        data: updated,
-      });
+      res.json({ message: 'Datos del paciente actualizados.', data: updated });
     } catch (error: any) {
       this.handleError(res, error);
     }
@@ -151,15 +113,9 @@ export class PatientsController {
     res: Response
   ): Promise<void> => {
     try {
-      const idPaciente = Number(req.params.id);
-      const user = (req as any).user;
-
       const profile = await this.getPatientProfileUseCase.execute({
-        idPaciente,
-        requesterRoles: user?.roles ?? [],
-        hasActiveConsultationWithPatient: Boolean(
-          user?.activeConsultationPatientId === idPaciente
-        ),
+        idPaciente: Number(req.params.id),
+        requesterRoles: getSessionUser(req)?.roles ?? [],
       });
 
       res.json({ data: profile });
@@ -181,12 +137,22 @@ export class PatientsController {
         String(req.query.formato ?? 'JSON').toUpperCase() === 'PDF'
           ? 'PDF'
           : 'JSON';
-      const user = (req as any).user;
+      const user = getSessionUser(req)!;
 
       const result = await this.exportHolderDataUseCase.execute({
         documentoIdentidad,
-        requesterRoles: user?.roles ?? ['ROL-COA'],
+        requesterRoles: user.roles,
         formato,
+      });
+
+      // RQNF-SEG-009: toda consulta de titulares queda registrada.
+      await auditLog.record({
+        idUsuario: user.idUsuario,
+        actor: user.correo,
+        accion: 'CONSULTA_TITULAR',
+        entidad: 'titular',
+        idRegistro: documentoIdentidad,
+        detalle: { formato },
       });
 
       res.json({ data: result });

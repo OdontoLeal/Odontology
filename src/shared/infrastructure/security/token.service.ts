@@ -13,10 +13,13 @@ export interface TokenPayload {
 
 export class JwtTokenService {
   private static get secret(): string {
-    return (
-      process.env.JWT_SECRET ||
-      'odontoleal-jwt-signing-secret-default-key-development-2026'
-    );
+    const secret = process.env.JWT_SECRET;
+    if (secret) return secret;
+    // RQNF-SEG-002: la llave no puede vivir en el código en producción.
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('JWT_SECRET no está configurado.');
+    }
+    return 'odontoleal-jwt-signing-secret-solo-desarrollo';
   }
 
   public static generateToken(

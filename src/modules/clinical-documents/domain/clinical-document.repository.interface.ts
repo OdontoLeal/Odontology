@@ -40,23 +40,17 @@ export interface AuthorshipMetadata {
   horaFormateadaColombia?: string;
 }
 
-export interface CreateClinicalDocumentDTO {
+/**
+ * Documento generado en memoria (RF-DOC-001 a 004). No se guarda: se entrega
+ * al profesional para descargarlo o imprimirlo al momento.
+ */
+export interface GeneratedClinicalDocument {
   idPaciente: number;
   idCita: number;
   tipoDocumento: TipoDocumentoClinico;
-  archivoPdfUrl: string;
+  nombreArchivo: string;
+  pdfBase64: string;
   modoFirma: ModoFirmaDocumento;
-  detalles: ClinicalDocumentDetails;
-  diligenciadoPor: AuthorshipMetadata;
-}
-
-export interface ClinicalDocumentRecord {
-  idDocumento: number;
-  fecha: Date | string;
-  idCita: number;
-  tipoDocumento: TipoDocumentoClinico;
-  archivoPdfUrl: string;
-  modoFirma?: ModoFirmaDocumento;
   detalles: ClinicalDocumentDetails;
   diligenciadoPor: AuthorshipMetadata;
 }
@@ -69,8 +63,9 @@ export interface ConsultationContextData {
     fechaNacimiento: Date | string;
     sexo: string | null;
     idHistoria: number;
-    acudiente?: GuardianDetail | null;
   };
+  /** La consulta ya tiene la apertura con motivo de consulta (RF-HCL-005, D-24). */
+  tieneApertura: boolean;
   cita: {
     idCita: number;
     idProfesionalResponsable: number;
@@ -82,8 +77,7 @@ export interface ConsultationContextData {
 }
 
 export interface IClinicalDocumentRepository {
-  createClinicalDocument(dto: CreateClinicalDocumentDTO): Promise<ClinicalDocumentRecord>;
-  getDocumentsByPatient(idPaciente: number): Promise<ClinicalDocumentRecord[]>;
   getConsultationContext(idPaciente: number, idCita: number): Promise<ConsultationContextData | null>;
-  hasActiveConsultationForPatient(idPaciente: number): Promise<boolean>;
+  /** Deja constancia de la generación (sin el PDF) en el registro de auditoría (RQNF-SEG-009). */
+  recordGeneration(documento: Omit<GeneratedClinicalDocument, 'pdfBase64'>): Promise<void>;
 }

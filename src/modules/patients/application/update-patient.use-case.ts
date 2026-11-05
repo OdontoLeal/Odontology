@@ -1,25 +1,11 @@
-import {
-  BackupContactInfo,
-  GuardianInfo,
-  Patient,
-  PatientDomainError,
-  PatientSex,
-} from '../domain/patient.entity';
+import { Patient, PatientChanges, PatientDomainError } from '../domain/patient.entity';
 import { IPatientRepository } from '../domain/patient.repository.interface';
 
 export interface UpdatePatientInput {
   idPaciente: number;
   idUsuarioActor?: number;
-  changes: {
-    nombreCompleto?: string;
-    documentoIdentidad?: string;
-    fechaNacimiento?: string;
-    sexo?: PatientSex | null;
-    telefono?: string | null;
-    correo?: string | null;
-    contactoRespaldo?: BackupContactInfo | null;
-    acudiente?: GuardianInfo | null;
-  };
+  actor?: string;
+  changes: PatientChanges;
 }
 
 export class UpdatePatientUseCase {
@@ -73,13 +59,16 @@ export class UpdatePatientUseCase {
       }
     }
 
-    existingPatient.update(input.changes);
+    // Solo se aceptan los campos de RF-HCL-001 (se ignora cualquier otro dato del cuerpo).
+    const { nombreCompleto, documentoIdentidad, fechaNacimiento, sexo, telefono, correo } = input.changes ?? {};
+    existingPatient.update({ nombreCompleto, documentoIdentidad, fechaNacimiento, sexo, telefono, correo });
 
     const updated = await this.patientRepository.updatePatient(
       input.idPaciente,
       existingPatient,
       {
         idUsuarioActor: input.idUsuarioActor,
+        actor: input.actor,
         valorAnterior: previousSnapshot,
       }
     );

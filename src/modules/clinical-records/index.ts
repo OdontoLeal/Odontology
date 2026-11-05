@@ -7,10 +7,9 @@ export * from './domain/evolution-note.entity';
 export * from './domain/clinical-record.repository.interface';
 
 export * from './application/create-clinical-record.use-case';
-export * from './application/update-clinical-record.use-case';
 export * from './application/manage-odontogram.use-case';
 export * from './application/get-clinical-history.use-case';
-export * from './application/register-evolution.use-case';
+export * from './application/clinical-access.policy';
 
 export class ClinicalRecordsModulePublicApi implements IClinicalRecordCheckerPort {
   constructor(private readonly clinicalRepo: IClinicalRecordRepository) {}

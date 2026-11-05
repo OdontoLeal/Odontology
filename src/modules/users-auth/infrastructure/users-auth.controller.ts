@@ -1,6 +1,6 @@
-import { handleHttpError } from '../../../shared/infrastructure/http/http-error.handler';
 // src/modules/users-auth/infrastructure/users-auth.controller.ts
 import { Request, Response } from 'express';
+import { handleHttpError } from '../../../shared/infrastructure/http/http-error.handler';
 import { AuthenticateUserUseCase } from '../application/authenticate-user.use-case';
 import { CloseSessionUseCase } from '../application/close-session.use-case';
 import { CreateRoleUseCase } from '../application/create-role.use-case';
@@ -11,13 +11,20 @@ import { SearchUsersUseCase } from '../application/search-users.use-case';
 import { ToggleUserStatusUseCase } from '../application/toggle-user-status.use-case';
 import { UpdateRoleUseCase } from '../application/update-role.use-case';
 import { UpdateUserUseCase } from '../application/update-user.use-case';
+import { IAuditLoggerPort } from '../domain/user.repository.interface';
 import { DraftStorageService } from './draft-storage.service';
 import { HybridPasswordHasherService } from './password-hasher.service';
 import { MailerService } from '../../../shared/infrastructure/mail/mailer.service';
 import { envConfig } from '../../../app/config/env.config';
 import { UserRepository } from './user.repository';
 import { JwtTokenService } from '../../../shared/infrastructure/security/token.service';
-import { db } from '../../../shared/infrastructure/database/database';
+import { UsersAuditAdapter } from '../../../shared/infrastructure/audit/users-audit.adapter';
+import { getSessionUser, revokeToken } from '../../../shared/infrastructure/security/access-control';
+
+const SESSION_HOURS = 8;
+
+/** Actor de las operaciones: siempre el usuario de la sesión, nunca el cuerpo de la petición. */
+const actorOf = (req: Request): string => getSessionUser(req)?.correo ?? 'Anónimo';
 
 export class UsersAuthController {
   private readonly createRoleUseCase: CreateRoleUseCase;
@@ -35,30 +42,24 @@ export class UsersAuthController {
     private readonly userRepo: UserRepository,
     private readonly draftStorage = new DraftStorageService(),
     private readonly passwordHasher = new HybridPasswordHasherService(),
-    private readonly mailerService = new MailerService()
+    private readonly mailerService = new MailerService(),
+    private readonly audit: IAuditLoggerPort = new UsersAuditAdapter()
   ) {
-    this.createRoleUseCase = new CreateRoleUseCase(this.userRepo);
-    this.updateRoleUseCase = new UpdateRoleUseCase(this.userRepo);
-    this.deleteRoleUseCase = new DeleteRoleUseCase(this.userRepo);
-    this.createUserUseCase = new CreateUserUseCase(
-      this.userRepo,
-      this.passwordHasher
-    );
-    this.updateUserUseCase = new UpdateUserUseCase(this.userRepo);
-    this.toggleUserStatusUseCase = new ToggleUserStatusUseCase(this.userRepo);
+    this.createRoleUseCase = new CreateRoleUseCase(this.userRepo, this.audit);
+    this.updateRoleUseCase = new UpdateRoleUseCase(this.userRepo, this.audit);
+    this.deleteRoleUseCase = new DeleteRoleUseCase(this.userRepo, this.audit);
+    this.createUserUseCase = new CreateUserUseCase(this.userRepo, this.passwordHasher, this.audit);
+    // Antes no recibía el hasher: la nueva contraseña temporal se guardaba sin cifrar.
+    this.updateUserUseCase = new UpdateUserUseCase(this.userRepo, this.passwordHasher, this.audit);
+    this.toggleUserStatusUseCase = new ToggleUserStatusUseCase(this.userRepo, this.audit);
     this.searchUsersUseCase = new SearchUsersUseCase(this.userRepo);
-    this.authenticateUserUseCase = new AuthenticateUserUseCase(
-      this.userRepo,
-      this.passwordHasher
-    );
-    this.closeSessionUseCase = new CloseSessionUseCase(
-      this.userRepo,
-      this.draftStorage
-    );
+    this.authenticateUserUseCase = new AuthenticateUserUseCase(this.userRepo, this.passwordHasher, this.audit);
+    this.closeSessionUseCase = new CloseSessionUseCase(this.userRepo, this.draftStorage, this.audit);
     this.recoverPasswordUseCase = new RecoverPasswordUseCase(
       this.userRepo,
       this.passwordHasher,
-      this.mailerService
+      this.mailerService,
+      this.audit
     );
   }
 
@@ -73,7 +74,7 @@ export class UsersAuthController {
       const rawNombreRol = req.body?.nombreRol || req.body?.nombre_rol;
       const rawDescripcion = req.body?.descripcion ?? '';
       const rawPermisos = req.body?.permisos;
-      const ejecutadoPorUsuario = (req as any).user?.correo || req.body?.ejecutadoPorUsuario || 'ROL-ADM';
+      const ejecutadoPorUsuario = actorOf(req);
 
       if (!rawCodigo || typeof rawCodigo !== 'string' || !rawCodigo.trim()) {
         res.status(400).json({ message: "El campo 'codigo' es obligatorio." });
@@ -107,7 +108,7 @@ export class UsersAuthController {
       const rawNombreRol = req.body.nombreRol || req.body.nombre_rol;
       const rawDescripcion = req.body.descripcion ?? '';
       const rawPermisos = req.body.permisos;
-      const ejecutadoPorUsuario = (req as any).user?.correo || req.body.ejecutadoPorUsuario || 'ROL-ADM';
+      const ejecutadoPorUsuario = actorOf(req);
 
       if (!rawNombreRol || typeof rawNombreRol !== 'string' || !rawNombreRol.trim()) {
         res.status(400).json({ message: "El campo 'nombreRol' es obligatorio." });
@@ -152,7 +153,7 @@ export class UsersAuthController {
         res.status(400).json({ message: 'El identificador del rol es inválido.' });
         return;
       }
-      const ejecutadoPorUsuario = (req as any).user?.correo || req.body?.ejecutadoPorUsuario || 'ROL-ADM';
+      const ejecutadoPorUsuario = actorOf(req);
       const result = await this.deleteRoleUseCase.execute({
         idRol,
         confirmado: true,
@@ -164,48 +165,32 @@ export class UsersAuthController {
     }
   };
 
-  // RF-USR-001: Crear usuario
+  // RF-USR-001: Crear usuario (la ruta exige el permiso RF-USR-001)
   createUser = async (req: Request, res: Response): Promise<void> => {
     try {
-      const sessionUser = (req as any).user;
-      if (sessionUser) {
-        const roles: string[] = sessionUser.roles || [];
-        const permisos: string[] = sessionUser.permisos || [];
-        const isAdmin =
-          roles.some((r: string) => String(r).toUpperCase().includes('ADM')) ||
-          permisos.includes('RF-USR-001');
-        if (!isAdmin) {
-          res.status(403).json({ message: 'No tiene permiso para realizar esta acción' });
-          return;
-        }
-      }
-
       const {
-        ejecutadoPorUsuario,
         nombreCompleto,
         documentoIdentidad,
         correo,
         telefono,
         contrasenaTemporal,
-        contrasenaHash,
         rolesIds,
         firma,
-      } = req.body;
+      } = req.body ?? {};
 
       const result = await this.createUserUseCase.execute({
-        ejecutadoPorUsuario: ejecutadoPorUsuario ?? 'ROL-ADM',
+        ejecutadoPorUsuario: actorOf(req),
         nombreCompleto,
         documentoIdentidad,
         correo,
         telefono,
-        contrasenaTemporal: contrasenaTemporal ?? contrasenaHash,
-        contrasenaHash,
+        contrasenaTemporal,
         rolesIds,
         firma,
       });
       res.status(201).json(result);
     } catch (error: any) {
-      res.status(400).json({ message: error.message });
+      handleHttpError(res, error, 400);
     }
   };
 
@@ -214,30 +199,31 @@ export class UsersAuthController {
     try {
       const idUsuario = Number(req.params.id);
       const {
-        ejecutadoPorUsuario,
         nombreCompleto,
         documentoIdentidad,
         correo,
         telefono,
-        nuevaContrasenaTemporal: contrasena,
+        nuevaContrasenaTemporal,
+        contrasenaTemporal,
         rolesIds,
         firma,
-      } = req.body;
+      } = req.body ?? {};
 
       const result = await this.updateUserUseCase.execute({
-        ejecutadoPorUsuario: ejecutadoPorUsuario ?? 'ROL-ADM',
+        ejecutadoPorUsuario: actorOf(req),
         idUsuario,
         nombreCompleto,
         documentoIdentidad,
         correo,
         telefono,
-        nuevaContrasenaTemporal: contrasena,
+        // La pantalla envía 'contrasenaTemporal' también al editar.
+        nuevaContrasenaTemporal: nuevaContrasenaTemporal ?? contrasenaTemporal,
         rolesIds,
         firma,
       });
       res.json(result);
     } catch (error: any) {
-      res.status(400).json({ message: error.message });
+      handleHttpError(res, error, 400);
     }
   };
 
@@ -245,7 +231,7 @@ export class UsersAuthController {
   toggleUserStatus = async (req: Request, res: Response): Promise<void> => {
     try {
       const idUsuario = Number(req.params.id);
-      if (isNaN(idUsuario)) {
+      if (Number.isNaN(idUsuario)) {
         res.status(400).json({ message: 'El ID de usuario debe ser numérico.' });
         return;
       }
@@ -255,10 +241,10 @@ export class UsersAuthController {
         });
         return;
       }
-      const { estado } = req.body;
       const result = await this.toggleUserStatusUseCase.execute({
+        ejecutadoPorUsuario: actorOf(req),
         idUsuario,
-        nuevoEstado: estado,
+        nuevoEstado: req.body.estado,
       });
       res.json(result);
     } catch (error: any) {
@@ -269,24 +255,23 @@ export class UsersAuthController {
   // RF-USR-004: Buscar usuarios
   searchUsers = async (req: Request, res: Response): Promise<void> => {
     try {
-      const queryParam = (req.query.query || req.query.q || req.query.search || '') as string;
-      const docParam = (req.query.documento || '') as string;
-      const nameParam = (req.query.nombre || '') as string;
+      const queryParam = String(req.query.query || req.query.q || req.query.search || '');
+      const docParam = String(req.query.documento || '');
+      const nameParam = String(req.query.nombre || '');
       const idRol = req.query.idRol ? Number(req.query.idRol) : undefined;
-      const estado =
-        req.query.estado !== undefined ? req.query.estado === 'true' : undefined;
+      const estado = req.query.estado !== undefined ? req.query.estado === 'true' : undefined;
 
       const cleanQuery = queryParam.trim();
-      const isDoc = cleanQuery && /^\d+$/.test(cleanQuery);
+      const isDoc = Boolean(cleanQuery) && /^\d+$/.test(cleanQuery);
       const searchResult = await this.searchUsersUseCase.execute({
-        documento: docParam ? docParam.trim() : (isDoc ? cleanQuery : undefined),
-        nombre: nameParam ? nameParam.trim() : (!isDoc && cleanQuery ? cleanQuery : undefined),
+        documento: docParam ? docParam.trim() : isDoc ? cleanQuery : undefined,
+        nombre: nameParam ? nameParam.trim() : !isDoc && cleanQuery ? cleanQuery : undefined,
         idRol,
         estado,
       });
       res.json({ data: searchResult.data, message: searchResult.message });
     } catch (error: any) {
-      res.status(500).json({ message: error.message });
+      handleHttpError(res, error, 500);
     }
   };
 
@@ -297,12 +282,7 @@ export class UsersAuthController {
         res.status(400).json({ message: 'El cuerpo de la solicitud es obligatorio y no puede estar vacío.' });
         return;
       }
-      const {
-        correo,
-        contrasena,
-        nuevaContrasena,
-        confirmacionNuevaContrasena,
-      } = req.body;
+      const { correo, contrasena, nuevaContrasena, confirmacionNuevaContrasena } = req.body ?? {};
       if (!correo || typeof correo !== 'string' || !correo.trim()) {
         res.status(400).json({ message: "El campo 'correo' es obligatorio." });
         return;
@@ -318,106 +298,102 @@ export class UsersAuthController {
         confirmacionNuevaContrasena,
       });
 
-      if (result.usuario) {
-        const token = JwtTokenService.generateToken({
-          idUsuario: result.usuario.idUsuario,
-          correo: result.usuario.correo,
-          nombreCompleto: result.usuario.nombreCompleto,
-          roles: (result.usuario.roles ?? []).map((r: any) => r.codigo || r.nombreRol),
-          permisos: result.permisos,
-        });
-
-        res.cookie('session_token', token, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: 'lax',
-          maxAge: 8 * 60 * 60 * 1000,
-          path: '/',
-        });
-
-        res.json({
-          ...result,
-          token,
-        });
+      if (!result.usuario) {
+        res.json(result);
         return;
       }
 
-      res.json(result);
+      // El token solo identifica al usuario; roles y permisos se leen de la BD en cada petición.
+      const token = JwtTokenService.generateToken(
+        {
+          idUsuario: result.usuario.idUsuario,
+          correo: result.usuario.correo,
+          nombreCompleto: result.usuario.nombreCompleto,
+          roles: (result.usuario.roles ?? []).map((r) => r.codigo || r.nombreRol),
+        },
+        SESSION_HOURS
+      );
+
+      res.cookie('session_token', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: SESSION_HOURS * 60 * 60 * 1000,
+        path: '/',
+      });
+      res.json({ ...result, token });
     } catch (error: any) {
-      res.status(401).json({ message: error.message });
+      const message = String(error?.message || '');
+      const isAuthError = /Correo o contraseña|inactivo|Demasiados intentos|contraseña/i.test(message);
+      if (isAuthError) {
+        res.status(401).json({ message });
+        return;
+      }
+      handleHttpError(res, error, 500);
     }
   };
 
-  // RF-USR-008: Cerrar sesión
+  // RF-USR-008: Cerrar sesión (invalida el token en el servidor)
   logout = async (req: Request, res: Response): Promise<void> => {
     try {
-      const {
-        idUsuario,
-        motivo,
-        tieneCambiosSinGuardar,
-        confirmadoPorUsuario,
-        borrador,
-      } = req.body;
-
-      // Invalidar token en BD (DEF-01)
-      let token: string | undefined;
-      const authHeader = req.headers.authorization;
-      if (authHeader && authHeader.toLowerCase().startsWith('bearer ')) {
-        token = authHeader.split(' ')[1];
-      }
-      if (!token && req.headers.cookie) {
-        const cookies = req.headers.cookie.split(';');
-        for (const cookie of cookies) {
-          const [name, val] = cookie.trim().split('=');
-          if (name === 'session_token' || name === 'token') {
-            token = decodeURIComponent(val);
-            break;
-          }
-        }
-      }
-      if (token) {
-        try {
-          await db.query(
-            `INSERT INTO public.sesion_invalida (token, revocado_en) VALUES ($1, CURRENT_TIMESTAMP) ON CONFLICT (token) DO NOTHING;`,
-            [token]
-          );
-        } catch (dbErr) {
-          // Si tabla no existe en pruebas unitarias, continuar
-        }
-      }
+      const user = getSessionUser(req)!;
+      const session = (req as any).sessionToken as { token: string; exp: number } | undefined;
+      const { motivo, tieneCambiosSinGuardar, confirmadoPorUsuario, borrador } = req.body ?? {};
 
       const result = await this.closeSessionUseCase.execute({
-        idUsuario: Number(idUsuario),
-        motivo: motivo ?? 'MANUAL',
+        idUsuario: user.idUsuario,
+        motivo: motivo === 'INACTIVITY_TIMEOUT' ? 'INACTIVITY_TIMEOUT' : 'MANUAL',
         tieneCambiosSinGuardar,
         confirmadoPorUsuario,
         borrador,
       });
-      res.clearCookie('session_token', { path: '/' });
+
+      if (result.sesionCerrada && session) {
+        await revokeToken(session.token, user.idUsuario, session.exp);
+        res.clearCookie('session_token', { path: '/' });
+      }
       res.json(result);
     } catch (error: any) {
-      res.status(400).json({ message: error.message });
+      handleHttpError(res, error, 400);
     }
   };
 
-  // RF-USR-009: Solicitar enlace de recuperación (I8-008: enlace apunta siempre a envConfig.frontendUrl)
+  // RF-USR-008: borradores pendientes del usuario de la sesión
+  getDrafts = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const drafts = await this.draftStorage.getDraftByUser(getSessionUser(req)!.idUsuario);
+      res.json({ data: drafts });
+    } catch (error: any) {
+      handleHttpError(res, error, 500);
+    }
+  };
+
+  deleteDraft = async (req: Request, res: Response): Promise<void> => {
+    try {
+      await this.draftStorage.deleteDraft(getSessionUser(req)!.idUsuario, String(req.params.formularioId));
+      res.json({ message: 'Borrador descartado.' });
+    } catch (error: any) {
+      handleHttpError(res, error, 500);
+    }
+  };
+
+  // RF-USR-009: Solicitar enlace de recuperación
   requestPasswordRecovery = async (req: Request, res: Response): Promise<void> => {
     try {
-      const { correo } = req.body;
       const result = await this.recoverPasswordUseCase.requestRecoveryLink({
-        correo,
+        correo: req.body?.correo,
         baseRecoveryUrl: envConfig.frontendUrl,
       });
       res.json(result);
     } catch (error: any) {
-      res.status(400).json({ message: error.message });
+      handleHttpError(res, error, 400);
     }
   };
 
   // RF-USR-009: Restablecer contraseña con token de un solo uso
   resetPasswordWithToken = async (req: Request, res: Response): Promise<void> => {
     try {
-      const { token, nuevaContrasena, confirmacionContrasena } = req.body;
+      const { token, nuevaContrasena, confirmacionContrasena } = req.body ?? {};
       const result = await this.recoverPasswordUseCase.resetPassword({
         token,
         nuevaContrasena,
@@ -425,7 +401,7 @@ export class UsersAuthController {
       });
       res.json(result);
     } catch (error: any) {
-      res.status(400).json({ message: error.message });
+      handleHttpError(res, error, 400);
     }
   };
 }

@@ -7,17 +7,12 @@ export interface PatientListItem {
   nombreCompleto: string;
   documentoIdentidad: string;
   fechaNacimiento: string;
-  sexo: 'Femenino' | 'Masculino' | 'Indeterminado';
+  /** null en pacientes creados desde una solicitud pública ("Datos incompletos", RF-AGE-005). */
+  sexo: 'Femenino' | 'Masculino' | 'Indeterminado' | null;
   correo: string;
   telefono: string;
   datosIncompletos?: boolean;
   edad?: number;
-  acudiente?: {
-    nombreCompleto: string;
-    documentoIdentidad: string;
-    parentesco: string;
-    telefono: string;
-  };
 }
 
 export function usePatients(apiBaseUrl = '/api/v1') {
@@ -45,7 +40,7 @@ export function usePatients(apiBaseUrl = '/api/v1') {
     const nombre = p.nombreCompleto ?? p.nombre_completo ?? '';
     const doc = p.documentoIdentidad ?? p.documento_identidad ?? '';
     const fn = (p.fechaNacimiento ?? p.fecha_nacimiento ?? '').toString().split('T')[0];
-    const sx = (p.sexo ?? 'Indeterminado') as any;
+    const sx = (p.sexo ?? null) as PatientListItem['sexo'];
     const mail = p.correo ?? '';
     const tel = p.telefono ?? '';
 
@@ -59,7 +54,6 @@ export function usePatients(apiBaseUrl = '/api/v1') {
       telefono: tel,
       edad: calculateAge(fn),
       datosIncompletos: !p.sexo || p.datosIncompletos === true,
-      acudiente: p.acudiente,
     };
   };
 

@@ -1,5 +1,17 @@
 // src/modules/consents/domain/consent.entity.ts
 
+/**
+ * Tipo de plantilla (ERS v1.3): consentimiento de un procedimiento, autorización
+ * de tratamiento de datos (RQNF-SEG-005) o plantilla de menores firmada por el
+ * acudiente (RF-CON-005).
+ */
+export type ConsentTemplateType = 'PROCEDIMIENTO' | 'AUTORIZACION_DATOS' | 'MENORES';
+export const CONSENT_TEMPLATE_TYPES: ReadonlyArray<ConsentTemplateType> = [
+  'PROCEDIMIENTO',
+  'AUTORIZACION_DATOS',
+  'MENORES',
+];
+
 export interface ConsentTemplateProps {
   idConsentimiento: number;
   nombre: string;
@@ -9,7 +21,7 @@ export interface ConsentTemplateProps {
   estado: boolean;
   idUsuarioModificador?: number | null;
   fechaModificacion?: Date | string;
-  tipoConsentimiento?: boolean;
+  tipo?: ConsentTemplateType;
 }
 
 export class ConsentTemplate {
@@ -20,6 +32,7 @@ export class ConsentTemplate {
   public readonly estado: boolean;
   public readonly idUsuarioModificador: number | null;
   public readonly fechaModificacion?: Date | string;
+  public readonly tipo: ConsentTemplateType;
 
   constructor(props: ConsentTemplateProps) {
     this.idConsentimiento = props.idConsentimiento;
@@ -29,15 +42,12 @@ export class ConsentTemplate {
     this.estado = props.estado;
     this.idUsuarioModificador = props.idUsuarioModificador ?? null;
     this.fechaModificacion = props.fechaModificacion;
+    this.tipo = props.tipo ?? 'PROCEDIMIENTO';
   }
 
-  // Compatibilidad hacia atrás:
-  public get plantillaUrl(): string {
-    return this.textoPlantilla;
-  }
-
-  public get tipoConsentimiento(): boolean {
-    return true;
+  /** RF-CON-005: la plantilla de menores es la única que firma un acudiente por un menor. */
+  public isForMinors(): boolean {
+    return this.tipo === 'MENORES';
   }
 
   public isActive(): boolean {
@@ -56,9 +66,6 @@ export interface SignedConsentProps {
   nombreDocumentoAcudiente?: string | null;
   idUsuarioDiligencio?: number | null;
   fecha?: Date;
-  // Campos heredados opcionales para compatibilidad:
-  idCita?: number;
-  archivoUrl?: string;
 }
 
 export class SignedConsent {
@@ -79,20 +86,11 @@ export class SignedConsent {
     this.idPaciente = props.idPaciente;
     this.versionPlantilla = props.versionPlantilla ?? 1;
     this.textoFirmado = props.textoFirmado ?? '';
-    this.firmaBase64 = props.firmaBase64 ?? props.archivoUrl ?? '';
+    this.firmaBase64 = props.firmaBase64 ?? '';
     this.firmaPorAcudiente = Boolean(props.firmaPorAcudiente);
     this.nombreDocumentoAcudiente = props.nombreDocumentoAcudiente ?? null;
     this.idUsuarioDiligencio = props.idUsuarioDiligencio ?? null;
     this.fecha = props.fecha;
-  }
-
-  // Compatibilidad hacia atrás:
-  public get idCita(): number {
-    return 0;
-  }
-
-  public get archivoUrl(): string {
-    return this.firmaBase64;
   }
 }
 
@@ -103,6 +101,7 @@ export interface PatientSignedConsentDetail {
   idConsentimientoFirmado: number;
   idConsentimiento: number;
   nombrePlantilla: string;
+  tipoPlantilla?: ConsentTemplateType;
   versionPlantilla: number;
   versionActualPlantilla: number;
   idPaciente: number;
@@ -115,7 +114,4 @@ export interface PatientSignedConsentDetail {
   nombreDocumentoAcudiente?: string | null;
   idUsuarioDiligencio?: number | null;
   usuarioDiligencioNombre?: string | null;
-  // Compatibilidad:
-  archivoUrl?: string;
-  idCita?: number;
 }

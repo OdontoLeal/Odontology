@@ -12,7 +12,7 @@ import {
   DEFAULT_PLAN_MANEJO,
 } from '../../infrastructure/clinical-record.model';
 import { useAlertModal } from '../../../../shared/ui/hooks/useAlertModal';
-import { printClinicalDocument } from '../../../clinical-documents/application/print-clinical-document.service';
+import { downloadClinicalDocument } from '../../../clinical-documents/ui/hooks/useClinicalDocuments';
 import {
   UserIcon,
   CalendarIcon,
@@ -52,6 +52,9 @@ export interface EvolutionFormData {
 }
 
 export interface EvolutionTemplateEditorProps {
+  /** Cita y paciente de la consulta: el PDF lo genera el servidor (RF-DOC-001 a 004). */
+  idPaciente?: number;
+  idCita?: number;
   initialData?: Partial<EvolutionFormData>;
   patientName: string;
   patientAge?: number;
@@ -98,6 +101,8 @@ function countAffectedTeeth(odontogram?: OdontogramDataDTO): number {
 }
 
 export const EvolutionTemplateEditor: React.FC<EvolutionTemplateEditorProps> = ({
+  idPaciente,
+  idCita,
   initialData,
   patientName,
   patientAge,
@@ -260,39 +265,45 @@ export const EvolutionTemplateEditor: React.FC<EvolutionTemplateEditorProps> = (
     });
   };
 
-  const handlePrintDocument = (tipo: 'RECETA' | 'INCAPACIDAD' | 'REMISION') => {
+  /**
+   * RF-DOC-001 a RF-DOC-004: el documento lo genera el servidor en memoria, con la firma
+   * del profesional fusionada (flatten), y se abre para imprimir o descargar al momento.
+   * El servidor no conserva el archivo. Requiere la apertura guardada (motivo de consulta).
+   */
+  const handlePrintDocument = async (tipo: 'RECETA' | 'INCAPACIDAD' | 'REMISION') => {
+    if (!idPaciente || !idCita) {
+      showAlert({ title: 'Consulta no identificada', message: 'Abra el documento desde la consulta en curso.', type: 'warning' });
+      return;
+    }
+
+    let tipoDocumento: 'ORDEN_MEDICAMENTOS' | 'INCAPACIDAD' | 'REMISION';
+    let detalles: Record<string, unknown>;
+
     if (tipo === 'RECETA') {
       const meds = planManejo.prescripcion_farmacologica || [];
       if (meds.length === 0) {
         showAlert({
           title: 'Prescripción vacía',
-          message: 'Debe agregar al menos un medicamento a la prescripción farmacológica antes de imprimir.',
+          message: 'Debe agregar al menos un medicamento a la prescripción farmacológica.',
           type: 'warning',
         });
         return;
       }
-      printClinicalDocument({
-        tipo: 'RECETA',
-        patientName,
-        patientDoc,
-        patientAge,
-        patientSex,
-        doctorName,
-        doctorSignature,
-        doctorRole,
-        displayDate: formattedDate,
-        diagnostico,
-        procedimiento: procedimientoRealizado,
-        medications: meds,
-      });
-      return;
-    }
-
-    if (tipo === 'INCAPACIDAD') {
+      tipoDocumento = 'ORDEN_MEDICAMENTOS';
+      detalles = {
+        medicamentos: meds.map((m: any) => ({
+          nombrePresentacion: m.medicamento_principio_activo,
+          dosis: m.dosis_concentracion,
+          frecuencia: m.frecuencia_via,
+          duracion: m.duracion_tratamiento,
+        })),
+        indicacionesAdicionales: meds.map((m: any) => m.indicaciones_adicionales).filter(Boolean).join(' · ') || undefined,
+      };
+    } else if (tipo === 'INCAPACIDAD') {
       if (!planManejo.incapacidad_medica?.requiere_incapacidad) {
         showAlert({
           title: 'Incapacidad no requerida',
-          message: 'Marque "¿Requiere Incapacidad?" como Sí y diligencie las fechas antes de imprimir.',
+          message: 'Marque "¿Requiere Incapacidad?" como Sí y diligencie las fechas.',
           type: 'warning',
         });
         return;
@@ -304,56 +315,35 @@ export const EvolutionTemplateEditor: React.FC<EvolutionTemplateEditorProps> = (
         const diff = Math.round((end - start) / (1000 * 60 * 60 * 24)) + 1;
         if (diff > 0) dias = diff;
       }
-      printClinicalDocument({
-        tipo: 'INCAPACIDAD',
-        patientName,
-        patientDoc,
-        patientAge,
-        patientSex,
-        doctorName,
-        doctorSignature,
-        doctorRole,
-        displayDate: formattedDate,
-        diagnostico,
-        procedimiento: procedimientoRealizado,
-        incapacidad: {
-          dias_incapacidad: dias,
-          fecha_inicio: planManejo.incapacidad_medica.fecha_inicio,
-          fecha_fin: planManejo.incapacidad_medica.fecha_culminacion,
-          diagnostico_cie10: diagnostico || planManejo.incapacidad_medica.diagnostico_justificacion,
-          observaciones: planManejo.incapacidad_medica.diagnostico_justificacion,
-        },
-      });
-      return;
-    }
-
-    if (tipo === 'REMISION') {
+      tipoDocumento = 'INCAPACIDAD';
+      detalles = {
+        diasIncapacidad: dias,
+        motivoIncapacidad: planManejo.incapacidad_medica.diagnostico_justificacion || diagnostico,
+      };
+    } else {
       if (!planManejo.remision_medica?.requiere_remision) {
         showAlert({
           title: 'Remisión no requerida',
-          message: 'Marque "¿Requiere Remisión?" como Sí y seleccione la especialidad destino antes de imprimir.',
+          message: 'Marque "¿Requiere Remisión?" como Sí y seleccione la especialidad destino.',
           type: 'warning',
         });
         return;
       }
-      printClinicalDocument({
-        tipo: 'REMISION',
-        patientName,
-        patientDoc,
-        patientAge,
-        patientSex,
-        doctorName,
-        doctorSignature,
-        doctorRole,
-        displayDate: formattedDate,
-        diagnostico,
-        procedimiento: procedimientoRealizado,
-        remision: {
-          especialidad_destino: planManejo.remision_medica.especialidad_destino || 'Especialista Odontológico',
-          motivo_remision: planManejo.remision_medica.motivo_resumen_clinico || '',
-          resumen_clinico: `Prioridad: ${planManejo.remision_medica.prioridad_atencion || 'Programada / Ordinaria'}. ${procedimientoRealizado ? `Procedimiento: ${procedimientoRealizado}.` : ''}`,
-        },
-      });
+      tipoDocumento = 'REMISION';
+      detalles = {
+        especialidadDestino: planManejo.remision_medica.especialidad_destino,
+        otraEspecialidad: planManejo.remision_medica.otra_especialidad_nombre ?? undefined,
+        motivoRemision: planManejo.remision_medica.motivo_resumen_clinico || '',
+      };
+    }
+
+    try {
+      const warning = await downloadClinicalDocument({ idPaciente, idCita, tipoDocumento, detalles });
+      if (warning) {
+        showAlert({ title: 'Documento generado', message: warning, type: 'warning' });
+      }
+    } catch (err: any) {
+      showAlert({ title: 'No se generó el documento', message: err.message, type: 'error' });
     }
   };
 

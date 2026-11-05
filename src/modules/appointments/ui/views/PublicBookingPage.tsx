@@ -5,6 +5,8 @@ import { Input } from '../../../../shared/ui/components/Input';
 import { Modal } from '../../../../shared/ui/components/Modal';
 import { useAlertModal } from '../../../../shared/ui/hooks/useAlertModal';
 import { Badge } from '../../../../shared/ui/components/Badge';
+import { PrivacyNoticeModal } from '../../../patients/ui/components/PrivacyNoticeModal';
+import { usePrivacyNotice } from '../../../consents/ui/hooks/usePrivacyNotice';
 
 export interface AvailableSlotItem {
   label: string;
@@ -13,25 +15,28 @@ export interface AvailableSlotItem {
 
 export interface PublicBookingPageProps {
   onNavigateToStaffLogin?: () => void;
-  onSubmitPublicBooking?: (bookingData: any) => Promise<void> | void;
+  /** RQNF-SEG-006: abre el aviso de privacidad completo (página pública). */
+  onOpenPrivacyNotice?: () => void;
 }
 
 export const PublicBookingPage: React.FC<PublicBookingPageProps> = ({
   onNavigateToStaffLogin,
-  onSubmitPublicBooking,
+  onOpenPrivacyNotice,
 }) => {
   // Datos del Paciente
   const [nombreCompleto, setNombreCompleto] = useState('');
   const [documentoIdentidad, setDocumentoIdentidad] = useState('');
-  const [genero, setGenero] = useState<string>('');
   const [fechaNacimiento, setFechaNacimiento] = useState('');
   const [telefono, setTelefono] = useState('');
   const [correo, setCorreo] = useState('');
   const [motivoConsulta, setMotivoConsulta] = useState('');
 
 
-  // DEF-07 & CPS-AGE-003-03, CPS-AGE-003-05: Autorización de tratamiento de datos personales (Ley 1581)
+  // RQNF-SEG-005 (ERS v1.3): se acepta el texto de la plantilla vigente de autorización del Módulo D;
+  // la autorización firmada se toma después en el consultorio.
   const [autorizacionDatos, setAutorizacionDatos] = useState(false);
+  const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
+  const { notice: privacyNotice } = usePrivacyNotice();
 
   // Fecha y Horario Dinámicos desde Base de Datos (estado = true AND ocupacion = false)
   const defaultDate = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
@@ -103,7 +108,6 @@ export const PublicBookingPage: React.FC<PublicBookingPageProps> = ({
     setIsSuccessModalOpen(false);
     setNombreCompleto('');
     setDocumentoIdentidad('');
-    setGenero('Femenino');
     setFechaNacimiento('');
     setTelefono('');
     setCorreo('');
@@ -117,12 +121,27 @@ export const PublicBookingPage: React.FC<PublicBookingPageProps> = ({
 
   const handlePreConfirm = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!nombreCompleto.trim() || !documentoIdentidad.trim() || !correo.trim() || !telefono.trim()) {
+    if (
+      !nombreCompleto.trim() ||
+      !documentoIdentidad.trim() ||
+      !correo.trim() ||
+      !telefono.trim() ||
+      !fechaNacimiento.trim()
+    ) {
       showAlert({
         title: 'Campos Obligatorios Incompletos',
-        message: 'Por favor complete su Nombre Completo, Documento de Identidad, Teléfono de Contacto y Correo Electrónico antes de continuar.',
+        message:
+          'Complete su nombre completo, documento de identidad, fecha de nacimiento, teléfono y correo electrónico antes de continuar.',
         type: 'warning',
       });
+      return;
+    }
+    if (!/^\d+$/.test(documentoIdentidad.trim())) {
+      showAlert({ title: 'Documento no válido', message: 'El documento debe contener solo dígitos.', type: 'warning' });
+      return;
+    }
+    if (!/^\d{10}$/.test(telefono.trim())) {
+      showAlert({ title: 'Teléfono no válido', message: 'El teléfono debe tener 10 dígitos.', type: 'warning' });
       return;
     }
 
@@ -156,16 +175,12 @@ export const PublicBookingPage: React.FC<PublicBookingPageProps> = ({
         documentoSolicitante: documentoIdentidad.trim(),
         correoSolicitante: correo.trim().toLowerCase(),
         telefonoSolicitante: telefono.trim(),
-        fechaNacimiento: fechaNacimiento.trim() || undefined,
-        sexo: genero ? (genero as any) : undefined,
+        fechaNacimiento: fechaNacimiento.trim(),
         bloqueSolicitado: selectedSlot.rawInicio,
         descripcion: motivoConsulta.trim() || 'Solicitud de valoración odontológica',
         autorizacionDatos: true,
+        versionPlantillaAutorizacion: privacyNotice?.version,
       };
-
-      if (onSubmitPublicBooking) {
-        await onSubmitPublicBooking(payload);
-      }
 
       const res = await fetch('/api/v1/appointments/public-requests', {
         method: 'POST',
@@ -275,30 +290,17 @@ export const PublicBookingPage: React.FC<PublicBookingPageProps> = ({
                   onChange={(e) => setDocumentoIdentidad(e.target.value)}
                 />
 
-                <div>
-                  <label className="block text-xs font-extrabold uppercase tracking-wider text-[#687380] mb-1.5">
-                    Género (Opcional)
-                  </label>
-                  <select
-                    value={genero}
-                    onChange={(e) => setGenero(e.target.value)}
-                    className="w-full min-h-[44px] rounded-xl border border-[#E2E6EA] bg-white px-3 py-2 text-xs font-semibold text-[#1E242B] focus:border-[#D4AF37] focus:outline-none"
-                  >
-                    <option value="">Seleccione género...</option>
-                    <option value="Femenino">Femenino</option>
-                    <option value="Masculino">Masculino</option>
-                    <option value="Indeterminado">Indeterminado</option>
-                  </select>
-                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-extrabold uppercase tracking-wider text-[#687380] mb-1.5">
-                    Fecha de Nacimiento
+                    Fecha de Nacimiento <span className="text-[#DC2626]">*</span>
                   </label>
                   <input
                     type="date"
+                    required
+                    max={new Date().toISOString().split('T')[0]}
                     value={fechaNacimiento}
                     onChange={(e) => setFechaNacimiento(e.target.value)}
                     className="w-full min-h-[44px] rounded-xl border border-[#E2E6EA] px-3 text-xs text-[#1E242B]"
@@ -426,7 +428,18 @@ export const PublicBookingPage: React.FC<PublicBookingPageProps> = ({
                     className="mt-0.5 h-4 w-4 rounded border-[#E2E6EA] text-[#D4AF37] focus:ring-[#D4AF37]"
                   />
                   <span>
-                    Autorizo de manera previa, expresa e informada el tratamiento de mis datos personales conforme a la <strong>Ley 1581 de 2012</strong> y la Política de Privacidad de OdontoLeal. <span className="text-[#DC2626]">*</span>
+                    He leído y acepto la{' '}
+                    <button
+                      type="button"
+                      className="font-bold text-[#B8962E] underline"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setIsPrivacyModalOpen(true);
+                      }}
+                    >
+                      {privacyNotice ? `${privacyNotice.nombre} (versión ${privacyNotice.version})` : 'autorización de tratamiento de datos personales'}
+                    </button>{' '}
+                    del consultorio (<strong>Ley 1581 de 2012</strong>). La autorización firmada se toma en el consultorio. <span className="text-[#DC2626]">*</span>
                   </span>
                 </label>
               </div>
@@ -475,9 +488,18 @@ export const PublicBookingPage: React.FC<PublicBookingPageProps> = ({
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-[#E2E6EA] bg-white py-4 text-center text-xs text-[#8F99A3]">
-        © 2026 OdontoLeal • Presidencia Médica Dr. Eduar Leal • Todos los derechos reservados.
+      <footer className="border-t border-[#E2E6EA] bg-white py-4 text-center text-xs text-[#8F99A3] space-y-1">
+        <div>© 2026 OdontoLeal • Presidencia Médica Dr. Eduar Leal • Todos los derechos reservados.</div>
+        <button
+          type="button"
+          className="font-bold text-[#B8962E] underline"
+          onClick={() => (onOpenPrivacyNotice ? onOpenPrivacyNotice() : setIsPrivacyModalOpen(true))}
+        >
+          Aviso de privacidad y política de tratamiento de datos
+        </button>
       </footer>
+
+      <PrivacyNoticeModal isOpen={isPrivacyModalOpen} onClose={() => setIsPrivacyModalOpen(false)} />
 
       {/* Modal 1: ¿Confirmar tu Solicitud de Cita? */}
       <Modal

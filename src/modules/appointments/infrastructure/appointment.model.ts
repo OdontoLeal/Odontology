@@ -1,15 +1,7 @@
-export type EstadoCita =
-  | 'Solicitada'
-  | 'Pendiente de confirmación'
-  | 'Confirmada'
-  | 'Rechazada'
-  | 'En consulta'
-  | 'En espera'
-  | 'Completada'
-  | 'Atendida'
-  | 'Cancelada'
-  | 'No asistió'
-  | 'Inasistencia';
+import type { AppointmentState } from '../domain/appointment.entity';
+
+/** Estados válidos de la ERS v1.3 (sin los nombres antiguos "Completada" ni "No asistió"). */
+export type EstadoCita = AppointmentState;
 
 export interface TimeSlotRow {
   inicio: string;
@@ -36,9 +28,10 @@ export interface CreateSolicitudCitaDTO {
   sexo?: string;
   bloqueSolicitado: string;
   descripcion?: string;
-  idProfesional?: number;
-  servicio?: string;
+  /** Casilla de aceptación de la plantilla vigente de autorización (RQNF-SEG-005). */
   autorizacionDatos?: boolean;
+  /** Versión de la plantilla que vio el solicitante (si la envía la página pública). */
+  versionPlantillaAutorizacion?: number;
 }
 
 export interface CreateCitaDTO {
@@ -47,5 +40,7 @@ export interface CreateCitaDTO {
   idPaciente: number;
   idUsuarioProfesional: number;
   idUsuarioGestor: number;
+  /** Correo del usuario que agenda (registro de auditoría). */
+  actorGestor?: string;
   bloques: string[];
 }

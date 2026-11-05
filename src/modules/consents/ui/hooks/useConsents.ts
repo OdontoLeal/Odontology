@@ -1,9 +1,14 @@
 // src/modules/consents/ui/hooks/useConsents.ts
 import { useState, useCallback, useEffect } from 'react';
+import { formatColombiaDate } from '../../../../shared/domain/colombia-format';
+
+/** ERS v1.3: procedimiento, autorización de datos (RQNF-SEG-005) o plantilla de menores (RF-CON-005). */
+export type ConsentTemplateTipo = 'PROCEDIMIENTO' | 'AUTORIZACION_DATOS' | 'MENORES';
 
 export interface ConsentTemplateItem {
   idPlantilla: number;
   titulo: string;
+  tipo: ConsentTemplateTipo;
   version: number;
   cuerpoTexto: string;
   activo: boolean;
@@ -40,8 +45,9 @@ export function useConsents(apiBaseUrl = '/api/v1') {
   const mapTemplate = (t: any): ConsentTemplateItem => ({
     idPlantilla: Number(t.idConsentimiento ?? t.id_consentimiento ?? t.idPlantilla ?? 1),
     titulo: t.nombre ?? t.titulo ?? 'Plantilla de Consentimiento',
+    tipo: (t.tipo ?? 'PROCEDIMIENTO') as ConsentTemplateTipo,
     version: Number(t.version ?? 1),
-    cuerpoTexto: t.textoPlantilla ?? t.texto_plantilla ?? t.plantillaUrl ?? t.cuerpoTexto ?? '',
+    cuerpoTexto: t.textoPlantilla ?? t.texto_plantilla ?? t.cuerpoTexto ?? '',
     activo: Boolean(t.estado ?? t.activo ?? true),
     requiereFirmaProfesional: false,
     fechaCreacion: t.fechaModificacion
@@ -103,7 +109,7 @@ export function useConsents(apiBaseUrl = '/api/v1') {
                   versionActualPlantilla: Number(item.versionActualPlantilla ?? item.version ?? 1),
                   idPaciente,
                   estado: 'Firmado' as const,
-                  fechaFirma: item.fecha ? String(item.fecha).replace('T', ' ').slice(0, 16) : null,
+                  fechaFirma: item.fecha ? formatColombiaDate(String(item.fecha).slice(0, 10)) : null,
                   firmaBase64: item.firmaBase64 ?? item.firma_base64 ?? null,
                   firmaDigitalUrl: item.firmaBase64 ?? item.firma_base64 ?? null,
                   firmaPorAcudiente: esAcudiente,
@@ -137,7 +143,6 @@ export function useConsents(apiBaseUrl = '/api/v1') {
       nombreDocumentoAcudiente?: string | null;
       nombreFirmante?: string;
       rolFirmante?: 'Paciente' | 'Acudiente';
-      idCita?: number;
     }) => {
       const res = await fetch(`${apiBaseUrl}/consents/sign`, {
         method: 'POST',
@@ -147,6 +152,7 @@ export function useConsents(apiBaseUrl = '/api/v1') {
           idPaciente: params.idPaciente,
           textoFirmado: params.textoFirmado,
           firmaBase64: params.firmaBase64,
+          aceptado: true,
           firmaPorAcudiente: Boolean(params.firmaPorAcudiente),
           nombreDocumentoAcudiente: params.nombreDocumentoAcudiente ?? null,
         }),
@@ -186,30 +192,26 @@ export function useConsents(apiBaseUrl = '/api/v1') {
 
   const saveTemplate = useCallback(
     async (template: Partial<ConsentTemplateItem>) => {
-      try {
-        if (template.idPlantilla) {
-          await fetch(`${apiBaseUrl}/consents/templates/${template.idPlantilla}`, {
+      const res = template.idPlantilla
+        ? await fetch(`${apiBaseUrl}/consents/templates/${template.idPlantilla}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              nombre: template.titulo,
-              textoPlantilla: template.cuerpoTexto,
-            }),
-          });
-        } else {
-          await fetch(`${apiBaseUrl}/consents/templates`, {
+            body: JSON.stringify({ nombre: template.titulo, textoPlantilla: template.cuerpoTexto }),
+          })
+        : await fetch(`${apiBaseUrl}/consents/templates`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               nombre: template.titulo,
               textoPlantilla: template.cuerpoTexto,
+              tipo: template.tipo ?? 'PROCEDIMIENTO',
             }),
           });
-        }
-        fetchTemplates();
-      } catch (err: any) {
-        console.error('Error saving template:', err.message);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || 'No se pudo guardar la plantilla.');
       }
+      await fetchTemplates();
     },
     [apiBaseUrl, fetchTemplates]
   );

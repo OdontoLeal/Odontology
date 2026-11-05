@@ -1,5 +1,5 @@
 import {
-  ClinicalDocumentRecord,
+  GeneratedClinicalDocument,
   IClinicalDocumentRepository,
   MedicationDetail,
   ModoFirmaDocumento,
@@ -17,12 +17,11 @@ export interface GeneratePrescriptionInput {
   medicamentos: MedicationDetail[];
   indicacionesAdicionales?: string;
   modoFirma?: ModoFirmaDocumento;
-  archivoPdfUrl?: string;
   actor: AuthenticatedProfessionalActor;
 }
 
 export interface GeneratePrescriptionOutput {
-  documento: ClinicalDocumentRecord;
+  documento: GeneratedClinicalDocument;
   avisoFirma?: string;
 }
 
@@ -46,20 +45,20 @@ export class GeneratePrescriptionUseCase {
 
     this.signatureService.validarPermisoYVentanaTemporal(input.actor, contexto);
 
+    // D-24: el documento se genera desde la historia de la consulta, que debe tener su apertura
+    if (!contexto.tieneApertura) {
+      throw new Error(
+        'Falta registrar el motivo de consulta (apertura de la historia clínica) antes de generar documentos.'
+      );
+    }
+
     const edadPaciente = SickLeaveEntity.calcularEdadEnColombia(
       contexto.paciente.fechaNacimiento
     );
 
-    const faltaAcudienteEnMenor =
-      edadPaciente < 18 &&
-      (!contexto.paciente.acudiente ||
-        !contexto.paciente.acudiente.nombreCompleto?.trim() ||
-        !contexto.paciente.acudiente.documentoIdentidad?.trim());
 
-    const tieneDatosIncompletos =
-      !contexto.paciente.sexo ||
-      !contexto.paciente.sexo.trim() ||
-      faltaAcudienteEnMenor;
+    // "Datos incompletos": paciente creado desde una solicitud sin sexo (RF-DOC-001 a 003)
+    const tieneDatosIncompletos = !contexto.paciente.sexo || !contexto.paciente.sexo.trim();
 
     const ahora = new Date();
     const { fechaDDMMAAAA, hora12h } =
@@ -97,22 +96,26 @@ export class GeneratePrescriptionUseCase {
       pacienteEdad: prescription.pacienteEdad,
       detalles: detallesDocumento,
       modoFirma: prescription.modoFirma,
-      archivoPdfUrlPreexistente: input.archivoPdfUrl,
       ahora,
     });
 
-    const documentoGuardado = await this.clinicalDocRepo.createClinicalDocument({
-      idPaciente: prescription.idPaciente,
-      idCita: prescription.idCita,
+    const documento: GeneratedClinicalDocument = {
+      idPaciente: input.idPaciente,
+      idCita: input.idCita,
       tipoDocumento: 'ORDEN_MEDICAMENTOS',
-      archivoPdfUrl: resultadoPdf.archivoPdfUrl,
+      nombreArchivo: resultadoPdf.nombreArchivo,
+      pdfBase64: Buffer.from(resultadoPdf.pdfBytes).toString('base64'),
       modoFirma: resultadoPdf.modoFirmaAplicado,
       detalles: detallesDocumento,
       diligenciadoPor: prescription.diligenciadoPor,
-    });
+    };
+
+    // Solo se audita la generación; el PDF no se almacena (RF-DOC-001 a 004)
+    const { pdfBase64: _omit, ...constancia } = documento;
+    await this.clinicalDocRepo.recordGeneration(constancia);
 
     return {
-      documento: documentoGuardado,
+      documento,
       avisoFirma: resultadoPdf.aviso,
     };
   }

@@ -1,6 +1,6 @@
 // src/modules/consents/ui/views/ConsentTemplatesAdminPage.tsx
 import React, { useState } from 'react';
-import { useConsents, ConsentTemplateItem } from '../hooks/useConsents';
+import { useConsents, ConsentTemplateItem, ConsentTemplateTipo } from '../hooks/useConsents';
 import { Button } from '../../../../shared/ui/components/Button';
 import { Badge } from '../../../../shared/ui/components/Badge';
 import { Modal } from '../../../../shared/ui/components/Modal';
@@ -35,12 +35,14 @@ export const ConsentTemplatesAdminPage: React.FC = () => {
 
   const [formTitle, setFormTitle] = useState('');
   const [formBody, setFormBody] = useState('');
+  const [formTipo, setFormTipo] = useState<ConsentTemplateTipo>('PROCEDIMIENTO');
   const { showAlert, AlertModalComponent } = useAlertModal();
 
   const handleOpenCreate = () => {
     setEditingTemplate(null);
     setFormTitle('');
     setFormBody('');
+    setFormTipo('PROCEDIMIENTO');
     setIsModalOpen(true);
   };
 
@@ -77,8 +79,10 @@ export const ConsentTemplatesAdminPage: React.FC = () => {
       idPlantilla: editingTemplate?.idPlantilla,
       titulo: formTitle.trim(),
       cuerpoTexto: formBody.trim(),
-    });
-    setIsModalOpen(false);
+      tipo: editingTemplate?.tipo ?? formTipo,
+    })
+      .then(() => setIsModalOpen(false))
+      .catch((err: Error) => showAlert({ title: 'No se guardó la plantilla', message: err.message, type: 'error' }));
   };
 
   return (
@@ -151,6 +155,13 @@ export const ConsentTemplatesAdminPage: React.FC = () => {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Badge label={`Versión v${tpl.version}.0`} variant="neutral" size="sm" />
+                  {tpl.tipo !== 'PROCEDIMIENTO' && (
+                    <Badge
+                      label={tpl.tipo === 'AUTORIZACION_DATOS' ? 'Autorización de datos' : 'Menores de edad'}
+                      variant="gold"
+                      size="sm"
+                    />
+                  )}
                   <Badge
                     label={tpl.activo ? 'Activa' : 'Inactiva'}
                     variant={tpl.activo ? 'success' : 'neutral'}
@@ -205,6 +216,26 @@ export const ConsentTemplatesAdminPage: React.FC = () => {
             onChange={(e) => setFormTitle(e.target.value)}
             placeholder="Ej: Consentimiento para Tratamiento de Blanqueamiento Dental"
           />
+
+          {!editingTemplate && (
+            <div>
+              <label className="block text-xs font-extrabold uppercase tracking-wider text-[#687380] mb-1.5">
+                Tipo de plantilla
+              </label>
+              <select
+                value={formTipo}
+                onChange={(e) => setFormTipo(e.target.value as ConsentTemplateTipo)}
+                className="w-full min-h-[44px] rounded-xl border border-[#E2E6EA] bg-white px-3 text-sm text-[#1E242B]"
+              >
+                <option value="PROCEDIMIENTO">Consentimiento de un procedimiento</option>
+                <option value="AUTORIZACION_DATOS">Autorización de tratamiento de datos (aviso de privacidad)</option>
+                <option value="MENORES">Plantilla de menores de edad (firma el acudiente)</option>
+              </select>
+              <p className="mt-1 text-[11px] text-[#8F99A3]">
+                Solo puede haber una plantilla activa de autorización de datos y una de menores.
+              </p>
+            </div>
+          )}
 
           <div>
             <div className="flex items-center justify-between mb-1.5">

@@ -24,11 +24,9 @@ export interface AppointmentDetailData {
   estado:
     | 'Confirmada'
     | 'En consulta'
-    | 'En espera'
     | 'Atendida'
-    | 'Completada'
     | 'Cancelada'
-    | 'No asistió';
+    | 'Inasistencia';
   consentimientos?: Array<{
     id: number;
     titulo: string;
@@ -72,7 +70,7 @@ export const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
 
   const isConfirmed = appointment.estado === 'Confirmada';
   const isInConsultation = appointment.estado === 'En consulta';
-  const isAttended = appointment.estado === 'Atendida' || appointment.estado === 'Completada';
+  const isAttended = appointment.estado === 'Atendida';
 
   const handleConfirmCancel = () => {
     if (!reasonInput.trim()) {
@@ -114,7 +112,7 @@ export const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
           <Badge
             label={appointment.estado}
             variant={
-              appointment.estado === 'Atendida' || appointment.estado === 'Completada'
+              appointment.estado === 'Atendida'
                 ? 'success'
                 : appointment.estado === 'En consulta'
                 ? 'gold'
@@ -238,7 +236,7 @@ export const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
               Registrar Inasistencia (No Asistió)
             </h4>
             <p className="text-xs text-[#687380]">
-              Conforme a RF-AGE-013, la inasistencia quedará registrada en el historial cronológico del paciente y los bloques de tiempo NO serán liberados para preservar la auditoría médica.
+              Conforme a RF-AGE-012, la inasistencia quedará registrada en el historial cronológico del paciente y los bloques de tiempo NO serán liberados para preservar la auditoría médica.
             </p>
             <input
               type="text"

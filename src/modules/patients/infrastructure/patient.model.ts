@@ -1,9 +1,7 @@
-import {
-  BackupContactInfo,
-  GuardianInfo,
-  PatientSex,
-} from '../domain/patient.entity';
+// src/modules/patients/infrastructure/patient.model.ts
+import { PatientSex } from '../domain/patient.entity';
 
+/** Fila de `public.paciente`. */
 export interface PatientRow {
   id_paciente: number;
   nombre_completo: string;
@@ -12,27 +10,4 @@ export interface PatientRow {
   telefono: string | null;
   fecha_nacimiento: string | Date;
   sexo: PatientSex | null;
-  acudiente?: GuardianInfo | null;
-  contacto_respaldo?: BackupContactInfo | null;
-  autorizacion_datos?: any;
-  datos_incompletos?: boolean;
-}
-
-export interface CreatePatientDTO {
-  nombreCompleto: string;
-  documentoIdentidad: string;
-  correo?: string;
-  telefono?: string;
-  fechaNacimiento: string; // YYYY-MM-DD
-  sexo?: PatientSex | null; // 'Femenino' | 'Masculino' | 'Indeterminado' | null (Datos incompletos)
-  contactoRespaldo?: BackupContactInfo | null;
-  acudiente?: GuardianInfo | null;
-  autorizacionDatos?: {
-    autorizado: boolean;
-    medio?: 'CONSULTORIO_WEB' | 'SECCION_PUBLICA' | 'TABLET_CONSULTORIO';
-    versionAvisoPrivacidad?: string;
-    fechaHora?: string;
-    idUsuarioRegistro?: number | null;
-  };
-  creadoDesdeSolicitud?: boolean;
 }

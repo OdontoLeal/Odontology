@@ -59,19 +59,14 @@ export const AppointmentDetailHeader: React.FC<AppointmentDetailHeaderProps> = (
                   En consulta
                 </span>
               )}
-              {appointment.estado === 'En espera' && (
-                <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-semibold bg-[#FFFBEB] text-[#B45309] border border-[#FDE68A]">
-                  <span>⏳</span> En espera
-                </span>
-              )}
-              {(appointment.estado === 'Atendida' || appointment.estado === 'Completada') && (
+              {(appointment.estado === 'Atendida') && (
                 <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-semibold bg-[#ECFDF5] text-[#059669] border border-[#A7F3D0]">
                   <span>✓</span> {appointment.estado}
                 </span>
               )}
-              {appointment.estado === 'No asistió' && (
+              {appointment.estado === 'Inasistencia' && (
                 <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-semibold bg-[#FEF2F2] text-[#DC2626] border border-[#FCA5A5]">
-                  <span>✕</span> No asistió
+                  <span>✕</span> Inasistencia
                 </span>
               )}
               {appointment.estado === 'Cancelada' && (
@@ -161,7 +156,7 @@ export const AppointmentDetailHeader: React.FC<AppointmentDetailHeaderProps> = (
             </button>
           )}
 
-          {appointment.estado === 'No asistió' && (
+          {appointment.estado === 'Inasistencia' && (
             <div className="px-3 py-1.5 rounded-xl bg-[#FEF2F2] border border-[#FCA5A5] text-[11px] font-bold text-[#DC2626] flex items-center gap-1.5">
               <span>⚠️</span> Inasistencia registrada (Bloques conservados)
             </div>
@@ -173,7 +168,7 @@ export const AppointmentDetailHeader: React.FC<AppointmentDetailHeaderProps> = (
             </div>
           )}
 
-          {(appointment.estado === 'Atendida' || appointment.estado === 'Completada') && (
+          {(appointment.estado === 'Atendida') && (
             <div className="px-3 py-1.5 rounded-xl bg-[#ECFDF5] border border-[#A7F3D0] text-[11px] font-bold text-[#059669] flex items-center gap-1.5">
               <span>✓</span> Atención finalizada ({appointment.estado})
             </div>

@@ -22,9 +22,14 @@ function createMockResponse() {
   return res;
 }
 
+/** Registro de auditoría en memoria: las pruebas unitarias no escriben en la BD. */
+const fakeAudit = { entries: [] as any[], async log(entry: any) { this.entries.push(entry); } };
+const newUsersCtrl = (repo: any) =>
+  new UsersAuthController(repo, undefined as any, undefined as any, undefined as any, fakeAudit);
+
 describe('VERIFICACIÓN Y MITIGACIÓN DE DEFECTOS QA (D-01 a D-14)', () => {
   const dummyRepo: any = {};
-  const usersCtrl = new UsersAuthController(dummyRepo);
+  const usersCtrl = newUsersCtrl(dummyRepo);
   const apptsCtrl = new AppointmentsController(dummyRepo);
 
   it('D-03: Login rechaza cuerpo vacío o ausente con código 400 (no 401 ni TypeError)', async () => {
@@ -111,6 +116,8 @@ describe('VERIFICACIÓN Y MITIGACIÓN DE DEFECTOS QA (D-01 a D-14)', () => {
     assert.strictEqual(resCancelNoMotif.statusCode, 400);
     assert.match(resCancelNoMotif.body.message, /motivo de cancelación.*obligatorio/i);
 
+    // ERS v1.3: el rechazo se decide al gestionar la solicitud (RF-AGE-005), no desde la agenda
+
     const reqRejectNoMotif: any = {
       params: { id: '1' },
       body: { nuevoEstado: 'Rechazada' },
@@ -118,8 +125,8 @@ describe('VERIFICACIÓN Y MITIGACIÓN DE DEFECTOS QA (D-01 a D-14)', () => {
     };
     const resRejectNoMotif = createMockResponse();
     await apptsCtrl.changeState(reqRejectNoMotif, resRejectNoMotif);
-    assert.strictEqual(resRejectNoMotif.statusCode, 400);
-    assert.match(resRejectNoMotif.body.message, /motivo de rechazo.*obligatorio/i);
+    assert.strictEqual(resRejectNoMotif.statusCode, 409);
+    assert.match(resRejectNoMotif.body.message, /Gestionar solicitud/i);
 
     const reqReviewRejectNoMotif: any = {
       params: { id: '10' },
@@ -155,52 +162,35 @@ describe('VERIFICACIÓN Y MITIGACIÓN DE DEFECTOS QA (D-01 a D-14)', () => {
     // Comprobar que getAgenda extrae agendadoPor
     assert.strictEqual(repoCode.includes('AS "agendadoPor"'), true);
     // Comprobar que la ficha del paciente en repositorio extrae agendadoPor
-    assert.strictEqual(patRepoCode.includes("'agendadoPor'"), true);
+    assert.strictEqual(patRepoCode.includes('AS "agendadoPor"'), true);
     // Comprobar que la vista React de la ficha del paciente renderiza "Agendado por:"
     assert.strictEqual(patProfileUi.includes('Agendado por:'), true);
   });
 
-  it('DEF-27: El repositorio incluye el script DDL canónico y el comando npm db:init protegido', async () => {
-    const fs = await import('fs');
+  it('DEF-27 / T-3: El esquema vive en migraciones versionadas y se aplica con npm run db:migrate', async () => {
     const path = await import('path');
+    const dir = path.resolve(process.cwd(), 'database/migrations');
+    const files = fs.readdirSync(dir).filter((f) => /^\d{3}_.+\.sql$/.test(f)).sort();
+    assert.deepStrictEqual(files.slice(0, 2), ['000_baseline.sql', '001_ers_1_3.sql']);
 
-    // Comprobar existencia del archivo de esquema DDL
-    const schemaPath = path.resolve(process.cwd(), 'database/schema.sql');
-    assert.strictEqual(fs.existsSync(schemaPath), true);
-
-    const schemaContent = fs.readFileSync(schemaPath, 'utf8');
+    const all = files.map((f) => fs.readFileSync(path.join(dir, f), 'utf8').toLowerCase()).join('\n');
     const requiredTables = [
-      'rol',
-      'usuario',
-      'usuario_rol',
-      'plantilla_consentimiento',
-      'paciente',
-      'bloques_horario',
-      'solicitud_cita',
-      'historial_solicitud',
-      'cita',
-      'bloques_citas',
-      'historial_cita',
-      'consentimiento_firmado',
-      'historia_clinica',
-      'evolucion',
-      'auditoria_historia_clinica',
+      'rol', 'usuario', 'usuario_rol', 'plantilla_consentimiento', 'paciente', 'bloques_horario',
+      'solicitud_cita', 'historial_solicitud', 'cita', 'bloques_citas', 'historial_cita',
+      'consentimiento_firmado', 'historia_clinica', 'evolucion', 'token_recuperacion',
+      'registro_auditoria', 'sesion_revocada', 'intento_login', 'borrador_sesion', 'nota_evolucion',
     ];
-
     for (const table of requiredTables) {
-      assert.strictEqual(
-        schemaContent.toLowerCase().includes(`create table if not exists public.${table}`) ||
-        schemaContent.toLowerCase().includes(`create table if not exists ${table}`),
-        true,
-        `Falta la tabla ${table} en database/schema.sql`
-      );
+      assert.ok(all.includes(`create table if not exists public.${table}`), `Falta la tabla ${table} en las migraciones`);
     }
+    assert.ok(all.includes('chk_cita_estado'), 'La BD debe restringir los estados de la cita a los de la ERS');
+    assert.ok(all.includes('trg_auditoria_inalterable'), 'La auditoría debe ser inalterable');
 
-    // Comprobar que package.json expone el comando db:init
     const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-    assert.strictEqual(typeof pkg.scripts['db:init'], 'string');
-    assert.match(pkg.scripts['db:init'], /init-db\.ts/);
+    assert.match(pkg.scripts['db:migrate'], /migrate\.ts/);
+    assert.strictEqual(fs.existsSync('database/schema.sql'), false, 'El esquema paralelo desalineado se retiró');
   });
+
   it('ROLES: Roles en Doctores y Equipo vienen dinámicamente de la BD y no están quemados', async () => {
     // Verificar que UsersManagementPage define onFetchRoles y no depende únicamente de DEFAULT_ROLES_FALLBACK
     const usersPageCode = fs.readFileSync('src/modules/users-auth/ui/views/UsersManagementPage.tsx', 'utf8');
@@ -238,7 +228,7 @@ describe('VERIFICACIÓN Y MITIGACIÓN DE DEFECTOS QA (D-01 a D-14)', () => {
       countUsersByRole: async () => 0,
     };
 
-    const ctrl = new UsersAuthController(mockRepo);
+    const ctrl = newUsersCtrl(mockRepo);
 
     // 1. Rechaza código reservado para roles iniciales
     const reqReserved: any = {
@@ -303,7 +293,7 @@ describe('VERIFICACIÓN Y MITIGACIÓN DE DEFECTOS QA (D-01 a D-14)', () => {
       countUsersByRole: async () => 0,
     };
 
-    const ctrl = new UsersAuthController(mockRepo);
+    const ctrl = newUsersCtrl(mockRepo);
 
     // 1. Rechaza duplicación de nombre con otro rol
     const reqDupName: any = {
@@ -360,7 +350,7 @@ describe('VERIFICACIÓN Y MITIGACIÓN DE DEFECTOS QA (D-01 a D-14)', () => {
       },
     };
 
-    const ctrl = new UsersAuthController(mockRepo);
+    const ctrl = newUsersCtrl(mockRepo);
 
     // 1. Intento de eliminar rol inicial del sistema -> RECHAZADO (400)
     const reqDelInitial: any = { params: { id: '1' } };
@@ -494,112 +484,77 @@ describe('VERIFICACIÓN Y MITIGACIÓN DE DEFECTOS QA (D-01 a D-14)', () => {
     assert.strictEqual(formatColombiaTime('14:00 - 15:30'), '02:00 p. m. - 03:30 p. m.');
   });
 
-  it('I5-002: Código fuente valida relación cita-paciente en creación de evolución clínica', () => {
-    const controllerSource = fs.readFileSync(
-      'src/modules/clinical-records/infrastructure/clinical-records.controller.ts',
-      'utf8'
+  it('I5-002 (D-25): Rechaza una evolución con la cita de otro paciente', async () => {
+    const { ClinicalRecordsController } = await import('../../clinical-records/infrastructure/clinical-records.controller');
+    let escribio = false;
+    const repo: any = {
+      getAppointmentContext: async () => ({ idCita: 5, idPaciente: 5, idProfesional: 9, nombreProfesional: 'QA', estado: 'En consulta' }),
+      createEvolutionEntry: async () => { escribio = true; return {}; },
+    };
+    const ctrl = new ClinicalRecordsController(repo);
+    const res = createMockResponse();
+    await ctrl.createEntry(
+      { body: { idPaciente: 6, idCita: 5, motivoConsulta: 'X' }, user: { idUsuario: 9, roles: ['ROL-ODO'], permisos: ['RF-HCL-005'] } } as any,
+      res
     );
-    assert.ok(
-      controllerSource.includes('c.id_paciente'),
-      'La consulta de cita debe recuperar c.id_paciente'
-    );
-    assert.ok(
-      controllerSource.includes('Number(citaDb.id_paciente) !== Number(idPaciente)'),
-      'Debe rechazar con error si la cita no pertenece al paciente indicado'
-    );
-    assert.ok(
-      controllerSource.includes('La cita indicada no corresponde al paciente especificado.'),
-      'Debe retornar el mensaje de error canónico'
-    );
+    assert.strictEqual(res.statusCode, 400);
+    assert.match(res.body.message, /no corresponde al paciente/i);
+    assert.strictEqual(escribio, false);
   });
 
-  it('I6-001 & D-27, D-23, D-24: Eliminación de PDF en disco, descarga con sesión y orden documento-apertura', () => {
-    // D-27: Sin almacenar archivo PDF en servidor
+  it('I6-001 (D-23, D-24, D-27): Los documentos no se guardan en disco ni se publican por una dirección', () => {
     const generatorSource = fs.readFileSync(
       'src/modules/clinical-documents/application/clinical-document-pdf-generator.service.ts',
       'utf8'
     );
-    assert.ok(
-      !generatorSource.includes('fs.writeFileSync'),
-      'No debe escribir físicamente archivos PDF en disco en clinical-document-pdf-generator.service.ts'
-    );
+    assert.ok(!generatorSource.includes('writeFileSync'), 'El PDF se genera en memoria');
+    assert.ok(!generatorSource.includes('archivoPdfUrl'), 'No se devuelve una URL a un archivo');
 
-    // D-23: Servir binarios PDF con autenticación
     const serverSource = fs.readFileSync('src/app/server.ts', 'utf8');
-    assert.ok(
-      serverSource.includes("app.get('/storage/clinical-documents/:idPaciente/:filename', authMiddleware"),
-      'La ruta de descarga de documentos debe estar protegida con authMiddleware'
-    );
+    assert.ok(!serverSource.includes('/storage/clinical-documents'), 'La ruta que fabricaba PDF se retiró');
 
-    // D-24: Orden documento previo no bloquea apertura
-    const useCaseSource = fs.readFileSync(
-      'src/modules/clinical-records/application/create-clinical-record.use-case.ts',
+    const repoSource = fs.readFileSync(
+      'src/modules/clinical-documents/infrastructure/clinical-document.repository.ts',
       'utf8'
     );
-    assert.ok(
-      useCaseSource.includes("row.motivoConsulta !== 'Plan de Manejo y Conducta'"),
-      'CreateClinicalRecordUseCase debe excluir filas creadas preliminarmente por documentos clínicos'
-    );
+    assert.ok(!repoSource.includes('INSERT INTO public.evolucion'), 'Generar un documento no crea filas de evolución (D-24)');
   });
 
-  it('I2-009 & I5-006: Estandarización de mensaje 403 canónico y permiso contextual para ROL-AUX', () => {
-    const recordsSource = fs.readFileSync(
-      'src/modules/clinical-records/infrastructure/clinical-records.controller.ts',
-      'utf8'
-    );
-    assert.ok(
-      recordsSource.includes("actor.roles.includes('ROL-AUX')"),
-      'Debe contemplar permiso de lectura para rol auxiliar'
-    );
-    assert.ok(
-      recordsSource.includes("estado = 'En consulta'"),
-      'ROL-AUX solo puede acceder a la historia si hay cita en estado En consulta'
-    );
-    assert.ok(
-      recordsSource.includes("message: 'No tiene permiso para realizar esta acción'"),
-      'Debe retornar el mensaje canónico de la ERS ante rechazo 403'
-    );
+  it('I2-009 & I5-006: Acceso clínico denegado con mensaje único y la auxiliar solo con la cita En consulta', async () => {
+    const { ClinicalAccessPolicy } = await import('../../clinical-records/application/clinical-access.policy');
+    const cita = { idCita: 9, idPaciente: 7, idProfesional: 9, nombreProfesional: 'QA', estado: 'En consulta' };
+    const aux: any = { idUsuario: 8, correo: 'aux@x.co', nombreCompleto: 'Aux', roles: ['ROL-AUX'], permisos: ['RF-HCL-009', 'RF-HCL-007'] };
+    const coa: any = { idUsuario: 10, correo: 'coa@x.co', nombreCompleto: 'Coa', roles: ['ROL-COA'], permisos: ['RF-HCL-004'] };
 
-    const docSource = fs.readFileSync(
-      'src/modules/clinical-documents/infrastructure/clinical-documents.controller.ts',
-      'utf8'
-    );
-    assert.ok(
-      docSource.includes("message: 'No tiene permiso para realizar esta acción'"),
-      'Controlador de documentos debe retornar el mensaje canónico de la ERS ante rechazo 403'
-    );
+    // La auxiliar ve la consulta en curso, pero no el historial completo
+    assert.doesNotThrow(() => ClinicalAccessPolicy.assertCanViewConsultation(aux, cita));
+    assert.throws(() => ClinicalAccessPolicy.assertCanViewHistory(aux), /No tiene permiso para realizar esta acción/);
+    // Con la cita Atendida pierde el acceso
+    assert.throws(() => ClinicalAccessPolicy.resolveWriter(aux, { ...cita, estado: 'Atendida' }), /No tiene permiso/);
+    // La coordinadora nunca accede
+    assert.throws(() => ClinicalAccessPolicy.assertCanViewConsultation(coa, cita), /No tiene permiso para realizar esta acción/);
   });
 
-  it('I3-007 & I4-010: Persistencia de idUsuarioRegistro y soporte al DDL actual de paciente', async () => {
+  it('I3-007 & I4-010 (ERS v1.3): El paciente ya no guarda autorización ni acudiente en su ficha', async () => {
     const { Patient } = await import('../../patients/domain/patient.entity');
-    const { PatientRepository } = await import('../../patients/infrastructure/patient.repository');
-
-    // Validación según DDL: paciente solo con campos requeridos por DDL
-    const minimalPatient = Patient.create({
-      nombreCompleto: 'Paciente Con DDL Básico',
+    // RF-HCL-001: todos los datos son obligatorios al registrar
+    assert.throws(
+      () => Patient.create({ nombreCompleto: 'Paciente QA', documentoIdentidad: '987654321', fechaNacimiento: '1995-04-10' }),
+      /sexo del paciente es obligatorio/
+    );
+    const ok = Patient.create({
+      nombreCompleto: 'Paciente QA',
       documentoIdentidad: '987654321',
       fechaNacimiento: '1995-04-10',
-      // teléfono, correo, sexo opcionales
+      sexo: 'Femenino',
+      telefono: '3001234567',
+      correo: 'qa@correo.com',
     });
-    assert.strictEqual(minimalPatient.nombreCompleto, 'Paciente Con DDL Básico');
-    assert.strictEqual(minimalPatient.datosIncompletos, true); // por falta de sexo
-
-    // setMetadata persiste y se recupera
-    PatientRepository.setMetadata(99999, {
-      autorizacionDatos: {
-        autorizado: true,
-        fechaHora: new Date().toISOString(),
-        medio: 'PORTAL_PUBLICO_WEB',
-        versionAvisoPrivacidad: 'v1.1',
-        idUsuarioRegistro: 42,
-      },
-      datosIncompletos: true,
-    });
-
-    const retrievedMeta = PatientRepository.getMetadata(99999);
-    assert.ok(retrievedMeta);
-    assert.strictEqual(retrievedMeta?.autorizacionDatos?.idUsuarioRegistro, 42);
-    assert.strictEqual(retrievedMeta?.autorizacionDatos?.medio, 'PORTAL_PUBLICO_WEB');
-    assert.strictEqual(retrievedMeta?.datosIncompletos, true);
+    const prim = ok.toPrimitives() as any;
+    assert.strictEqual(prim.autorizacionDatos, undefined);
+    assert.strictEqual(prim.acudiente, undefined);
+    // Paciente creado desde una solicitud sin sexo: "Datos incompletos" derivado (no se guarda)
+    const fromRequest = Patient.reconstitute({ nombreCompleto: 'X', documentoIdentidad: '1', fechaNacimiento: '1990-01-01' });
+    assert.strictEqual(fromRequest.datosIncompletos, true);
   });
 });

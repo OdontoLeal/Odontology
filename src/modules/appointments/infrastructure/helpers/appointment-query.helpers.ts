@@ -24,9 +24,7 @@ export function computeTimeRangeFromBlocks(blocks: string[]): FormattedTimeRange
   const fecha = first.split(' ')[0];
   const startHHmm = (first.split(' ')[1] || '').slice(0, 5);
 
-  const lastDate = new Date(last);
-  const endDate = new Date(lastDate.getTime() + 30 * 60 * 1000);
-  const endHHmm = `${endDate.getHours().toString().padStart(2, '0')}:${endDate.getMinutes().toString().padStart(2, '0')}`;
+  const endHHmm = blockEnd(last).split(' ')[1].slice(0, 5);
 
   return {
     fecha,
@@ -54,4 +52,24 @@ export function generateStandardDayIntervals(cleanFecha: string): { inicio: stri
     }
   }
   return slots;
+}
+
+/**
+ * Fin de un bloque de 30 minutos a partir de su inicio "YYYY-MM-DD HH:MM:SS".
+ * Se calcula sobre la cadena (sin zona horaria) para no depender del huso del servidor.
+ */
+export function blockEnd(inicio: string): string {
+  const clean = String(inicio).trim().replace('T', ' ').slice(0, 19);
+  const [date, time = '00:00:00'] = clean.split(' ');
+  const [y, mo, d] = date.split('-').map(Number);
+  const [h, mi] = time.split(':').map(Number);
+  const end = new Date(Date.UTC(y, mo - 1, d, h, mi + 30, 0));
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${end.getUTCFullYear()}-${pad(end.getUTCMonth() + 1)}-${pad(end.getUTCDate())} ${pad(end.getUTCHours())}:${pad(end.getUTCMinutes())}:00`;
+}
+
+/** Normaliza un bloque recibido del cliente a "YYYY-MM-DD HH:MM:SS". */
+export function normalizeBlock(bloque: string): string {
+  const clean = String(bloque).trim().replace('T', ' ').split('.')[0];
+  return clean.length === 16 ? `${clean}:00` : clean.slice(0, 19);
 }

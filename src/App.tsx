@@ -30,7 +30,8 @@ import {
 } from './modules/clinical-records/ui/views';
 import {
   ConsentTemplatesAdminPage,
-  TabletSigningPage,
+  ConsentSigningPage,
+  PrivacyNoticePage,
 } from './modules/consents/ui/views';
 import { useAlertModal } from './shared/ui/hooks/useAlertModal';
 
@@ -38,8 +39,9 @@ type AppRoute =
   | 'LOGIN'
   | 'RECOVERY'
   | 'PUBLIC_BOOKING'
+  | 'PRIVACY_NOTICE'
   | 'INTERNAL_DASHBOARD'
-  | 'TABLET_SIGNING';
+  | 'CONSENT_SIGNING';
 
 export const App: React.FC = () => {
   const [currentRoute, setCurrentRoute] = useState<AppRoute>('LOGIN');
@@ -90,8 +92,9 @@ export const App: React.FC = () => {
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      if (window.location.pathname.startsWith('/tablet-sign')) {
-        setCurrentRoute('TABLET_SIGNING');
+      // RQNF-SEG-006: el aviso de privacidad es público y no pide sesión
+      if (window.location.pathname.startsWith('/aviso-privacidad')) {
+        setCurrentRoute('PRIVACY_NOTICE');
         return;
       }
       const params = new URLSearchParams(window.location.search);
@@ -205,7 +208,6 @@ export const App: React.FC = () => {
       auth.hasPermission('RF-CON-002') ||
       auth.hasPermission('RF-CON-003') ||
       auth.hasPermission('RF-CON-004') ||
-      auth.hasPermission('RF-CON-006') ||
       auth.hasPermission('RF-CON-007') ||
       auth.hasPermission('RF-CON-008')
     );
@@ -270,60 +272,65 @@ export const App: React.FC = () => {
     return (
       <PublicBookingPage
         onNavigateToStaffLogin={() => setCurrentRoute('LOGIN')}
-        onSubmitPublicBooking={async (bookingData) => {
-          console.log('Solicitud pública de cita recibida:', bookingData);
-        }}
+        onOpenPrivacyNotice={() => setCurrentRoute('PRIVACY_NOTICE')}
       />
     );
   }
 
-  // Ruta 2: Terminal Táctil para Tablet de Paciente (RF-CON-001, RF-CON-002, RF-CON-005)
-  if (currentRoute === 'TABLET_SIGNING') {
+  // Aviso de privacidad y política de tratamiento de datos (RQNF-SEG-006), sin sesión
+  if (currentRoute === 'PRIVACY_NOTICE') {
+    return (
+      <PrivacyNoticePage
+        onBack={() => {
+          if (typeof window !== 'undefined' && window.location.pathname.startsWith('/aviso-privacidad')) {
+            window.history.replaceState(null, '', '/');
+          }
+          setCurrentRoute(auth.session ? 'INTERNAL_DASHBOARD' : 'LOGIN');
+        }}
+        onNavigateToPublicBooking={() => setCurrentRoute('PUBLIC_BOOKING')}
+      />
+    );
+  }
+
+  // Firma del consentimiento dentro de la sesión, en tablet o computador (RF-CON-001, RF-CON-002, RF-CON-005)
+  if (currentRoute === 'CONSENT_SIGNING') {
     const isMinor = calculatedPatientAge !== undefined ? calculatedPatientAge < 18 : false;
+    const backToProfile = () => {
+      setCurrentRoute('INTERNAL_DASHBOARD');
+      setInternalView('PATIENTS');
+      setPatientSubView('PROFILE');
+    };
 
     return (
-      <TabletSigningPage
+      <ConsentSigningPage
         tituloConsentimiento={selectedConsentTemplate?.titulo}
         cuerpoTexto={selectedConsentTemplate?.cuerpoTexto}
         nombrePaciente={selectedPatient?.nombreCompleto}
         documentoPaciente={selectedPatient?.documentoIdentidad}
         isMinor={isMinor}
         onConsentSigned={async (payload) => {
-          if (selectedPatient) {
-            try {
-              const body =
-                typeof payload === 'string'
-                  ? {
-                      idConsentimiento: selectedConsentTemplate?.idPlantilla || 1,
-                      idPaciente: selectedPatient.idPaciente,
-                      firmaBase64: payload,
-                      firmaPorAcudiente: isMinor,
-                      nombreDocumentoAcudiente: isMinor ? 'Acudiente Autorizado' : null,
-                    }
-                  : {
-                      idConsentimiento: selectedConsentTemplate?.idPlantilla || 1,
-                      idPaciente: selectedPatient.idPaciente,
-                      firmaBase64: payload.firmaBase64,
-                      firmaPorAcudiente: payload.firmaPorAcudiente,
-                      nombreDocumentoAcudiente: payload.nombreDocumentoAcudiente,
-                      textoFirmado: payload.textoFirmado,
-                    };
-
-              await fetch('/api/v1/consents/sign', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body),
-              });
-            } catch (err) {
-              console.error('Error signing consent on tablet:', err);
-            }
+          if (!selectedPatient || !selectedConsentTemplate) {
+            throw new Error('No hay un paciente o una plantilla seleccionados.');
+          }
+          const res = await fetch('/api/v1/consents/sign', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              idConsentimiento: selectedConsentTemplate.idPlantilla,
+              idPaciente: selectedPatient.idPaciente,
+              firmaBase64: payload.firmaBase64,
+              aceptado: true,
+              firmaPorAcudiente: payload.firmaPorAcudiente,
+              nombreDocumentoAcudiente: payload.nombreDocumentoAcudiente,
+              textoFirmado: payload.textoFirmado,
+            }),
+          });
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.message || 'No se pudo guardar el consentimiento.');
           }
         }}
-        onExit={() => {
-          setCurrentRoute('INTERNAL_DASHBOARD');
-          setInternalView('PATIENTS');
-          setPatientSubView('PROFILE');
-        }}
+        onExit={backToProfile}
       />
     );
   }
@@ -351,6 +358,7 @@ export const App: React.FC = () => {
         }}
         onNavigateToRecovery={() => setCurrentRoute('RECOVERY')}
         onNavigateToPublicBooking={() => setCurrentRoute('PUBLIC_BOOKING')}
+        onOpenPrivacyNotice={() => setCurrentRoute('PRIVACY_NOTICE')}
         pendingDraftsOnLogin={drafts}
         onDiscardDraft={discardDraft}
       />
@@ -421,23 +429,31 @@ export const App: React.FC = () => {
             patientPhone={selectedPatient?.telefono || ''}
             patientEmail={selectedPatient?.correo || ''}
             patientAge={calculatedPatientAge}
-            patientSex={selectedPatient?.sexo}
+            patientSex={selectedPatient?.sexo ?? undefined}
             doctorName={activeConsultationContext.doctorName || auth.session.usuario.nombreCompleto}
             doctorSignature={activeConsultationContext.doctorSignature || (auth.session.usuario as any).firmaUrl}
             onBackToAgenda={() => setActiveConsultationContext(null)}
+            canFinishAttention={canStartAttention}
             onFinishConsultation={async (idCita) => {
               try {
-                await fetch(`/api/v1/appointments/${idCita}/state`, {
+                const res = await fetch(`/api/v1/appointments/${idCita}/state`, {
                   method: 'PATCH',
                   headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    nuevoEstado: 'Atendida',
-                    idUsuarioGestor: auth.session?.usuario.idUsuario ?? 1,
-                    motivo: 'Atención odontológica concluida con éxito.',
-                  }),
+                  body: JSON.stringify({ nuevoEstado: 'Atendida' }),
                 });
+                if (!res.ok) {
+                  const err = await res.json().catch(() => ({}));
+                  // RF-AGE-009: sin motivo de consulta guardado no se finaliza
+                  showAlert({
+                    title: 'No se pudo finalizar la atención',
+                    message: err.message || 'Intente de nuevo.',
+                    type: 'warning',
+                  });
+                  return;
+                }
               } catch (err) {
                 console.error('Error finalizando cita:', err);
+                return;
               }
 
               setActiveConsultationContext(null);
@@ -519,17 +535,14 @@ export const App: React.FC = () => {
                   await fetch(`/api/v1/appointments/${idCita}/state`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      nuevoEstado: 'En consulta',
-                      idUsuarioGestor: auth.session?.usuario?.idUsuario ?? 1,
-                      motivo: 'Inicio de atención clínica desde el perfil del paciente',
-                    }),
+                    body: JSON.stringify({ nuevoEstado: 'En consulta' }),
                   });
                 } catch (err) {
                   console.error('Error al iniciar atención desde perfil de paciente:', err);
                 }
               }
-              setActiveConsultationContext({ idPaciente: patient.idPaciente, idCita: idCita || 1 });
+              if (!idCita) return;
+              setActiveConsultationContext({ idPaciente: patient.idPaciente, idCita });
               setInternalView('APPOINTMENTS');
             }}
             onViewClinicalHistoryDetail={() => {
@@ -560,7 +573,7 @@ export const App: React.FC = () => {
                   cuerpoTexto: '',
                 });
               }
-              setCurrentRoute('TABLET_SIGNING');
+              setCurrentRoute('CONSENT_SIGNING');
             }}
             onUpdatePatient={async (id, data) => {
               await updatePatient(id, data);

@@ -12,12 +12,6 @@ export interface PatientFormData {
   sexo: 'Femenino' | 'Masculino' | 'Indeterminado';
   correo: string;
   telefono: string;
-  acudiente?: {
-    nombreCompleto: string;
-    documentoIdentidad: string;
-    parentesco: string;
-    telefono: string;
-  };
 }
 
 export interface PatientFormProps {
@@ -43,12 +37,6 @@ export const PatientForm: React.FC<PatientFormProps> = ({
   );
   const [correo, setCorreo] = useState(initialData?.correo || '');
   const [telefono, setTelefono] = useState(initialData?.telefono || '');
-
-  // Guardian info for minors (<18 years)
-  const [guardianNombre, setGuardianNombre] = useState(initialData?.acudiente?.nombreCompleto || '');
-  const [guardianDocumento, setGuardianDocumento] = useState(initialData?.acudiente?.documentoIdentidad || '');
-  const [guardianParentesco, setGuardianParentesco] = useState(initialData?.acudiente?.parentesco || 'Madre');
-  const [guardianTelefono, setGuardianTelefono] = useState(initialData?.acudiente?.telefono || '');
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -98,18 +86,6 @@ export const PatientForm: React.FC<PatientFormProps> = ({
       newErrors.fechaNacimiento = 'La fecha de nacimiento es obligatoria.';
     }
 
-    if (isMinor) {
-      if (!guardianNombre.trim()) {
-        newErrors.guardianNombre = 'El nombre del acudiente es obligatorio para menores de edad.';
-      }
-      if (!guardianDocumento.trim()) {
-        newErrors.guardianDocumento = 'El documento del acudiente es obligatorio.';
-      }
-      if (!guardianTelefono.trim()) {
-        newErrors.guardianTelefono = 'El teléfono del acudiente es obligatorio.';
-      }
-    }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -126,14 +102,6 @@ export const PatientForm: React.FC<PatientFormProps> = ({
       sexo,
       correo: correo.trim().toLowerCase(),
       telefono: telefono.trim().replace(/\D/g, ''),
-      acudiente: isMinor
-        ? {
-            nombreCompleto: guardianNombre.trim(),
-            documentoIdentidad: guardianDocumento.trim(),
-            parentesco: guardianParentesco.trim(),
-            telefono: guardianTelefono.trim().replace(/\D/g, ''),
-          }
-        : undefined,
     };
 
     onSubmit(formattedData);
@@ -242,7 +210,7 @@ export const PatientForm: React.FC<PatientFormProps> = ({
           <label className="block text-xs font-extrabold uppercase tracking-wider text-[#687380] mb-2">
             Sexo Biológico <span className="text-[#DC2626]">*</span>
           </label>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <button
               type="button"
               onClick={() => setSexo('Femenino')}
@@ -265,60 +233,29 @@ export const PatientForm: React.FC<PatientFormProps> = ({
             >
               Masculino
             </button>
+            <button
+              type="button"
+              onClick={() => setSexo('Indeterminado')}
+              className={`min-h-[44px] rounded-xl border font-bold text-sm transition-all ${
+                sexo === 'Indeterminado'
+                  ? 'bg-[#1E242B] text-white border-[#1E242B] shadow-xs'
+                  : 'bg-white text-[#687380] border-[#E2E6EA] hover:border-[#D4AF37]'
+              }`}
+            >
+              Indeterminado
+            </button>
           </div>
         </div>
       </div>
 
-      {/* Sección Condicional: Datos del Acudiente para Menores de Edad (< 18 años) */}
+      {/* ERS v1.3 (RF-HCL-001, RF-CON-005): el acudiente ya no se registra en la ficha */}
       {isMinor && (
-        <div className="rounded-2xl border-2 border-dashed border-[#D4AF37] bg-[#FBF6E6]/40 p-5 space-y-4">
-          <div className="flex items-center gap-2">
-            <Badge label="Menor de Edad (Ley 27 de 1977)" variant="warning" />
-            <h4 className="text-sm font-extrabold text-[#1E242B]">
-              Información Obligatoria del Acudiente / Representante Legal
-            </h4>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Input
-              label="Nombre del Acudiente"
-              required
-              placeholder="Ej: Carlos Carvajal"
-              value={guardianNombre}
-              onChange={(e) => setGuardianNombre(e.target.value)}
-              error={errors.guardianNombre}
-            />
-            <Input
-              label="Documento del Acudiente"
-              required
-              placeholder="Ej: 79845123"
-              value={guardianDocumento}
-              onChange={(e) => setGuardianDocumento(e.target.value)}
-              error={errors.guardianDocumento}
-            />
-            <div>
-              <label className="block text-xs font-extrabold uppercase tracking-wider text-[#687380] mb-1.5">
-                Parentesco <span className="text-[#DC2626]">*</span>
-              </label>
-              <select
-                value={guardianParentesco}
-                onChange={(e) => setGuardianParentesco(e.target.value)}
-                className="w-full min-h-[44px] rounded-xl border border-[#E2E6EA] bg-white px-3.5 py-2 text-sm text-[#1E242B] focus:border-[#D4AF37] focus:outline-none"
-              >
-                <option value="Madre">Madre</option>
-                <option value="Padre">Padre</option>
-                <option value="Tutor Legal">Tutor Legal</option>
-                <option value="Familiar Responsable">Familiar Responsable</option>
-              </select>
-            </div>
-            <Input
-              label="Teléfono del Acudiente"
-              required
-              placeholder="3101234567"
-              value={guardianTelefono}
-              onChange={(e) => setGuardianTelefono(e.target.value)}
-              error={errors.guardianTelefono}
-            />
-          </div>
+        <div className="rounded-2xl border border-dashed border-[#D4AF37] bg-[#FBF6E6]/40 p-4 space-y-1">
+          <Badge label="Menor de 18 años" variant="warning" />
+          <p className="text-xs text-[#1E242B]">
+            La autorización de tratamiento de datos y los consentimientos de este paciente se toman con la
+            plantilla de menores (Consentimientos informados), firmada por su acudiente o representante legal.
+          </p>
         </div>
       )}
 

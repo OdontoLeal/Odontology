@@ -204,7 +204,7 @@ export function useRealtimeAgenda(apiBaseUrl = '/api/v1') {
           // Verificar si corresponde a una solicitud pendiente
           const isPending =
             appt.estado === 'Solicitada' ||
-            appt.estado === 'Pendiente de confirmación';
+            appt.estado === 'Solicitada';
 
           unifiedSlots.push({
             idBloque: slotIndex++,
@@ -220,7 +220,7 @@ export function useRealtimeAgenda(apiBaseUrl = '/api/v1') {
             pacienteCorreo: appt.correoPaciente,
             tratamiento: appt.titulo,
             doctorNombre: appt.nombreProfesional,
-            estadoCita: isPending ? 'Pendiente de confirmación' : appt.estado,
+            estadoCita: isPending ? 'Solicitada' : appt.estado,
           });
         } else {
           // CASO B: Bloque libre o no habilitado
@@ -247,7 +247,7 @@ export function useRealtimeAgenda(apiBaseUrl = '/api/v1') {
               pacienteCorreo: matchedRequest.correo,
               tratamiento: matchedRequest.motivoConsulta,
               doctorNombre: matchedRequest.doctorAsignado || 'Dr. Mateo Gómez',
-              estadoCita: 'Pendiente de confirmación',
+              estadoCita: 'Solicitada',
             });
           } else {
             unifiedSlots.push({
@@ -287,7 +287,7 @@ export function useRealtimeAgenda(apiBaseUrl = '/api/v1') {
     return slot.doctorNombre?.toLowerCase().includes(term) ?? false;
   });
 
-  // Transiciones de estado de cita en la base de datos (RF-AGE-009, RF-AGE-013)
+  // Transiciones de estado de cita en la base de datos (RF-AGE-009, RF-AGE-012)
   const changeStateAPI = async (
     idCita: number,
     nuevoEstado: string,
@@ -295,25 +295,12 @@ export function useRealtimeAgenda(apiBaseUrl = '/api/v1') {
     liberarBloques?: boolean
   ) => {
     try {
-      let activeUserId: number | undefined;
-      if (typeof window !== 'undefined') {
-        const raw = window.sessionStorage.getItem('odontoleal_active_session_v1');
-        if (raw) {
-          try {
-            const parsed = JSON.parse(raw);
-            if (parsed.usuario?.idUsuario) {
-              activeUserId = Number(parsed.usuario.idUsuario);
-            }
-          } catch {}
-        }
-      }
 
       const res = await fetch(`${apiBaseUrl}/appointments/${idCita}/state`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           nuevoEstado,
-          idUsuarioGestor: activeUserId,
           motivo,
           liberarBloques,
         }),
@@ -440,7 +427,6 @@ export function useRealtimeAgenda(apiBaseUrl = '/api/v1') {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            idUsuarioGestor: options?.idUsuarioGestor || 1,
             aprobar: true,
             motivo: options?.motivo || 'Solicitud aprobada y confirmada en agenda médica',
             idProfesional: options?.idProfesional,
@@ -470,7 +456,6 @@ export function useRealtimeAgenda(apiBaseUrl = '/api/v1') {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            idUsuarioGestor: 1,
             aprobar: false,
             motivo,
           }),
@@ -508,7 +493,6 @@ export function useRealtimeAgenda(apiBaseUrl = '/api/v1') {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             ...data,
-            idUsuarioGestor: 1,
           }),
         });
 

@@ -25,12 +25,9 @@ export interface CalendarTimeSlot {
   estadoCita?:
     | 'Confirmada'
     | 'En consulta'
-    | 'En espera'
     | 'Atendida'
-    | 'Completada'
     | 'Cancelada'
-    | 'No asistió'
-    | 'Pendiente de confirmación'
+    | 'Inasistencia'
     | 'Solicitada'
     | null;
 }
@@ -64,7 +61,6 @@ export const WeeklyCalendarGrid: React.FC<WeeklyCalendarGridProps> = ({
 }) => {
   const filteredSlots = slots.filter((slot) => {
     const isPending =
-      slot.estadoCita === 'Pendiente de confirmación' ||
       slot.estadoCita === 'Solicitada' ||
       Boolean(slot.idSolicitud);
 
@@ -80,7 +76,6 @@ export const WeeklyCalendarGrid: React.FC<WeeklyCalendarGridProps> = ({
   const renderStatusBadge = (estado: CalendarTimeSlot['estadoCita']) => {
     switch (estado) {
       case 'Atendida':
-      case 'Completada':
         return (
           <span className="inline-flex items-center gap-1 px-3 py-0.5 rounded-full text-xs font-semibold bg-[#ECFDF5] text-[#059669] border border-[#A7F3D0]">
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -96,13 +91,6 @@ export const WeeklyCalendarGrid: React.FC<WeeklyCalendarGridProps> = ({
             En consulta
           </span>
         );
-      case 'En espera':
-        return (
-          <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-semibold bg-[#FFFBEB] text-[#B45309] border border-[#FDE68A]">
-            <span>⏳</span>
-            En espera
-          </span>
-        );
       case 'Confirmada':
         return (
           <span className="inline-flex items-center gap-1 px-3 py-0.5 rounded-full text-xs font-semibold bg-[#F9FAFB] text-[#374151] border border-[#E5E7EB]">
@@ -112,18 +100,17 @@ export const WeeklyCalendarGrid: React.FC<WeeklyCalendarGridProps> = ({
             Confirmada
           </span>
         );
-      case 'Pendiente de confirmación':
       case 'Solicitada':
         return (
           <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-semibold bg-[#EFF6FF] text-[#2563EB] border border-[#BFDBFE]">
             <ClockIcon size={12} className="text-[#2563EB]" />
-            Pendiente de confirmación
+            Solicitada
           </span>
         );
-      case 'No asistió':
+      case 'Inasistencia':
         return (
           <span className="inline-flex items-center gap-1 px-3 py-0.5 rounded-full text-xs font-semibold bg-[#FEF2F2] text-[#DC2626] border border-[#FCA5A5]">
-            No asistió
+            Inasistencia
           </span>
         );
       case 'Cancelada':
@@ -211,9 +198,7 @@ export const WeeklyCalendarGrid: React.FC<WeeklyCalendarGridProps> = ({
   return (
     <div className="max-h-[calc(100vh-270px)] min-h-[520px] overflow-y-auto pr-2 space-y-3.5">
       {filteredSlots.map((slot) => {
-        const isPending =
-          slot.estadoCita === 'Pendiente de confirmación' ||
-          slot.estadoCita === 'Solicitada';
+        const isPending = slot.estadoCita === 'Solicitada';
         const hasAppointment = Boolean(slot.idCita) || Boolean(slot.pacienteNombre);
 
         // CASO 1: BLOQUE CON CITA O SOLICITUD ASIGNADA (Imagen 3)

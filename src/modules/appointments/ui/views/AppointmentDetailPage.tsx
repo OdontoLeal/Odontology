@@ -31,11 +31,9 @@ export interface AppointmentDetailPageData {
   estado:
     | 'Confirmada'
     | 'En consulta'
-    | 'En espera'
     | 'Atendida'
-    | 'Completada'
     | 'Cancelada'
-    | 'No asistió';
+    | 'Inasistencia';
 }
 
 export interface AppointmentDetailPageProps {
@@ -72,7 +70,7 @@ export const AppointmentDetailPage: React.FC<AppointmentDetailPageProps> = ({
   onSignConsent,
 }) => {
   const [appointment, setAppointment] = useState<AppointmentDetailPageData>(initialAppointment);
-  const isAttended = appointment.estado === 'Atendida' || appointment.estado === 'Completada';
+  const isAttended = appointment.estado === 'Atendida';
 
   // Modales
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
@@ -319,7 +317,6 @@ export const AppointmentDetailPage: React.FC<AppointmentDetailPageProps> = ({
             titulo: editTitulo,
             descripcion: editDescripcion,
             selectedBlocks: editSelectedBlocks,
-            idUsuarioGestor: 1,
             motivo: 'Modificación de cita desde el panel de detalle',
           }),
         });
@@ -368,17 +365,16 @@ export const AppointmentDetailPage: React.FC<AppointmentDetailPageProps> = ({
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            nuevoEstado: 'No asistió',
-            idUsuarioGestor: 1,
+            nuevoEstado: 'Inasistencia',
             motivo: fullReason,
             liberarBloques: false,
           }),
         });
       }
-      setAppointment((prev) => ({ ...prev, estado: 'No asistió' }));
+      setAppointment((prev) => ({ ...prev, estado: 'Inasistencia' }));
       showAlert({
         title: 'Inasistencia Registrada',
-        message: 'Se ha registrado la inasistencia conforme a RF-AGE-013. Los bloques horarios se mantienen.',
+        message: 'Se ha registrado la inasistencia conforme a RF-AGE-012. Los bloques horarios se mantienen.',
         type: 'warning',
       });
     } catch (err: any) {
@@ -400,7 +396,6 @@ export const AppointmentDetailPage: React.FC<AppointmentDetailPageProps> = ({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             nuevoEstado: 'Cancelada',
-            idUsuarioGestor: 1,
             motivo: fullReason,
             liberarBloques: true,
           }),

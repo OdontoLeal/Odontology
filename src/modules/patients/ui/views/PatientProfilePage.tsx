@@ -130,10 +130,10 @@ export const PatientProfilePage: React.FC<PatientProfilePageProps> = ({
 
   // Citas próximas / activas vs pasadas
   const upcomingAppointments = appointments.filter(
-    (a) => a.estado === 'Confirmada' || a.estado === 'En consulta' || a.estado === 'Pendiente de confirmación'
+    (a) => a.estado === 'Confirmada' || a.estado === 'En consulta' || a.estado === 'Solicitada'
   );
   const pastAppointments = appointments.filter(
-    (a) => a.estado === 'Completada' || a.estado === 'Atendida' || a.estado === 'Cancelada' || a.estado === 'No asistió'
+    (a) => a.estado === 'Atendida' || a.estado === 'Cancelada' || a.estado === 'Inasistencia'
   );
 
   // Manejo de Agendamiento de Nueva Cita desde la ficha del paciente
@@ -160,7 +160,6 @@ export const PatientProfilePage: React.FC<PatientProfilePageProps> = ({
           descripcion: apptData.observaciones,
           idPaciente: apptData.idPaciente,
           idUsuarioProfesional: apptData.idDoctor,
-          idUsuarioGestor: 1,
           bloques: formattedBlocks,
         }),
       });
@@ -411,7 +410,7 @@ export const PatientProfilePage: React.FC<PatientProfilePageProps> = ({
                   </div>
                   <Badge
                     label={appt.estado}
-                    variant={appt.estado === 'Completada' || appt.estado === 'Atendida' ? 'success' : appt.estado === 'Cancelada' ? 'danger' : 'warning'}
+                    variant={appt.estado === 'Atendida' ? 'success' : appt.estado === 'Cancelada' ? 'danger' : 'warning'}
                     size="sm"
                   />
                 </div>
@@ -590,7 +589,9 @@ export const PatientProfilePage: React.FC<PatientProfilePageProps> = ({
               </h4>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {templates
-                  .filter((t) => t.activo)
+                  // RF-CON-005 (ERS v1.3): a un menor solo se le toma la plantilla de menores (firma el acudiente);
+                  // a un adulto, cualquiera excepto esa.
+                  .filter((t) => t.activo && ((patient.edad ?? 18) < 18 ? t.tipo === 'MENORES' : t.tipo !== 'MENORES'))
                   .map((tpl) => {
                     const alreadySigned = patientConsents.find(
                       (c) => c.idPlantilla === tpl.idPlantilla && c.version === tpl.version
@@ -650,7 +651,7 @@ export const PatientProfilePage: React.FC<PatientProfilePageProps> = ({
       >
         <PatientForm
           isEditing
-          initialData={patient}
+          initialData={{ ...patient, sexo: patient.sexo ?? undefined }}
           onSubmit={async (formData) => {
             await onUpdatePatient(patient.idPaciente, formData);
             setIsEditModalOpen(false);

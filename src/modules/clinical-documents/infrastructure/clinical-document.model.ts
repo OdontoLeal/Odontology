@@ -5,7 +5,6 @@ export {
   GuardianDetail,
   ClinicalDocumentDetails,
   AuthorshipMetadata,
-  CreateClinicalDocumentDTO,
-  ClinicalDocumentRecord,
+  GeneratedClinicalDocument,
   ConsultationContextData,
 } from '../domain/clinical-document.repository.interface';

@@ -1,16 +1,14 @@
 // src/modules/clinical-documents/application/clinical-document-pdf-generator.service.ts
 import { PDFDocument, StandardFonts, rgb, degrees } from 'pdf-lib';
-import fs from 'fs';
-import path from 'path';
 import { PdfGenerationPayload } from './embed-professional-signature.service';
 
 export class ClinicalDocumentPdfGeneratorService {
   /**
-   * Genera un binario PDF real (PDF-1.7) en memoria y lo guarda físicamente en disco.
-   * Devuelve la ruta relativa para el frontend y los bytes en memoria.
+   * RF-DOC-001 a RF-DOC-004: genera el PDF en memoria para descargarlo o imprimirlo
+   * al momento. El servidor no guarda el archivo (D-27).
    */
   public static async generate(payload: PdfGenerationPayload & { idPaciente: number; idCita: number }): Promise<{
-    archivoPdfUrl: string;
+    nombreArchivo: string;
     pdfBytes: Uint8Array;
   }> {
     const pdfDoc = await PDFDocument.create();
@@ -251,7 +249,36 @@ export class ClinicalDocumentPdfGeneratorService {
         font: fontBold,
         color: darkTextColor,
       });
-      currentY -= 30;
+      currentY -= 18;
+
+      // RF-DOC-002: fechas de inicio y fin (la incapacidad inicia el día de expedición)
+      const inicio = (payload.detalles as any)?.fechaInicioIncapacidad;
+      const fin = (payload.detalles as any)?.fechaFinIncapacidad;
+      if (inicio && fin) {
+        page.drawText(`Desde: ${inicio}    Hasta: ${fin}`, {
+          x: marginX + 10,
+          y: currentY,
+          size: 8.5,
+          font: fontRegular,
+          color: darkTextColor,
+        });
+        currentY -= 18;
+      }
+
+      // RF-DOC-002: si es menor, campos en blanco para el acudiente (se diligencian a mano)
+      if ((payload.detalles as any)?.requiereFirmaAcudiente) {
+        for (const label of ['Nombre del acudiente:', 'Documento del acudiente:', 'Firma del acudiente:']) {
+          page.drawText(label, { x: marginX + 10, y: currentY, size: 8.5, font: fontRegular, color: darkTextColor });
+          page.drawLine({
+            start: { x: marginX + 150, y: currentY - 2 },
+            end: { x: marginX + 420, y: currentY - 2 },
+            thickness: 0.6,
+            color: grayTextColor,
+          });
+          currentY -= 20;
+        }
+      }
+      currentY -= 12;
     } else if (payload.tipoDocumento === 'REMISION') {
       const esp = (payload.detalles as any)?.especialidadDestino || 'Especialidad Odontológica';
       const mot = (payload.detalles as any)?.motivoRemision || 'Valoración especializada';
@@ -334,15 +361,10 @@ export class ClinicalDocumentPdfGeneratorService {
     });
 
     const pdfBytes = await pdfDoc.save();
-
-    // ERS v1.2 (RF-DOC-001 a RF-DOC-004, D-27):
-    // "sin almacenar el archivo PDF en el servidor" -> generación en memoria pura
     const slugTipo = payload.tipoDocumento.toLowerCase().replace(/_/g, '-');
-    const filename = `cita-${payload.idCita}-${slugTipo}-${Date.now()}-flattened.pdf`;
-    const archivoPdfUrl = `/storage/clinical-documents/${payload.idPaciente}/${filename}`;
 
     return {
-      archivoPdfUrl,
+      nombreArchivo: `cita-${payload.idCita}-${slugTipo}.pdf`,
       pdfBytes,
     };
   }

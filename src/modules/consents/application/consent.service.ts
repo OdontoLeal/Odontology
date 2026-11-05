@@ -1,9 +1,12 @@
 // src/modules/consents/application/consent.service.ts
 import {
+  CONSENT_TEMPLATE_TYPES,
   ConsentTemplate,
+  ConsentTemplateType,
   PatientSignedConsentDetail,
   SignedConsent,
 } from '../domain/consent.entity';
+import { formatColombiaDate } from '../../../shared/domain/colombia-format';
 import {
   ConsentConflictError,
   ConsentNotFoundError,
@@ -24,7 +27,11 @@ export class ConsentService {
   // RF-CON-004: Crear plantilla de consentimiento en versión inicial 1 y como texto en BD
   public async createTemplate(dto: CreateConsentTemplateDTO): Promise<ConsentTemplate> {
     const nombre = dto.nombre?.trim();
-    const textoPlantilla = (dto.textoPlantilla ?? dto.plantillaUrl)?.trim();
+    const textoPlantilla = dto.textoPlantilla?.trim();
+    const tipo: ConsentTemplateType = dto.tipo ?? 'PROCEDIMIENTO';
+    if (!CONSENT_TEMPLATE_TYPES.includes(tipo)) {
+      throw new ConsentValidationError('El tipo de plantilla debe ser PROCEDIMIENTO, AUTORIZACION_DATOS o MENORES.');
+    }
 
     if (!nombre) {
       throw new ConsentValidationError('El nombre de la plantilla es obligatorio.');
@@ -47,10 +54,21 @@ export class ConsentService {
       );
     }
 
+    // Solo una plantilla activa de autorización de datos y una de menores (RQNF-SEG-005, RF-CON-005)
+    if (tipo !== 'PROCEDIMIENTO' && this.consentRepository.findActiveTemplateByType) {
+      const activa = await this.consentRepository.findActiveTemplateByType(tipo);
+      if (activa) {
+        throw new ConsentConflictError(
+          `Ya existe una plantilla activa de tipo ${tipo} ("${activa.nombre}"). Edítela (RF-CON-007) o inactívela antes de crear otra.`
+        );
+      }
+    }
+
     return this.consentRepository.createTemplate({
       nombre,
       textoPlantilla,
-      version: 1, // Regla de negocio RF-CON-004: toda plantilla nueva inicia en versión 1
+      tipo,
+      version: 1, // RF-CON-004: toda plantilla nueva inicia en versión 1
       idUsuarioModificador: dto.idUsuarioModificador ?? null,
     });
   }
@@ -63,7 +81,7 @@ export class ConsentService {
     this.validatePositiveId(idConsentimiento, 'idConsentimiento');
 
     const nombre = dto.nombre?.trim();
-    const rawTexto = dto.textoPlantilla ?? dto.plantillaUrl;
+    const rawTexto = dto.textoPlantilla;
 
     // DEF-18 & CPS-CON-007-02: Rechazar si se intenta dejar el texto vacío
     if (rawTexto !== undefined && rawTexto.trim().length === 0) {
@@ -133,93 +151,90 @@ export class ConsentService {
     return this.consentRepository.findAllTemplates(Boolean(onlyActive));
   }
 
-  // RF-CON-002 & RF-CON-005: Registrar consentimiento firmado con texto consolidado y firma en texto (Base64)
+  /**
+   * RF-CON-001, RF-CON-002 y RF-CON-005 (ERS v1.3):
+   * - la plantilla debe estar activa y se firma una vez por versión;
+   * - el firmante marca la casilla de aceptación y firma;
+   * - un menor de 18 años solo firma con la plantilla de menores y por medio de su
+   *   acudiente (nombre y documento obligatorios); un adulto no usa esa plantilla.
+   */
   public async signConsent(dto: SignConsentDTO): Promise<SignedConsent> {
     this.validatePositiveId(dto.idConsentimiento, 'idConsentimiento');
     this.validatePositiveId(dto.idPaciente, 'idPaciente');
 
-    const firmaBase64 = (dto.firmaBase64 ?? dto.archivoUrl)?.trim();
+    if (dto.aceptado !== true) {
+      throw new ConsentValidationError('Debe marcar la casilla de aceptación del consentimiento.');
+    }
+    const firmaBase64 = dto.firmaBase64?.trim();
     if (!firmaBase64) {
-      throw new ConsentValidationError(
-        'El trazo de la firma manuscrita codificado (firmaBase64) es obligatorio.'
-      );
+      throw new ConsentValidationError('El recuadro de firma está en blanco: el firmante debe firmar.');
     }
 
-    // DEF-19 & CPS-CON-001-01: Evitar consentimientos firmados duplicados para la misma plantilla
+    const template = await this.consentRepository.findTemplateById(dto.idConsentimiento);
+    if (!template) throw new ConsentNotFoundError(dto.idConsentimiento);
+    if (!template.isActive()) throw new InactiveConsentTemplateError(dto.idConsentimiento);
+
+    // RF-CON-001: no se repite la firma de la versión vigente
     const existingSigned = await this.consentRepository.getSignedConsentsByPatient(dto.idPaciente);
     const duplicate = existingSigned.find(
-      (c) => c.idConsentimiento === dto.idConsentimiento
+      (c) => c.idConsentimiento === dto.idConsentimiento && c.versionPlantilla === template.version
     );
     if (duplicate) {
       throw new ConsentConflictError(
-        'El paciente ya cuenta con un consentimiento informado firmado para esta plantilla.'
+        `El paciente ya firmó este consentimiento el ${formatColombiaDate(new Date(duplicate.fecha))}`
       );
     }
 
-    // Verificación de integridad: la plantilla debe existir y estar activa
-    const template = await this.consentRepository.findTemplateById(dto.idConsentimiento);
-    if (!template) {
-      throw new ConsentNotFoundError(dto.idConsentimiento);
+    const fechaNacimiento = this.consentRepository.findPatientBirthDate
+      ? await this.consentRepository.findPatientBirthDate(dto.idPaciente)
+      : null;
+    if (this.consentRepository.findPatientBirthDate && !fechaNacimiento) {
+      throw new ConsentValidationError('El paciente no existe.');
     }
+    const isMinor = fechaNacimiento ? ConsentService.ageFrom(fechaNacimiento) < 18 : false;
 
-    if (!template.isActive()) {
-      throw new InactiveConsentTemplateError(dto.idConsentimiento);
-    }
-
-    // DEF-20 & CPS-CON-005-01: Validar si el paciente es menor de edad (< 18 años)
-    let isMinor = false;
-    let acudienteNombreDoc: string | null = null;
-    try {
-      const { db } = await import('../../../shared/infrastructure/database/database');
-      const pRes = await db.query<{ fecha_nacimiento: string | null }>(
-        `SELECT fecha_nacimiento FROM public.paciente WHERE id_paciente = $1;`,
-        [dto.idPaciente]
-      );
-      if (pRes.rows.length > 0) {
-        const fn = pRes.rows[0].fecha_nacimiento;
-        if (fn) {
-          const birthDate = new Date(fn);
-          const now = new Date();
-          let age = now.getFullYear() - birthDate.getFullYear();
-          const m = now.getMonth() - birthDate.getMonth();
-          if (m < 0 || (m === 0 && now.getDate() < birthDate.getDate())) {
-            age--;
-          }
-          isMinor = age < 18;
-        }
-      }
-    } catch {
-      // Ignorar fallo de consulta si el entorno está aislado
-    }
-
-    // Si firma por acudiente o es menor de edad, el nombre y documento del acudiente son obligatorios
-    const firmaPorAcudiente = Boolean(dto.firmaPorAcudiente) || isMinor;
-    const nombreDocumentoAcudiente =
-      dto.nombreDocumentoAcudiente?.trim() || acudienteNombreDoc || null;
-
-    if (isMinor && (!nombreDocumentoAcudiente || !firmaPorAcudiente)) {
+    if (isMinor && !template.isForMinors()) {
       throw new ConsentValidationError(
-        'Para pacientes menores de edad (menores de 18 años), es obligatoria la firma y los datos del acudiente / representante legal (RF-CON-005).'
+        'El paciente es menor de 18 años: la autorización y los consentimientos se toman con la plantilla de menores (RF-CON-005).'
       );
     }
+    if (!isMinor && template.isForMinors()) {
+      throw new ConsentValidationError('La plantilla de menores solo se usa con pacientes menores de 18 años.');
+    }
 
+    // Para un menor la casilla de acudiente queda marcada y no se puede desmarcar
+    const firmaPorAcudiente = isMinor || Boolean(dto.firmaPorAcudiente);
+    const nombreDocumentoAcudiente = dto.nombreDocumentoAcudiente?.trim() || null;
     if (firmaPorAcudiente && !nombreDocumentoAcudiente) {
-      throw new ConsentValidationError(
-        'Debe ingresar el nombre y documento del acudiente / representante legal (RF-CON-005).'
-      );
+      throw new ConsentValidationError('Debe ingresar el nombre y documento del acudiente / representante legal.');
     }
-
-    const textoFirmado = dto.textoFirmado?.trim() || template.textoPlantilla;
 
     return this.consentRepository.recordSignedConsent({
       idConsentimiento: dto.idConsentimiento,
       idPaciente: dto.idPaciente,
-      textoFirmado,
+      versionPlantilla: template.version,
+      textoFirmado: dto.textoFirmado?.trim() || template.textoPlantilla,
       firmaBase64,
+      aceptado: true,
       firmaPorAcudiente,
       nombreDocumentoAcudiente,
       idUsuarioDiligencio: dto.idUsuarioDiligencio ?? null,
+      actorCorreo: dto.actorCorreo,
     });
+  }
+
+  private static ageFrom(fechaNacimiento: string, now: Date = new Date()): number {
+    const [y, m, d] = fechaNacimiento.slice(0, 10).split('-').map(Number);
+    let age = now.getFullYear() - y;
+    if (now.getMonth() + 1 < m || (now.getMonth() + 1 === m && now.getDate() < d)) age--;
+    return age;
+  }
+
+  /** RQNF-SEG-006: plantilla vigente de autorización (aviso de privacidad público). */
+  public async getCurrentPrivacyNotice(): Promise<ConsentTemplate | null> {
+    return this.consentRepository.findActiveTemplateByType
+      ? this.consentRepository.findActiveTemplateByType('AUTORIZACION_DATOS')
+      : null;
   }
 
   // RF-CON-003: Consultar consentimientos firmados de un paciente (más reciente a más antiguo)
@@ -228,6 +243,18 @@ export class ConsentService {
   ): Promise<PatientSignedConsentDetail[]> {
     this.validatePositiveId(idPaciente, 'idPaciente');
     return this.consentRepository.getSignedConsentsByPatient(idPaciente);
+  }
+
+  /** Paciente al que pertenece un consentimiento firmado (para validar el acceso antes de armar el PDF). */
+  public async getSignedConsentPatientId(idConsentimientoFirmado: number): Promise<number> {
+    this.validatePositiveId(idConsentimientoFirmado, 'idConsentimientoFirmado');
+    const record = this.consentRepository.findSignedConsentById
+      ? await this.consentRepository.findSignedConsentById(idConsentimientoFirmado)
+      : null;
+    if (!record) {
+      throw new ConsentValidationError(`No se encontró el consentimiento firmado con ID ${idConsentimientoFirmado}.`);
+    }
+    return record.idPaciente;
   }
 
   // RF-CON-003: Generar PDF en memoria uniendo texto firmado, datos del paciente y firma Base64 fusionada (flatten)

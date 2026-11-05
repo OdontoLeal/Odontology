@@ -322,7 +322,6 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
           descripcion: apptData.observaciones,
           idPaciente: apptData.idPaciente,
           idUsuarioProfesional: apptData.idDoctor,
-          idUsuarioGestor: 1,
           bloques: formattedBlocks,
         }),
       });

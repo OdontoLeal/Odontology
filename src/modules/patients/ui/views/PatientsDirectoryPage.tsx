@@ -417,10 +417,9 @@ export const PatientsDirectoryPage: React.FC<PatientsDirectoryPageProps> = ({
                   nombreCompleto: editingPatient.nombreCompleto,
                   documentoIdentidad: editingPatient.documentoIdentidad,
                   fechaNacimiento: editingPatient.fechaNacimiento,
-                  sexo: editingPatient.sexo,
+                  sexo: editingPatient.sexo ?? undefined,
                   correo: editingPatient.correo,
                   telefono: editingPatient.telefono,
-                  acudiente: editingPatient.acudiente,
                 }
               : undefined
           }

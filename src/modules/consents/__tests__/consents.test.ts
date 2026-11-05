@@ -21,10 +21,12 @@ import {
   SignConsentDTO,
 } from '../application/consent.dtos';
 
-// Implementación en memoria del repositorio de consentimientos adaptada a ERS v1.2
+// Implementación en memoria del repositorio de consentimientos (ERS v1.3)
 class InMemoryConsentRepository implements IConsentRepository {
   public templates: Map<number, ConsentTemplate> = new Map();
   public signedConsents: SignedConsent[] = [];
+  /** Fechas de nacimiento de los pacientes de prueba (RF-CON-005). */
+  public birthDates: Map<number, string> = new Map();
   private templateIdSeq = 1;
   private signedConsentIdSeq = 1;
 
@@ -33,7 +35,8 @@ class InMemoryConsentRepository implements IConsentRepository {
     const template = new ConsentTemplate({
       idConsentimiento: id,
       nombre: dto.nombre,
-      textoPlantilla: dto.textoPlantilla ?? dto.plantillaUrl ?? '',
+      textoPlantilla: dto.textoPlantilla ?? '',
+      tipo: dto.tipo ?? 'PROCEDIMIENTO',
       version: 1, // Regla RF-CON-004
       estado: true, // Activa por defecto
       idUsuarioModificador: dto.idUsuarioModificador ?? null,
@@ -58,7 +61,8 @@ class InMemoryConsentRepository implements IConsentRepository {
     const updated = new ConsentTemplate({
       idConsentimiento: existing.idConsentimiento,
       nombre: dto.nombre ?? existing.nombre,
-      textoPlantilla: dto.textoPlantilla ?? dto.plantillaUrl ?? existing.textoPlantilla,
+      textoPlantilla: dto.textoPlantilla ?? existing.textoPlantilla,
+      tipo: existing.tipo,
       version: newVersion,
       estado: existing.estado,
       idUsuarioModificador: dto.idUsuarioModificador ?? null,
@@ -79,6 +83,7 @@ class InMemoryConsentRepository implements IConsentRepository {
       idConsentimiento: existing.idConsentimiento,
       nombre: existing.nombre,
       textoPlantilla: existing.textoPlantilla,
+      tipo: existing.tipo,
       version: existing.version,
       estado,
       idUsuarioModificador: existing.idUsuarioModificador,
@@ -103,9 +108,9 @@ class InMemoryConsentRepository implements IConsentRepository {
       idConsentimientoFirmado: id,
       idConsentimiento: dto.idConsentimiento,
       idPaciente: dto.idPaciente,
-      versionPlantilla: tmpl ? tmpl.version : 1,
+      versionPlantilla: dto.versionPlantilla ?? (tmpl ? tmpl.version : 1),
       textoFirmado: dto.textoFirmado ?? (tmpl ? tmpl.textoPlantilla : ''),
-      firmaBase64: dto.firmaBase64 ?? dto.archivoUrl ?? '',
+      firmaBase64: dto.firmaBase64 ?? '',
       firmaPorAcudiente: Boolean(dto.firmaPorAcudiente),
       nombreDocumentoAcudiente: dto.nombreDocumentoAcudiente ?? null,
       idUsuarioDiligencio: dto.idUsuarioDiligencio ?? null,
@@ -141,6 +146,14 @@ class InMemoryConsentRepository implements IConsentRepository {
       .sort((a, b) => b.fecha.getTime() - a.fecha.getTime());
   }
 
+  async findActiveTemplateByType(tipo: any): Promise<ConsentTemplate | null> {
+    return Array.from(this.templates.values()).find((t) => t.tipo === tipo && t.isActive()) ?? null;
+  }
+
+  async findPatientBirthDate(idPaciente: number): Promise<string | null> {
+    return this.birthDates.get(idPaciente) ?? '1990-01-01';
+  }
+
   async findSignedConsentById(
     idConsentimientoFirmado: number
   ): Promise<PatientSignedConsentDetail | null> {
@@ -167,7 +180,7 @@ class InMemoryConsentRepository implements IConsentRepository {
   }
 }
 
-describe('MÓDULO D: Consentimientos Informados (RF-CON-001 a RF-CON-008 - ERS v1.2)', () => {
+describe('MÓDULO D: Consentimientos Informados (RF-CON-001 a RF-CON-008 - ERS v1.3)', () => {
   let repo: InMemoryConsentRepository;
   let service: ConsentService;
 
@@ -274,6 +287,7 @@ describe('MÓDULO D: Consentimientos Informados (RF-CON-001 a RF-CON-008 - ERS v
     });
 
     const signed = await service.signConsent({
+          aceptado: true,
       idConsentimiento: template.idConsentimiento,
       idPaciente: 201,
       textoFirmado:
@@ -292,39 +306,74 @@ describe('MÓDULO D: Consentimientos Informados (RF-CON-001 a RF-CON-008 - ERS v
     );
   });
 
-  it('RF-CON-005: Validar obligatoriedad de nombre y documento del acudiente si firmaPorAcudiente es verdadero', async () => {
-    const template = await service.createTemplate({
-      nombre: 'Pulpotomía Pediátrica',
-      textoPlantilla: 'Tratamiento pulpar para pacientes menores de edad.',
+  it('RF-CON-005 (v1.3): Un menor solo firma con la plantilla de menores y por medio del acudiente', async () => {
+    repo.birthDates.set(305, '2014-03-01'); // 12 años
+    const procedimiento = await service.createTemplate({ nombre: 'Pulpotomía', textoPlantilla: 'Tratamiento pulpar.' });
+    const menores = await service.createTemplate({
+      nombre: 'Plantilla de menores',
+      textoPlantilla: 'Autorización del acudiente para {{nombre_paciente}}.',
+      tipo: 'MENORES',
     });
 
-    // Rechaza si falta nombre y documento del acudiente
+    // Con una plantilla que no es la de menores, no se permite
     await assert.rejects(
-      async () => {
-        await service.signConsent({
-          idConsentimiento: template.idConsentimiento,
-          idPaciente: 305,
-          firmaBase64: 'data:image/png;base64,iVBORw0KG...',
-          firmaPorAcudiente: true,
-          nombreDocumentoAcudiente: '',
-        });
-      },
-      (err: any) =>
-        err instanceof ConsentValidationError &&
-        /nombre y documento del acudiente/i.test(err.message)
+      () => service.signConsent({ aceptado: true, idConsentimiento: procedimiento.idConsentimiento, idPaciente: 305, firmaBase64: 'f', nombreDocumentoAcudiente: 'Marta - 52' }),
+      /plantilla de menores/i
     );
-
-    // Acepta si se suministra
+    // Sin nombre y documento del acudiente, no se guarda
+    await assert.rejects(
+      () => service.signConsent({ aceptado: true, idConsentimiento: menores.idConsentimiento, idPaciente: 305, firmaBase64: 'f' }),
+      (err: any) => err instanceof ConsentValidationError && /nombre y documento del acudiente/i.test(err.message)
+    );
+    // La casilla de acudiente queda marcada aunque el cliente la envíe desmarcada
     const signed = await service.signConsent({
-      idConsentimiento: template.idConsentimiento,
+      aceptado: true,
+      idConsentimiento: menores.idConsentimiento,
       idPaciente: 305,
-      firmaBase64: 'data:image/png;base64,iVBORw0KG...',
-      firmaPorAcudiente: true,
+      firmaBase64: 'f',
+      firmaPorAcudiente: false,
       nombreDocumentoAcudiente: 'Marta Pérez - C.C. 52.123.456',
     });
-
     assert.strictEqual(signed.firmaPorAcudiente, true);
     assert.strictEqual(signed.nombreDocumentoAcudiente, 'Marta Pérez - C.C. 52.123.456');
+
+    // Un adulto no usa la plantilla de menores
+    repo.birthDates.set(306, '1980-01-01');
+    await assert.rejects(
+      () => service.signConsent({ aceptado: true, idConsentimiento: menores.idConsentimiento, idPaciente: 306, firmaBase64: 'f' }),
+      /solo se usa con pacientes menores/i
+    );
+  });
+
+  it('RF-CON-002 y RF-CON-001: Exige la casilla de aceptación y no repite la firma de la versión vigente', async () => {
+    const t = await service.createTemplate({ nombre: 'Blanqueamiento', textoPlantilla: 'Texto.' });
+    await assert.rejects(
+      () => service.signConsent({ idConsentimiento: t.idConsentimiento, idPaciente: 210, firmaBase64: 'f' }),
+      /casilla de aceptación/i
+    );
+    await assert.rejects(
+      () => service.signConsent({ aceptado: true, idConsentimiento: t.idConsentimiento, idPaciente: 210, firmaBase64: '  ' }),
+      /firma está en blanco/i
+    );
+    await service.signConsent({ aceptado: true, idConsentimiento: t.idConsentimiento, idPaciente: 210, firmaBase64: 'f' });
+    await assert.rejects(
+      () => service.signConsent({ aceptado: true, idConsentimiento: t.idConsentimiento, idPaciente: 210, firmaBase64: 'f' }),
+      /ya firmó este consentimiento el \d{2}\/\d{2}\/\d{4}/
+    );
+    // Una nueva versión de la plantilla sí se puede firmar (RF-CON-007 no exige volver a firmar)
+    await service.updateTemplateVersion(t.idConsentimiento, { textoPlantilla: 'Texto v2.' });
+    const v2 = await service.signConsent({ aceptado: true, idConsentimiento: t.idConsentimiento, idPaciente: 210, firmaBase64: 'f' });
+    assert.strictEqual(v2.versionPlantilla, 2);
+  });
+
+  it('RQNF-SEG-005: Solo una plantilla activa de autorización de datos', async () => {
+    await service.createTemplate({ nombre: 'Autorización v1', textoPlantilla: 'Aviso.', tipo: 'AUTORIZACION_DATOS' });
+    await assert.rejects(
+      () => service.createTemplate({ nombre: 'Autorización bis', textoPlantilla: 'Otro aviso.', tipo: 'AUTORIZACION_DATOS' }),
+      /Ya existe una plantilla activa de tipo AUTORIZACION_DATOS/
+    );
+    const aviso = await service.getCurrentPrivacyNotice();
+    assert.strictEqual(aviso?.nombre, 'Autorización v1');
   });
 
   it('RF-CON-002: Rechazar firma sobre plantilla inexistente o en estado Inactiva', async () => {
@@ -340,6 +389,7 @@ describe('MÓDULO D: Consentimientos Informados (RF-CON-001 a RF-CON-008 - ERS v
     await assert.rejects(
       async () => {
         await service.signConsent({
+          aceptado: true,
           idConsentimiento: template.idConsentimiento,
           idPaciente: 202,
           firmaBase64: 'data:image/png;base64,sample...',
@@ -352,6 +402,7 @@ describe('MÓDULO D: Consentimientos Informados (RF-CON-001 a RF-CON-008 - ERS v
     await assert.rejects(
       async () => {
         await service.signConsent({
+          aceptado: true,
           idConsentimiento: 9999,
           idPaciente: 202,
           firmaBase64: 'data:image/png;base64,sample...',
@@ -374,6 +425,7 @@ describe('MÓDULO D: Consentimientos Informados (RF-CON-001 a RF-CON-008 - ERS v
 
     // Firmar primer consentimiento
     await service.signConsent({
+          aceptado: true,
       idConsentimiento: t1.idConsentimiento,
       idPaciente: 203,
       firmaBase64: 'data:image/png;base64,firma1...',
@@ -381,6 +433,7 @@ describe('MÓDULO D: Consentimientos Informados (RF-CON-001 a RF-CON-008 - ERS v
 
     // Firmar segundo consentimiento
     await service.signConsent({
+          aceptado: true,
       idConsentimiento: t2.idConsentimiento,
       idPaciente: 203,
       firmaBase64: 'data:image/png;base64,firma2...',
@@ -399,6 +452,7 @@ describe('MÓDULO D: Consentimientos Informados (RF-CON-001 a RF-CON-008 - ERS v
     });
 
     const signed = await service.signConsent({
+          aceptado: true,
       idConsentimiento: template.idConsentimiento,
       idPaciente: 204,
       textoFirmado:

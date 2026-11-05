@@ -158,14 +158,12 @@ export const HolderDataQueryPage: React.FC<HolderDataQueryPageProps> = ({
 
   const data = holderResult?.datosTitular;
   const paciente = data?.calidades?.comoPaciente;
-  const acudientes = data?.calidades?.comoAcudiente ?? [];
   const solicitantes = data?.calidades?.comoSolicitante ?? [];
   const autorizaciones = data?.autorizaciones ?? [];
   const citas = data?.citasRegistradas ?? data?.citasYSolicitudes ?? [];
 
   const titularNombre =
     paciente?.nombreCompleto ||
-    acudientes[0]?.nombreAcudiente ||
     solicitantes[0]?.nombreSolicitante ||
     (data ? `Titular Doc. ${data.documentoConsultado}` : '');
 
@@ -506,7 +504,7 @@ export const HolderDataQueryPage: React.FC<HolderDataQueryPageProps> = ({
                 </div>
                 <div className="p-2.5 rounded-xl bg-[#F8F9FA] border border-[#E2E6EA]">
                   <span className="text-[10px] font-bold text-[#687380] block">Teléfono de Contacto:</span>
-                  <span className="font-bold text-[#111827]">{paciente?.telefono || acudientes[0]?.telefonoAcudiente || 'Sin teléfono'}</span>
+                  <span className="font-bold text-[#111827]">{paciente?.telefono || solicitantes[0]?.telefonoSolicitante || 'Sin teléfono'}</span>
                 </div>
                 <div className="p-2.5 rounded-xl bg-[#F8F9FA] border border-[#E2E6EA]">
                   <span className="text-[10px] font-bold text-[#687380] block">Correo Electrónico:</span>
@@ -535,19 +533,6 @@ export const HolderDataQueryPage: React.FC<HolderDataQueryPageProps> = ({
                   </div>
                 )}
 
-                {acudientes.length > 0 && (
-                  <div className="p-2.5 rounded-xl border border-[#E2E6EA] bg-[#FFFFFF] space-y-1.5">
-                    <span className="font-bold text-[#111827]">Representación Legal / Calidad de Acudiente:</span>
-                    <div className="space-y-1">
-                      {acudientes.map((ac: any, idx: number) => (
-                        <p key={idx} className="text-[11px] text-[#687380] pl-2 border-l-2 border-[#D4AF37]">
-                          Menor Representado: <strong className="text-[#111827]">{ac.nombreMenorRepresentado}</strong> (Parentesco: {ac.parentescoConMenor}) | Tel: {ac.telefonoAcudiente}
-                        </p>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
                 {solicitantes.length > 0 && (
                   <div className="p-2.5 rounded-xl border border-[#E2E6EA] bg-[#FFFFFF] space-y-1.5">
                     <span className="font-bold text-[#111827]">Calidad de Solicitante en Portal Digital:</span>
@@ -572,7 +557,8 @@ export const HolderDataQueryPage: React.FC<HolderDataQueryPageProps> = ({
               </div>
               <div className="rounded-xl border border-[#CEEAD6] bg-[#F6FBF7] p-3 text-xs space-y-2">
                 <p className="text-[11px] text-[#137333] leading-relaxed">
-                  Conforme al Artículo 9 y 12 de la Ley 1581 de 2012, el titular otorgó autorización expresa para la recolección, almacenamiento y tratamiento de sus datos personales y sensibles de salud con fines estrictamente asistenciales, odontológicos y de gestión clínica:
+                  Prueba de las autorizaciones del titular (Ley 1581 de 2012, arts. 9 y 12): consentimientos firmados del
+                  Módulo D y aceptaciones de la autorización vigente en solicitudes de cita.
                 </p>
                 {autorizaciones.length > 0 ? (
                   <div className="space-y-1 pl-2">
@@ -580,14 +566,18 @@ export const HolderDataQueryPage: React.FC<HolderDataQueryPageProps> = ({
                       <div key={idx} className="text-[11px] text-[#137333] flex items-center gap-2">
                         <span>✔</span>
                         <span>
-                          <strong>{aut.versionAvisoPrivacidad || 'Aviso de Privacidad Vigente'}</strong> — Autorizado mediante <em>{aut.medio}</em> ({aut.fechaHora ? String(aut.fechaHora).split('T')[0] : 'Vigente'}) [Calidad: {aut.calidad}]
+                          <strong>{aut.plantilla}</strong> (versión {aut.versionPlantilla ?? '-'}) —{' '}
+                          {aut.tipo === 'CONSENTIMIENTO_FIRMADO'
+                            ? `firmada${aut.firmadoPorAcudiente ? ' por acudiente' : ''}${aut.diligenciadoPor ? `, tomada por ${aut.diligenciadoPor}` : ''}`
+                            : 'aceptada en la solicitud web (firma pendiente en el consultorio)'}{' '}
+                          ({aut.fechaHora || 'sin fecha'})
                         </span>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-[11px] text-[#137333]">
-                    ✔ Autorización registrada y validada en el expediente digital conforme a la Política Institucional de Protección de Datos.
+                  <p className="text-[11px] text-[#DC2626]">
+                    No hay autorizaciones firmadas ni aceptadas registradas para este titular.
                   </p>
                 )}
               </div>

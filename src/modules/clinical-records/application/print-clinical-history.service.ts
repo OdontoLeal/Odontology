@@ -617,17 +617,10 @@ export function printCompleteClinicalHistory({ patient, history }: PrintClinical
           <div><strong style="color:#6B7280; display:block; font-size:7pt;">PACIENTE:</strong><strong>${patient.nombreCompleto}</strong></div>
           <div><strong style="color:#6B7280; display:block; font-size:7pt;">DOCUMENTO:</strong>CC/TI ${patient.documentoIdentidad}</div>
           <div><strong style="color:#6B7280; display:block; font-size:7pt;">FECHA NACIMIENTO / EDAD:</strong>${patient.fechaNacimiento || 'N/R'} ${patient.edad !== undefined ? `(${patient.edad} años)` : ''}</div>
-          <div><strong style="color:#6B7280; display:block; font-size:7pt;">SEXO:</strong>${patient.sexo || 'Indeterminado'}</div>
+          <div><strong style="color:#6B7280; display:block; font-size:7pt;">SEXO:</strong>${patient.sexo || 'Sin registrar (datos incompletos)'}</div>
           <div><strong style="color:#6B7280; display:block; font-size:7pt;">TELÉFONO:</strong>${patient.telefono || 'Sin teléfono'}</div>
           <div style="grid-column: span 2;"><strong style="color:#6B7280; display:block; font-size:7pt;">CORREO:</strong>${patient.correo || 'Sin correo'}</div>
           <div><strong style="color:#6B7280; display:block; font-size:7pt;">ID EXPEDIENTE:</strong>#${patient.idPaciente}</div>
-          ${
-            patient.acudiente
-              ? `<div style="grid-column: span 4; border-top: 1px dashed #E5E7EB; padding-top: 4px; font-size: 7.5pt; color: #4B5563;">
-                  <strong>Acudiente / Representante:</strong> ${patient.acudiente.nombreCompleto} (${patient.acudiente.parentesco}) • Doc: ${patient.acudiente.documentoIdentidad} • Tel: ${patient.acudiente.telefono}
-                </div>`
-              : ''
-          }
         </div>
 
         <!-- Línea Base de Antecedentes y Factores de Riesgo (Sin redundancia) -->

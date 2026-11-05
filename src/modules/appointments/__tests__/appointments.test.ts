@@ -25,7 +25,6 @@ import { UpdateAppointmentUseCase } from '../application/update-appointment.use-
 import { CancelAppointmentUseCase } from '../application/cancel-appointment.use-case';
 import { GetWeeklyAgendaUseCase } from '../application/get-weekly-agenda.use-case';
 import { ManageAttentionUseCase } from '../application/manage-attention.use-case';
-import { SelectServiceUseCase } from '../application/select-service.use-case';
 import { MarkNoShowUseCase } from '../application/mark-no-show.use-case';
 import { AppointmentsModulePublicApi } from '../index';
 import { ColombiaTime } from '../../../shared/domain/colombia-time.util';
@@ -788,36 +787,9 @@ describe('MÓDULO B: Agendamiento de Citas (RF-AGE-001 a RF-AGE-013)', () => {
 
     assert.strictEqual(noShowRes.data.estado, 'Inasistencia');
 
-    // Regla RF-AGE-013: Bloques no se liberan (permanecen ocupados)
+    // Regla RF-AGE-012 (v1.3): Bloques no se liberan (permanecen ocupados)
     const slotCheck = await repo.findSlotsByDates([slotTime]);
     assert.strictEqual(slotCheck[0].ocupacion, true);
-  });
-
-  it('RF-AGE-012: Seleccionar servicio y profesional (catálogo configurable)', async () => {
-    const selectService = new SelectServiceUseCase(repo);
-    const simulatedNow = new Date('2026-10-01T12:00:00Z');
-
-    // Habilitar un bloque para el Dr. Eduar Leal a 10 días (dentro de 5-60 días)
-    const b1 = ColombiaTime.parseColombiaSlot('2026-10-11', '08:00');
-    await repo.upsertTimeSlots([
-      TimeSlotEntity.create({ inicio: b1, idProfesional: DR_EDUAR_ID, estado: true, ocupacion: false }),
-    ]);
-
-    const result = await selectService.execute({
-      contexto: 'PUBLICO',
-      now: simulatedNow,
-    });
-
-    assert.ok(result.servicios.length >= 2);
-    const odoGen = result.servicios.find((s) => s.nombre === 'Odontología general');
-    assert.ok(odoGen);
-    assert.strictEqual(odoGen?.profesional.idUsuario, DR_EDUAR_ID);
-    assert.strictEqual(odoGen?.tieneDisponibilidad, true);
-
-    const orto = result.servicios.find((s) => s.nombre === 'Ortodoncia');
-    assert.ok(orto);
-    assert.strictEqual(orto?.profesional.idUsuario, DRA_NATALIA_ID);
-    assert.strictEqual(orto?.tieneDisponibilidad, false); // No le hemos creado bloques aún
   });
 
   it('AppointmentsModulePublicApi: Interoperabilidad con otros módulos (Regla 5 y RF-HCL-004)', async () => {

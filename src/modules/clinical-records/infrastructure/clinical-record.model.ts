@@ -165,6 +165,8 @@ export interface IncapacidadMedicaDTO {
 export interface RemisionMedicaDTO {
   requiere_remision: boolean;
   especialidad_destino: string;
+  /** Nombre de la especialidad cuando se elige "Otra" (RF-DOC-003). */
+  otra_especialidad_nombre?: string | null;
   prioridad_atencion: string;
   motivo_resumen_clinico: string;
 }
@@ -237,4 +239,30 @@ export interface CreateEvolutionEntryDTO {
   planManejo?: PlanManejoDTO | any;
   fecha?: Date | string;
   payload?: ClinicalEvolutionPayload;
+  /** Usuario de la sesión que diligencia (Regla de Negocio 9). Obligatorio para escribir. */
+  actor?: ClinicalWriteActor;
+  /** Nota de evolución a registrar en `nota_evolucion` (RF-HCL-009). */
+  nota?: { texto: string; procedimientoRealizado?: string | null };
+}
+
+/**
+ * Quién escribe en la historia clínica (Regla de Negocio 4):
+ * - el profesional responsable de la cita crea y edita la apertura mientras la cita está En consulta;
+ * - la auxiliar (con la cita En consulta) solo registra notas y actualiza el odontograma.
+ */
+export interface ClinicalWriteActor {
+  idUsuario: number;
+  nombreUsuario: string;
+  correo: string;
+  esProfesionalResponsable: boolean;
+}
+
+/** Nota de evolución o nota aclaratoria con su autor (tabla `nota_evolucion`). */
+export interface NotaEvolucionRow {
+  idNota: number;
+  tipo: 'EVOLUCION' | 'NOTA_ACLARATORIA';
+  procedimientoRealizado: string | null;
+  texto: string;
+  fecha: string;
+  diligenciadoPor: { idUsuario: number; nombreUsuario: string };
 }

@@ -2,6 +2,7 @@
 import nodemailer, { Transporter } from 'nodemailer';
 import { IMailerPort } from '../../../modules/users-auth/domain/user.repository.interface';
 import { envConfig } from '../../../app/config/env.config';
+import { auditLog } from '../audit/audit-log.service';
 
 export interface MailerServiceOptions {
   host?: string;
@@ -12,66 +13,15 @@ export interface MailerServiceOptions {
   from?: string;
 }
 
-/**
- * RQNF-USA-002: Formato de fecha localizado para Colombia (DD/MM/AAAA)
- */
-export function formatColombiaDate(dateStr: string | Date | undefined | null): string {
-  if (!dateStr) return '';
-  if (dateStr instanceof Date) {
-    return new Intl.DateTimeFormat('es-CO', {
-      timeZone: 'America/Bogota',
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    }).format(dateStr);
-  }
-  const str = String(dateStr).trim();
-  const isoMatch = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (isoMatch) {
-    const [, y, m, d] = isoMatch;
-    return `${d}/${m}/${y}`;
-  }
-  return str;
-}
+import { formatColombiaDate, formatColombiaTime } from '../../domain/colombia-format';
 
-function formatSingleTime12h(timeStr: string): string {
-  const match = timeStr.trim().match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
-  if (!match) return timeStr;
-  let hours = parseInt(match[1], 10);
-  const minutes = match[2];
-  const isPm = hours >= 12;
-  hours = hours % 12;
-  if (hours === 0) hours = 12;
-  const hoursStr = String(hours).padStart(2, '0');
-  const period = isPm ? 'p. m.' : 'a. m.';
-  return `${hoursStr}:${minutes} ${period}`;
-}
+export { formatColombiaDate, formatColombiaTime };
 
-/**
- * RQNF-USA-002: Formato de hora localizado de 12 horas (hh:mm a. m./p. m.)
- */
-export function formatColombiaTime(timeStr: string | undefined | null): string {
-  if (!timeStr) return '';
-  const str = String(timeStr).trim();
-  if (str.includes(' - ')) {
-    return str
-      .split(' - ')
-      .map((part) => formatSingleTime12h(part.trim()))
-      .join(' - ');
-  }
-  if (str.includes('-')) {
-    return str
-      .split('-')
-      .map((part) => formatSingleTime12h(part.trim()))
-      .join(' - ');
-  }
-  if (str.includes(' a ')) {
-    return str
-      .split(' a ')
-      .map((part) => formatSingleTime12h(part.trim()))
-      .join(' a ');
-  }
-  return formatSingleTime12h(str);
+export interface MailResult {
+  messageId?: string;
+  previewUrl?: string | null;
+  /** true si el servidor de correo rechazó o no recibió el envío (RQNF-FIA-004). */
+  failed?: boolean;
 }
 
 export class MailerService implements IMailerPort {
@@ -169,7 +119,7 @@ export class MailerService implements IMailerPort {
     nombreCompleto: string;
     recoveryLink: string;
     expiresInMinutes: number;
-  }): Promise<{ messageId?: string; previewUrl?: string | null }> {
+  }): Promise<MailResult> {
     const { to, nombreCompleto, recoveryLink, expiresInMinutes } = params;
 
     const htmlContent = `
@@ -236,17 +186,8 @@ export class MailerService implements IMailerPort {
 
       const previewUrl = nodemailer.getTestMessageUrl(info) || null;
 
-      console.log(`\n======================================================`);
-      console.log(`📨 CORREO DE RECUPERACIÓN PROCESADO`);
-      console.log(`Destinatario: ${to}`);
-      console.log(`Enlace generado: ${recoveryLink}`);
-
-      if (previewUrl) {
-        console.log(`🔗 Vista previa online (Ethereal Email Free): ${previewUrl}`);
-      } else {
-        console.log(`✅ Correo entregado al servidor SMTP para envío a bandeja real.`);
-      }
-      console.log(`======================================================\n`);
+      // D-17: nunca se registra el enlace ni el token; solo el destinatario y el id del mensaje.
+      console.log(`Correo de recuperación enviado a ${to} (messageId: ${info.messageId}).`);
 
       return {
         messageId: info.messageId,
@@ -254,9 +195,10 @@ export class MailerService implements IMailerPort {
       };
     } catch (err: any) {
       console.error('❌ Error al enviar correo de recuperación:', err?.message);
-      console.log(`ℹ️ Enlace de recuperación generado para contingencia: ${recoveryLink}`);
+      await this.reportFailure(to, 'Error al enviar correo de recuperación', err);
       return {
         previewUrl: null,
+        failed: true,
       };
     }
   }
@@ -272,7 +214,7 @@ export class MailerService implements IMailerPort {
     doctor: string;
     motivo: string;
     idCita?: number;
-  }): Promise<{ messageId?: string; previewUrl?: string | null }> {
+  }): Promise<MailResult> {
     const { to, nombrePaciente, doctor, motivo, idCita } = params;
     const fecha = formatColombiaDate(params.fecha);
     const hora = formatColombiaTime(params.hora);
@@ -345,7 +287,8 @@ export class MailerService implements IMailerPort {
       return { messageId: info.messageId, previewUrl };
     } catch (err: any) {
       console.error('❌ Error enviando correo de confirmación de cita:', err?.message);
-      return { previewUrl: null };
+      await this.reportFailure(to, 'Error enviando correo de confirmación de cita', err);
+      return { previewUrl: null, failed: true };
     }
   }
 
@@ -358,8 +301,10 @@ export class MailerService implements IMailerPort {
     fecha: string;
     hora: string;
     doctor: string;
-  }): Promise<{ messageId?: string; previewUrl?: string | null }> {
+    servicio?: string;
+  }): Promise<MailResult> {
     const { to, nombrePaciente, doctor } = params;
+    const servicio = params.servicio ?? 'Consulta odontológica';
     const fecha = formatColombiaDate(params.fecha);
     const hora = formatColombiaTime(params.hora);
 
@@ -396,10 +341,11 @@ export class MailerService implements IMailerPort {
       <div class="detail-item"><span class="label">📅 Fecha:</span> <span class="value">${fecha}</span></div>
       <div class="detail-item"><span class="label">⏰ Hora:</span> <span class="value">${hora}</span></div>
       <div class="detail-item"><span class="label">👨‍⚕️ Profesional:</span> <span class="value">${doctor}</span></div>
+      <div class="detail-item"><span class="label">🦷 Servicio:</span> <span class="value">${servicio}</span></div>
       <div class="detail-item"><span class="label">📍 Consultorio:</span> <span class="value">Calle 127 # 14-54, Suite 402, Bogotá</span></div>
     </div>
 
-    <p style="font-size: 13px; color: #687380;">Agradecemos confirmar tu asistencia respondiendo a este mensaje o avisarnos oportunamente en caso de requerir reprogramar.</p>
+    <p style="font-size: 13px; color: #687380;">Si necesitas cancelar o cambiar la cita, comunícate por teléfono con el consultorio (la cita no se puede cancelar desde la aplicación).</p>
 
     <div class="footer">
       © 2026 Consultorio Odontológico Dr. Eduar Leal Álvarez • Bogotá, Colombia
@@ -424,7 +370,8 @@ export class MailerService implements IMailerPort {
       return { messageId: info.messageId, previewUrl };
     } catch (err: any) {
       console.error('❌ Error enviando recordatorio de cita:', err?.message);
-      return { previewUrl: null };
+      await this.reportFailure(to, 'Error enviando recordatorio de cita', err);
+      return { previewUrl: null, failed: true };
     }
   }
 
@@ -443,7 +390,7 @@ export class MailerService implements IMailerPort {
     motivo: string;
     idCita?: number;
     telefonoPaciente?: string;
-  }): Promise<{ messageId?: string; previewUrl?: string | null }> {
+  }): Promise<MailResult> {
     const { to, doctorName, patientName, motivo, idCita, telefonoPaciente } = params;
     const fecha = formatColombiaDate(params.fecha);
     const hora = formatColombiaTime(params.hora);
@@ -517,7 +464,8 @@ export class MailerService implements IMailerPort {
       return { messageId: info.messageId, previewUrl };
     } catch (err: any) {
       console.error('❌ Error enviando correo de notificación a doctor:', err?.message);
-      return { previewUrl: null };
+      await this.reportFailure(to, 'Error enviando correo de notificación a doctor', err);
+      return { previewUrl: null, failed: true };
     }
   }
 
@@ -529,7 +477,7 @@ export class MailerService implements IMailerPort {
     doctor: string;
     motivo: string;
     idSolicitud?: number;
-  }): Promise<{ messageId?: string; previewUrl?: string | null }> {
+  }): Promise<MailResult> {
     const { to, nombreSolicitante, doctor, motivo, idSolicitud } = params;
     const fecha = formatColombiaDate(params.fecha);
     const hora = formatColombiaTime(params.hora);
@@ -604,7 +552,8 @@ export class MailerService implements IMailerPort {
       return { messageId: info.messageId, previewUrl };
     } catch (err: any) {
       console.error('❌ Error enviando correo de solicitud pública:', err?.message);
-      return { previewUrl: null };
+      await this.reportFailure(to, 'Error enviando correo de solicitud pública', err);
+      return { previewUrl: null, failed: true };
     }
   }
 
@@ -622,7 +571,7 @@ export class MailerService implements IMailerPort {
     requestedTime: string;
     motive: string;
     idSolicitud?: number;
-  }): Promise<{ messageId?: string; previewUrl?: string | null }> {
+  }): Promise<MailResult> {
     const {
       to,
       staffName,
@@ -705,7 +654,8 @@ export class MailerService implements IMailerPort {
       return { messageId: info.messageId, previewUrl };
     } catch (err: any) {
       console.error('❌ Error enviando correo de alerta a coordinación:', err?.message);
-      return { previewUrl: null };
+      await this.reportFailure(to, 'Error enviando correo de alerta a coordinación', err);
+      return { previewUrl: null, failed: true };
     }
   }
 
@@ -721,7 +671,7 @@ export class MailerService implements IMailerPort {
     motivo: string;
     idCita?: number;
     notas?: string;
-  }): Promise<{ messageId?: string; previewUrl?: string | null }> {
+  }): Promise<MailResult> {
     const { to, nombrePaciente, doctor, motivo, idCita, notas } = params;
     const fecha = formatColombiaDate(params.fecha);
     const hora = formatColombiaTime(params.hora);
@@ -795,7 +745,8 @@ export class MailerService implements IMailerPort {
       return { messageId: info.messageId, previewUrl };
     } catch (err: any) {
       console.error('❌ Error enviando correo de cita modificada al paciente:', err?.message);
-      return { previewUrl: null };
+      await this.reportFailure(to, 'Error enviando correo de cita modificada al paciente', err);
+      return { previewUrl: null, failed: true };
     }
   }
 
@@ -812,7 +763,7 @@ export class MailerService implements IMailerPort {
     idCita?: number;
     telefonoPaciente?: string;
     notas?: string;
-  }): Promise<{ messageId?: string; previewUrl?: string | null }> {
+  }): Promise<MailResult> {
     const { to, doctorName, patientName, motivo, idCita, telefonoPaciente, notas } = params;
     const fecha = formatColombiaDate(params.fecha);
     const hora = formatColombiaTime(params.hora);
@@ -885,7 +836,8 @@ export class MailerService implements IMailerPort {
       return { messageId: info.messageId, previewUrl };
     } catch (err: any) {
       console.error('❌ Error enviando correo de cita modificada al doctor:', err?.message);
-      return { previewUrl: null };
+      await this.reportFailure(to, 'Error enviando correo de cita modificada al doctor', err);
+      return { previewUrl: null, failed: true };
     }
   }
 
@@ -902,7 +854,7 @@ export class MailerService implements IMailerPort {
     motivo: string;
     idCita?: number;
     isDoctor?: boolean;
-  }): Promise<{ messageId?: string; previewUrl?: string | null }> {
+  }): Promise<MailResult> {
     const { to, recipientName, patientName, doctorName, motivo, idCita, isDoctor } = params;
     const fecha = formatColombiaDate(params.fecha);
     const hora = formatColombiaTime(params.hora);
@@ -971,8 +923,38 @@ export class MailerService implements IMailerPort {
       return { messageId: info.messageId, previewUrl };
     } catch (err: any) {
       console.error('❌ Error enviando correo de cancelación de cita:', err?.message);
-      return { previewUrl: null };
+      await this.reportFailure(to, 'Error enviando correo de cancelación de cita', err);
+      return { previewUrl: null, failed: true };
     }
+  }
+
+  /**
+   * RF-AGE-005 (D-20): avisa al solicitante que su solicitud fue rechazada y el motivo.
+   */
+  async sendRequestRejectedEmail(params: {
+    to: string;
+    nombreSolicitante: string;
+    fecha: string;
+    hora: string;
+    motivo: string;
+    idSolicitud?: number;
+  }): Promise<MailResult> {
+    const fecha = formatColombiaDate(params.fecha);
+    const hora = formatColombiaTime(params.hora);
+    const subject = `Solicitud de cita no aprobada - ${fecha} a las ${hora}`;
+    const html = `
+      <h2>Hola, ${params.nombreSolicitante}</h2>
+      <p>Le informamos que su solicitud de cita${params.idSolicitud ? ` N.° ${params.idSolicitud}` : ''} para el
+      <strong>${fecha}</strong> a las <strong>${hora}</strong> no fue aprobada por el consultorio.</p>
+      <p><strong>Motivo:</strong> ${params.motivo}</p>
+      <p>Si desea programar otra fecha, puede enviar una nueva solicitud o comunicarse con el consultorio.</p>
+      <p style="font-size:12px;color:#6B7280">Consultorio Odontológico Dr. Eduar Leal Álvarez</p>`;
+    return this.sendGenericEmail({
+      to: params.to,
+      subject,
+      html,
+      text: `Hola ${params.nombreSolicitante}. Su solicitud de cita para el ${fecha} a las ${hora} no fue aprobada. Motivo: ${params.motivo}`,
+    });
   }
 
   /**
@@ -983,7 +965,7 @@ export class MailerService implements IMailerPort {
     subject: string;
     html: string;
     text?: string;
-  }): Promise<{ messageId?: string; previewUrl?: string | null }> {
+  }): Promise<MailResult> {
     const { to, subject, html, text } = params;
     try {
       const transporter = await this.getTransporter();
@@ -998,7 +980,27 @@ export class MailerService implements IMailerPort {
       return { messageId: info.messageId, previewUrl };
     } catch (err: any) {
       console.error('❌ Error enviando correo genérico:', err?.message);
-      return { previewUrl: null };
+      await this.reportFailure(to, 'Error enviando correo genérico', err);
+      return { previewUrl: null, failed: true };
+    }
+  }
+
+  /**
+   * RQNF-FIA-004 y RQNF-SEG-009: deja constancia del envío fallido (destinatario,
+   * origen y causa) sin interrumpir la operación que originó el correo.
+   */
+  private async reportFailure(to: string, origen: string, err: unknown): Promise<void> {
+    try {
+      await auditLog.record({
+        idUsuario: null,
+        actor: 'Sistema',
+        accion: 'CORREO_FALLIDO',
+        entidad: 'correo',
+        idRegistro: to,
+        detalle: { destinatario: to, origen, causa: (err as Error)?.message ?? String(err) },
+      });
+    } catch (auditError) {
+      console.error('No se pudo registrar el correo fallido en auditoría:', (auditError as Error).message);
     }
   }
 }
