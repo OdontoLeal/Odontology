@@ -2,20 +2,40 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useRealtimeAgenda } from '../hooks/useRealtimeAgenda';
 import { WeeklyCalendarGrid, CalendarTimeSlot } from '../components/WeeklyCalendarGrid';
-import { QuickScheduleModal, DoctorCandidate, PatientCandidate } from '../components/QuickScheduleModal';
+import {
+  QuickScheduleModal,
+  DoctorCandidate,
+  PatientCandidate,
+} from '../components/QuickScheduleModal';
 import { AppointmentRequestDetailPage, RequestDetailData } from './AppointmentRequestDetailPage';
 import { AppointmentDetailPage, AppointmentDetailPageData } from './AppointmentDetailPage';
 import { usePatients } from '../../../patients/ui/hooks/usePatients';
 import { useAlertModal } from '../../../../shared/ui/hooks/useAlertModal';
+import { CalendarIcon, DoctorIcon } from '../../../../shared/ui/components/Icons';
+import { PageLayout } from '../../../../shared/ui/components/PageLayout';
 import {
-  CalendarIcon,
-  DoctorIcon,
-  SearchIcon,
-} from '../../../../shared/ui/components/Icons';
+  PageHeader,
+  PageHeaderAction,
+  PlusIcon,
+} from '../../../../shared/ui/components/PageHeader';
+import {
+  PageToolbar,
+  ToolbarSearch,
+  ToolbarSelect,
+  ToolbarLabel,
+} from '../../../../shared/ui/components/PageToolbar';
 
 export interface InternalAgendaPageProps {
-  onStartAttention?: (idCita: number, idPaciente: number, doctorInfo?: { doctorName?: string; doctorSignature?: string | null }) => void;
-  onOpenConsultationWorkspace?: (patientId: number, idCita: number, doctorInfo?: { doctorName?: string; doctorSignature?: string | null }) => void;
+  onStartAttention?: (
+    idCita: number,
+    idPaciente: number,
+    doctorInfo?: { doctorName?: string; doctorSignature?: string | null }
+  ) => void;
+  onOpenConsultationWorkspace?: (
+    patientId: number,
+    idCita: number,
+    doctorInfo?: { doctorName?: string; doctorSignature?: string | null }
+  ) => void;
   onNavigateToPatientProfile?: (idPaciente: number) => void;
   canManageSlots?: boolean;
   canCreateAppointment?: boolean;
@@ -61,9 +81,12 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
   const { showAlert, AlertModalComponent } = useAlertModal();
 
   // Estados de navegación dentro de la Agenda
-  const [viewMode, setViewMode] = useState<'AGENDA' | 'REQUEST_DETAIL' | 'APPOINTMENT_DETAIL'>('AGENDA');
+  const [viewMode, setViewMode] = useState<'AGENDA' | 'REQUEST_DETAIL' | 'APPOINTMENT_DETAIL'>(
+    'AGENDA'
+  );
   const [activeRequestDetail, setActiveRequestDetail] = useState<RequestDetailData | null>(null);
-  const [activeAppointmentDetail, setActiveAppointmentDetail] = useState<AppointmentDetailPageData | null>(null);
+  const [activeAppointmentDetail, setActiveAppointmentDetail] =
+    useState<AppointmentDetailPageData | null>(null);
 
   // Modal para agendar nueva cita
   const [isQuickScheduleOpen, setIsQuickScheduleOpen] = useState(false);
@@ -77,19 +100,17 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
         const userList: any[] = Array.isArray(json.data)
           ? json.data
           : Array.isArray(json.data?.data)
-          ? json.data.data
-          : Array.isArray(json)
-          ? json
-          : [];
+            ? json.data.data
+            : Array.isArray(json)
+              ? json
+              : [];
         const doctorCandidates: DoctorCandidate[] = userList
           .filter((u) => u.estado !== false)
           .map((u) => ({
             idUsuario: Number(u.id_usuario ?? u.idUsuario),
             nombreCompleto: u.nombre_completo ?? u.nombreCompleto ?? 'Doctor',
             especialidad:
-              u.roles?.[0]?.nombreRol ||
-              u.roles?.[0]?.nombre_rol ||
-              'Odontología General',
+              u.roles?.[0]?.nombreRol || u.roles?.[0]?.nombre_rol || 'Odontología General',
           }));
 
         if (doctorCandidates.length > 0) {
@@ -118,8 +139,18 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
       // Ajuste de día en JS (0 es domingo)
       const daysEs = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
       const monthsEs = [
-        'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-        'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
+        'Enero',
+        'Febrero',
+        'Marzo',
+        'Abril',
+        'Mayo',
+        'Junio',
+        'Julio',
+        'Agosto',
+        'Septiembre',
+        'Octubre',
+        'Noviembre',
+        'Diciembre',
       ];
       return `${daysEs[d.getDay()]} ${day} ${monthsEs[d.getMonth()]} ${year}`;
     } catch {
@@ -163,7 +194,9 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
         correo: slot.pacienteCorreo || 'lucia.restrepo@email.com',
         fechaSolicitada: selectedDate,
         horaSolicitada: slot.horaInicio,
-        motivoConsulta: slot.tratamiento || 'Valoración por sensibilidad en molar inferior derecho y revisión general',
+        motivoConsulta:
+          slot.tratamiento ||
+          'Valoración por sensibilidad en molar inferior derecho y revisión general',
         fechaSolicitud: '2026-10-24 09:15:00',
         sexo: 'Femenino',
         edad: 29,
@@ -285,7 +318,8 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
       await rejectRequest(idSolicitud, motivo);
       showAlert({
         title: 'Solicitud Rechazada',
-        message: 'La solicitud ha sido rechazada y el bloque de horario ha quedado liberado en la agenda médica.',
+        message:
+          'La solicitud ha sido rechazada y el bloque de horario ha quedado liberado en la agenda médica.',
         type: 'info',
       });
       setViewMode('AGENDA');
@@ -406,7 +440,8 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
             await cancelAppointment(idCita, motivo);
             showAlert({
               title: 'Cita Cancelada',
-              message: 'La cita médica ha sido cancelada y los bloques de horario han sido liberados.',
+              message:
+                'La cita médica ha sido cancelada y los bloques de horario han sido liberados.',
               type: 'info',
             });
             setViewMode('AGENDA');
@@ -434,65 +469,73 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
 
   // VISTA PRINCIPAL: AGENDA MÉDICA (Imagen 3)
   return (
-    <div className="space-y-6 max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 animate-fadeIn">
-      {/* Barra de Filtros Superior (Imagen 3) */}
-      <div className="rounded-2xl border border-[#E2E6EA] bg-white p-4 shadow-xs flex flex-wrap items-center justify-between gap-4">
+    <PageLayout>
+      <PageHeader
+        eyebrow="Agenda Clínica"
+        eyebrowDetail="Gestión de Horarios y Citas"
+        title="Agenda y Citas"
+        subtitle="Consulta los bloques de atención, gestiona solicitudes y programa citas de pacientes."
+        actions={
+          canCreateAppointment ? (
+            <PageHeaderAction
+              variant="primary"
+              onClick={() => setIsQuickScheduleOpen(true)}
+              leftIcon={<PlusIcon />}
+            >
+              Nueva Cita
+            </PageHeaderAction>
+          ) : undefined
+        }
+      />
+
+      <PageToolbar aria-label="Filtros de la agenda">
         <div className="flex flex-wrap items-center gap-6">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-[#687380]">
-              Filtrar bloques:
-            </span>
-            <select
+            <ToolbarLabel>Filtrar bloques:</ToolbarLabel>
+            <ToolbarSelect
               value={filterMode}
-              onChange={(e) => setFilterMode(e.target.value as any)}
-              className="rounded-xl border border-[#E2E6EA] bg-[#F8F9FA] px-3 py-1.5 text-xs font-bold text-[#1E242B] focus:border-[#D4AF37] focus:bg-white focus:outline-none cursor-pointer"
+              onChange={(e) => setFilterMode(e.target.value as typeof filterMode)}
+              aria-label="Filtrar bloques"
             >
               <option value="all">Todos los bloques</option>
               <option value="appointments_only">Solo bloques con citas</option>
               <option value="requests_only">Solicitudes</option>
-            </select>
+            </ToolbarSelect>
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-[#687380] flex items-center gap-1.5">
+            <ToolbarLabel>
               <DoctorIcon size={14} color="#D4AF37" /> Filtrar por doctor:
-            </span>
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Escribir o buscar doctor..."
-                value={doctorFilter}
-                onChange={(e) => setDoctorFilter(e.target.value)}
-                className="w-56 rounded-xl border border-[#E2E6EA] bg-[#F8F9FA] pl-3 pr-8 py-1.5 text-xs text-[#1E242B] placeholder-[#8F99A3] focus:border-[#D4AF37] focus:bg-white focus:outline-none"
-              />
-              <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-[#8F99A3]">
-                <SearchIcon size={13} className="text-[#8F99A3]" />
-              </span>
-            </div>
+            </ToolbarLabel>
+            <ToolbarSearch
+              wrapperClassName="w-64"
+              placeholder="Escribir o buscar doctor..."
+              aria-label="Filtrar por doctor"
+              value={doctorFilter}
+              onChange={(e) => setDoctorFilter(e.target.value)}
+            />
           </div>
         </div>
-
-        {/* Botón Nueva Cita */}
-        {canCreateAppointment && (
-          <button
-            type="button"
-            onClick={() => setIsQuickScheduleOpen(true)}
-            className="px-4 py-2 rounded-xl bg-[#D4AF37] hover:bg-[#C29E2F] text-black text-xs font-extrabold flex items-center gap-1.5 shadow-xs transition-all ml-auto"
-          >
-            <span>+</span> Nueva Cita
-          </button>
-        )}
-      </div>
-
+      </PageToolbar>
       {/* Grid de 2 Columnas Principal (Imagen 3) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Columna Izquierda (4 columnas): Calendario Mensual + Sala de Espera */}
-        <div className="lg:col-span-4 space-y-6">
+        <div className="lg:col-span-4 space-y-6 lg:sticky lg:top-6">
           {/* Widget Calendario Mensual Dinámico Traído de Base de Datos */}
           {(() => {
             const monthNames = [
-              'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-              'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
+              'Enero',
+              'Febrero',
+              'Marzo',
+              'Abril',
+              'Mayo',
+              'Junio',
+              'Julio',
+              'Agosto',
+              'Septiembre',
+              'Octubre',
+              'Noviembre',
+              'Diciembre',
             ];
             const currentMonthTitle = `${monthNames[calendarMonth - 1]} ${calendarYear}`;
             const daysInMonth = new Date(calendarYear, calendarMonth, 0).getDate();
@@ -509,8 +552,8 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
             const trailingDays = Array.from({ length: trailingDaysCount }, (_, i) => i + 1);
 
             return (
-              <div className="rounded-3xl border border-[#E2E6EA] bg-white p-5 shadow-xs space-y-4">
-                <div className="flex items-center justify-between pb-3 border-b border-[#E2E6EA]">
+              <div className="rounded-xl border border-[#E2E8F0] bg-white p-5 space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-[#E2E8F0]">
                   <div className="flex items-center gap-2 text-sm font-extrabold text-[#1E242B]">
                     <CalendarIcon size={16} color="#D4AF37" />
                     <span className="capitalize">{currentMonthTitle}</span>
@@ -550,7 +593,10 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
                 <div className="grid grid-cols-7 gap-1 text-center text-xs">
                   {/* Días del mes previo */}
                   {leadingDays.map((d, idx) => (
-                    <div key={`lead-${idx}`} className="h-13 flex flex-col items-center justify-center text-gray-300 font-medium">
+                    <div
+                      key={`lead-${idx}`}
+                      className="h-13 flex flex-col items-center justify-center text-gray-300 font-medium"
+                    >
                       {d}
                     </div>
                   ))}
@@ -579,9 +625,7 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
                         }`}
                       >
                         <span
-                          className={`text-xs font-extrabold ${
-                            isSelected ? 'text-[#D4AF37]' : ''
-                          }`}
+                          className={`text-xs font-extrabold ${isSelected ? 'text-[#D4AF37]' : ''}`}
                         >
                           {day}
                         </span>
@@ -608,7 +652,10 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
 
                   {/* Días del mes siguiente */}
                   {trailingDays.map((d, idx) => (
-                    <div key={`trail-${idx}`} className="h-13 flex flex-col items-center justify-center text-gray-300 font-medium">
+                    <div
+                      key={`trail-${idx}`}
+                      className="h-13 flex flex-col items-center justify-center text-gray-300 font-medium"
+                    >
                       {d}
                     </div>
                   ))}
@@ -621,17 +668,17 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
         {/* Columna Derecha (8 columnas): Barra de Navegación del Día y Bloques de Horario */}
         <div className="lg:col-span-8 space-y-4">
           {/* Barra de Día con Navegación y Botón "Crear bloques" (Imagen 3) */}
-          <div className="flex flex-wrap items-center justify-between gap-2 bg-white rounded-2xl border border-[#E2E6EA] p-2 shadow-xs">
+          <div className="flex flex-wrap items-center justify-between gap-2 bg-white rounded-xl border border-[#E2E8F0] p-2">
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => handleNavigateDay(-1)}
-                className="px-3 py-1.5 rounded-xl border border-[#E2E6EA] text-xs font-bold text-[#687380] hover:bg-[#F3F4F6] transition-colors inline-flex items-center gap-1 cursor-pointer"
+                className="h-9 px-3 rounded-lg border border-[#E2E8F0] text-xs font-bold text-[#64748B] hover:bg-[#F3F4F6] transition-colors inline-flex items-center gap-1 cursor-pointer"
               >
                 ← Ayer
               </button>
 
-              <div className="px-4 py-1.5 rounded-xl bg-[#F8F9FA] border border-[#E2E6EA] text-xs font-extrabold text-[#1E242B] flex items-center gap-2">
+              <div className="h-9 px-4 rounded-lg bg-[#F8FAFC] border border-[#E2E8F0] text-xs font-extrabold text-[#1E242B] flex items-center gap-2">
                 <CalendarIcon size={14} color="#D4AF37" />
                 <span>{formatHeaderDate(selectedDate)}</span>
               </div>
@@ -639,26 +686,27 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
               <button
                 type="button"
                 onClick={() => handleNavigateDay(1)}
-                className="px-3 py-1.5 rounded-xl border border-[#E2E6EA] text-xs font-bold text-[#687380] hover:bg-[#F3F4F6] transition-colors inline-flex items-center gap-1 cursor-pointer"
+                className="h-9 px-3 rounded-lg border border-[#E2E8F0] text-xs font-bold text-[#64748B] hover:bg-[#F3F4F6] transition-colors inline-flex items-center gap-1 cursor-pointer"
               >
                 Mañana →
               </button>
             </div>
 
-            {/* Botón Crear Bloques (ERS RF-AGE-001) */}
-            {canManageSlots && (
+            {/* Botón secundario Crear Bloques (ERS RF-AGE-001). Mientras el día no tenga
+                bloques, el flujo de creación vive únicamente en el estado vacío. */}
+            {canManageSlots && slots.length > 0 && (
               <button
                 type="button"
                 disabled={isPastDate || isLoading}
                 onClick={handleGenerateDaySlots}
-                title={isPastDate ? 'No es posible crear bloques en fechas pasadas' : 'Crear bloques para este día'}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 shadow-2xs transition-colors ${
-                  isPastDate || isLoading
-                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200'
-                    : 'bg-[#111827] text-white hover:bg-black cursor-pointer'
-                }`}
+                title={
+                  isPastDate
+                    ? 'No es posible crear bloques en fechas pasadas'
+                    : 'Crear bloques para este día'
+                }
+                className="h-9 px-3.5 rounded-lg border border-[#E2E8F0] bg-white text-xs font-bold text-[#1E242B] inline-flex items-center gap-1.5 transition-colors hover:border-[#D4AF37] hover:bg-[#FBF3D5]/40 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-[#E2E8F0] disabled:hover:bg-white"
               >
-                <span className={isPastDate || isLoading ? 'opacity-40' : 'text-[#D4AF37]'}>➕</span> Crear bloques
+                <span className="text-[#B8942A]">+</span> Crear bloques
               </button>
             )}
           </div>
@@ -709,6 +757,6 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
 
       {/* Alerta modal siempre en capa superior */}
       <AlertModalComponent />
-    </div>
+    </PageLayout>
   );
 };

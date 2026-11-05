@@ -23,13 +23,7 @@ export interface CalendarTimeSlot {
   tratamiento?: string | null;
   doctorNombre?: string | null;
   estadoCita?:
-    | 'Confirmada'
-    | 'En consulta'
-    | 'Atendida'
-    | 'Cancelada'
-    | 'Inasistencia'
-    | 'Solicitada'
-    | null;
+    'Confirmada' | 'En consulta' | 'Atendida' | 'Cancelada' | 'Inasistencia' | 'Solicitada' | null;
 }
 
 export interface WeeklyCalendarGridProps {
@@ -60,9 +54,7 @@ export const WeeklyCalendarGrid: React.FC<WeeklyCalendarGridProps> = ({
   onCreateBlocks,
 }) => {
   const filteredSlots = slots.filter((slot) => {
-    const isPending =
-      slot.estadoCita === 'Solicitada' ||
-      Boolean(slot.idSolicitud);
+    const isPending = slot.estadoCita === 'Solicitada' || Boolean(slot.idSolicitud);
 
     if (filterMode === 'appointments_only') {
       return Boolean(slot.idCita && !isPending);
@@ -79,7 +71,12 @@ export const WeeklyCalendarGrid: React.FC<WeeklyCalendarGridProps> = ({
         return (
           <span className="inline-flex items-center gap-1 px-3 py-0.5 rounded-full text-xs font-semibold bg-[#ECFDF5] text-[#059669] border border-[#A7F3D0]">
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2.5}
+                d="M5 13l4 4L19 7"
+              />
             </svg>
             {estado}
           </span>
@@ -94,8 +91,18 @@ export const WeeklyCalendarGrid: React.FC<WeeklyCalendarGridProps> = ({
       case 'Confirmada':
         return (
           <span className="inline-flex items-center gap-1 px-3 py-0.5 rounded-full text-xs font-semibold bg-[#F9FAFB] text-[#374151] border border-[#E5E7EB]">
-            <svg className="w-3.5 h-3.5 text-[#059669]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+            <svg
+              className="w-3.5 h-3.5 text-[#059669]"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2.5}
+                d="M5 13l4 4L19 7"
+              />
             </svg>
             Confirmada
           </span>
@@ -126,7 +133,7 @@ export const WeeklyCalendarGrid: React.FC<WeeklyCalendarGridProps> = ({
 
   if (isLoading) {
     return (
-      <div className="rounded-3xl border border-[#E2E6EA] bg-white p-12 text-center space-y-5 shadow-2xs">
+      <div className="rounded-xl border border-[#E2E8F0] bg-white p-12 text-center space-y-5">
         <div className="h-14 w-14 mx-auto rounded-2xl bg-[#FFFBEB] text-[#D4AF37] flex items-center justify-center border border-[#FDE68A]">
           <div className="w-6 h-6 border-3 border-[#D4AF37] border-t-transparent rounded-full animate-spin" />
         </div>
@@ -158,7 +165,7 @@ export const WeeklyCalendarGrid: React.FC<WeeklyCalendarGridProps> = ({
 
   if (slots.length === 0) {
     return (
-      <div className="rounded-3xl border border-dashed border-[#E2E6EA] bg-white p-12 text-center space-y-4 shadow-2xs">
+      <div className="rounded-xl border border-dashed border-[#CBD5E1] bg-white p-12 text-center space-y-4">
         <div className="h-14 w-14 mx-auto rounded-2xl bg-[#FFFBEB] text-[#D4AF37] flex items-center justify-center border border-[#FDE68A]">
           <CalendarIcon size={24} color="#D4AF37" />
         </div>
@@ -167,16 +174,17 @@ export const WeeklyCalendarGrid: React.FC<WeeklyCalendarGridProps> = ({
             No hay bloques de horario generados para este día
           </h3>
           <p className="mt-1 text-xs text-[#687380] max-w-md mx-auto leading-relaxed">
-            Para habilitar la programación de citas, genera los bloques de 30 minutos (06:00 a 20:00) establecidos en las especificaciones del sistema.
+            Para habilitar la programación de citas, genera los bloques de 30 minutos (06:00 a
+            20:00) establecidos en las especificaciones del sistema.
           </p>
         </div>
         {onCreateBlocks && !isPastDate && canManageSlots ? (
           <button
             type="button"
             onClick={onCreateBlocks}
-            className="px-5 py-2.5 rounded-xl bg-[#D4AF37] hover:bg-[#C29E2F] text-black text-xs font-extrabold inline-flex items-center gap-2 shadow-xs transition-all cursor-pointer"
+            className="h-10 px-5 rounded-lg bg-[#111111] hover:bg-[#1E242B] text-white text-[13px] font-semibold inline-flex items-center gap-2 transition-colors cursor-pointer"
           >
-            <span>➕</span> Crear bloques (06:00 - 20:00)
+            <span className="text-[#D4AF37]">+</span> Crear bloques (06:00 - 20:00)
           </button>
         ) : isPastDate ? (
           <span className="inline-block px-4 py-2 rounded-xl bg-gray-100 text-gray-400 text-xs font-bold border border-gray-200">
@@ -189,14 +197,14 @@ export const WeeklyCalendarGrid: React.FC<WeeklyCalendarGridProps> = ({
 
   if (filteredSlots.length === 0) {
     return (
-      <div className="rounded-3xl border border-[#E2E6EA] bg-white p-12 text-center text-xs text-[#8F99A3]">
+      <div className="rounded-xl border border-[#E2E8F0] bg-white p-12 text-center text-xs text-[#64748B]">
         No hay citas ni solicitudes que coincidan con el filtro seleccionado.
       </div>
     );
   }
 
   return (
-    <div className="max-h-[calc(100vh-270px)] min-h-[520px] overflow-y-auto pr-2 space-y-3.5">
+    <div className="space-y-3">
       {filteredSlots.map((slot) => {
         const isPending = slot.estadoCita === 'Solicitada';
         const hasAppointment = Boolean(slot.idCita) || Boolean(slot.pacienteNombre);
@@ -315,7 +323,8 @@ export const WeeklyCalendarGrid: React.FC<WeeklyCalendarGridProps> = ({
                     )}
                   </>
                 ) : (
-                  canManageSlots && onToggleSlotStatus && (
+                  canManageSlots &&
+                  onToggleSlotStatus && (
                     <button
                       type="button"
                       onClick={() => onToggleSlotStatus(slot)}

@@ -134,7 +134,7 @@ export const InternalDashboardLayout: React.FC<InternalDashboardLayoutProps> = (
   const navItems = allNavItems.filter((item) => item.show !== false);
 
   return (
-    <div className="min-h-screen w-full flex flex-col lg:flex-row bg-[#F8F9FA] text-[#1E242B] overflow-x-hidden">
+    <div className="min-h-screen w-full flex flex-col lg:flex-row bg-[#F8FAFC] text-[#1E242B] overflow-x-hidden">
       {/* Sidebar Izquierdo Blanco según diseño adjunto */}
       <aside className="w-full lg:w-[235px] shrink-0 bg-white flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-[#E2E6EA]">
         <div>
