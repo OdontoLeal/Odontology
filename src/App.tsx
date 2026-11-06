@@ -8,6 +8,7 @@ import { useAuth, useSessionDraft } from './modules/users-auth/ui/hooks';
 import {
   LoginPage,
   PasswordRecoveryPage,
+  clearRecoveryTokenFromUrl,
   RolesManagementPage,
   UsersManagementPage,
 } from './modules/users-auth/ui/views';
@@ -97,6 +98,14 @@ export const App: React.FC = () => {
         setCurrentRoute('PRIVACY_NOTICE');
         return;
       }
+
+      // Si el usuario ya está autenticado, tiene prioridad el Dashboard interno y se purgan tokens residuales
+      if (auth.isAuthenticated) {
+        clearRecoveryTokenFromUrl();
+        setCurrentRoute('INTERNAL_DASHBOARD');
+        return;
+      }
+
       const params = new URLSearchParams(window.location.search);
       if (params.get('token')) {
         setCurrentRoute('RECOVERY');
@@ -341,8 +350,14 @@ export const App: React.FC = () => {
       <PasswordRecoveryPage
         onRequestRecoveryLink={auth.requestPasswordRecovery}
         onResetPassword={auth.resetPasswordWithToken}
-        onNavigateToLogin={() => setCurrentRoute('LOGIN')}
-        onNavigateToPublicBooking={() => setCurrentRoute('PUBLIC_BOOKING')}
+        onNavigateToLogin={() => {
+          clearRecoveryTokenFromUrl();
+          setCurrentRoute('LOGIN');
+        }}
+        onNavigateToPublicBooking={() => {
+          clearRecoveryTokenFromUrl();
+          setCurrentRoute('PUBLIC_BOOKING');
+        }}
       />
     );
   }
@@ -353,6 +368,7 @@ export const App: React.FC = () => {
       <LoginPage
         onAuthenticate={auth.authenticate}
         onLoginSuccess={(sessionData) => {
+          clearRecoveryTokenFromUrl();
           auth.setActiveSession(sessionData);
           setCurrentRoute('INTERNAL_DASHBOARD');
         }}

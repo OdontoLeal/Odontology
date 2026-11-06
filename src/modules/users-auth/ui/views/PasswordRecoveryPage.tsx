@@ -19,6 +19,24 @@ export interface PasswordRecoveryPageProps {
   onNavigateToPublicBooking?: () => void;
 }
 
+/**
+ * Remueve el parámetro 'token' de la URL del navegador de forma segura e idempotente,
+ * evitando que permanezca en la barra de direcciones o en el historial (OWASP / CWE-598).
+ */
+export const clearRecoveryTokenFromUrl = (): void => {
+  if (typeof window === 'undefined') return;
+  try {
+    const url = new URL(window.location.href);
+    if (url.searchParams.has('token')) {
+      url.searchParams.delete('token');
+      const cleanPath = url.pathname + (url.search ? url.search : '') + url.hash;
+      window.history.replaceState(null, '', cleanPath || '/');
+    }
+  } catch {
+    // Entornos sin soporte de URL
+  }
+};
+
 export const PasswordRecoveryPage: React.FC<PasswordRecoveryPageProps> = ({
   initialToken,
   onRequestRecoveryLink,
@@ -135,6 +153,7 @@ export const PasswordRecoveryPage: React.FC<PasswordRecoveryPageProps> = ({
         }
         setSuccessMessage(body.message || 'Contraseña restablecida exitosamente.');
       }
+      clearRecoveryTokenFromUrl();
     } catch (error: any) {
       setErrorMessage(
         error?.message || 'El enlace no es válido o ya venció. Solicite uno nuevo'
@@ -145,6 +164,8 @@ export const PasswordRecoveryPage: React.FC<PasswordRecoveryPageProps> = ({
   };
 
   const goToLogin = () => {
+    clearRecoveryTokenFromUrl();
+    setTokenFromUrl(null);
     if (onNavigateToLogin) {
       onNavigateToLogin();
     } else {
@@ -236,6 +257,7 @@ export const PasswordRecoveryPage: React.FC<PasswordRecoveryPageProps> = ({
                   <button
                     type="button"
                     onClick={() => {
+                      clearRecoveryTokenFromUrl();
                       setTokenFromUrl(null);
                       setErrorMessage(null);
                     }}
@@ -363,7 +385,11 @@ export const PasswordRecoveryPage: React.FC<PasswordRecoveryPageProps> = ({
               {onNavigateToPublicBooking && (
                 <button
                   type="button"
-                  onClick={onNavigateToPublicBooking}
+                  onClick={() => {
+                    clearRecoveryTokenFromUrl();
+                    setTokenFromUrl(null);
+                    onNavigateToPublicBooking();
+                  }}
                   className="w-full min-h-[44px] flex items-center justify-center gap-2 rounded-xl bg-[#F8F9FA] px-4 py-2 text-[13px] font-semibold text-[#687380] hover:text-[#1E242B]"
                 >
                   <span>Ir a solicitud pública de citas</span>
