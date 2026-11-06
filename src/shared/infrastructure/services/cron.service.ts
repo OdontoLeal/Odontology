@@ -39,7 +39,7 @@ export class CronService {
     };
     tick();
     this.timer = setInterval(tick, intervalMs);
-    console.log('⏰ Tareas programadas iniciadas (RF-AGE-004, RF-AGE-010, RF-AGE-011).');
+    console.log('⏰ Tareas programadas iniciadas.');
   }
 
   public static stop(): void {

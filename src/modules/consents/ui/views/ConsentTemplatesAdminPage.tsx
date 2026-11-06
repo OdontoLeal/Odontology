@@ -374,7 +374,7 @@ export const ConsentTemplatesAdminPage: React.FC = () => {
             ? `Editar Plantilla (Crea Versión v${editingTemplate.version + 1}.0)`
             : 'Nueva Plantilla de Consentimiento'
         }
-        subtitle="Conforme a RF-CON-007, cualquier modificación genera una nueva versión preservando los PDFs ya suscritos."
+        subtitle="Cualquier modificación genera una nueva versión preservando los PDFs ya suscritos."
         maxWidth="3xl"
       >
         <form onSubmit={handleSave} className="space-y-4">

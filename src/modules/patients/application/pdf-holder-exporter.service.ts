@@ -44,7 +44,7 @@ export class PdfHolderExporterService implements IPdfHolderExporterPort {
       });
 
       page.drawText(
-        this.clean('NIT: 901.458.723-1  |  Código REPS / Habilitación en Salud: 110010923401'),
+        this.clean('NIT: XX.XXX.XXX  |  Código REPS / Habilitación en Salud: XXXXXXX'),
         {
           x: 50,
           y: y - 14,
@@ -56,7 +56,7 @@ export class PdfHolderExporterService implements IPdfHolderExporterPort {
 
       page.drawText(
         this.clean(
-          'Calle 127 # 19A - 28, Cons. 504, Bogotá D.C.  |  PBX: (601) 745-8920  |  habeasdata@odontoleal.com.co'
+          'Calle 21A # 10-57, Tunja, Boyacá.  |  PBX: (XXX) XXX-XXXX  |  correo@odontoleal.com.co'
         ),
         {
           x: 50,

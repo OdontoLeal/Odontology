@@ -148,7 +148,7 @@ export class NotifyRequestUseCase {
     const urgentRequests = await this.appointmentRepository.findPendingRequests(5);
 
     if (urgentRequests.length === 0) {
-      console.log('ℹ️ RF-AGE-004: No hay solicitudes pendientes a 5 días o menos. No se envía aviso diario.');
+      console.log('No hay solicitudes pendientes a 5 días o menos. No se envía aviso diario.');
       return {
         enviado: false,
         totalSolicitudes: 0,

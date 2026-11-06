@@ -602,8 +602,8 @@ export function printCompleteClinicalHistory({ patient, history }: PrintClinical
         <div class="header">
           <div>
             <div class="clinic-name">ODONTOLEAL CLÍNICA ODONTOLÓGICA S.A.S.</div>
-            <div class="clinic-sub">NIT: 900.584.219-4 • Código Habilitación REPS MinSalud: 1100108923-01</div>
-            <div class="clinic-sub">Carrera 15 # 85-32, Bogotá D.C. • PBX: (601) 745-2020 • historia.clinica@odontoleal.com</div>
+            <div class="clinic-sub">NIT: XX.XXX.XX • Código Habilitación REPS MinSalud: XXXXXXXX</div>
+            <div class="clinic-sub">Calle 21A # 10-57, Tunja, Boyacá. • PBX: (XXX) XXX-XXXX • correo@odontoleal.com</div>
           </div>
           <div>
             <div class="doc-title">HISTORIA CLÍNICA INTEGRAL</div>
