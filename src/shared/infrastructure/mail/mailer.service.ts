@@ -186,9 +186,7 @@ export class MailerService implements IMailerPort {
 
       const previewUrl = nodemailer.getTestMessageUrl(info) || null;
 
-      // D-17: nunca se registra el enlace ni el token; solo el destinatario y el id del mensaje.
-      console.log(`Correo de recuperación enviado a ${to} (messageId: ${info.messageId}).`);
-
+      // D-17: nunca se registra ni se imprime en consola el enlace ni el token por seguridad (CWE-532 / OWASP).
       return {
         messageId: info.messageId,
         previewUrl,
@@ -254,18 +252,17 @@ export class MailerService implements IMailerPort {
       <div class="detail-item"><span class="label">⏰ Hora:</span> <span class="value">${hora}</span></div>
       <div class="detail-item"><span class="label">👨‍⚕️ Profesional:</span> <span class="value">${doctor}</span></div>
       <div class="detail-item"><span class="label">📋 Motivo / Tratamiento:</span> <span class="value">${motivo}</span></div>
-      ${idCita ? `<div class="detail-item"><span class="label">🔢 Cita N°:</span> <span class="value">#${idCita}</span></div>` : ''}
     </div>
 
     <div class="alert-box">
-      📍 <strong>Ubicación:</strong> Calle 127 # 14-54, Edificio Medical Prestige, Suite 402, Bogotá.<br>
+      📍 <strong>Ubicación:</strong> Calle 21A # 10-57, Tunja, Boyacá.<br>
       ⏰ <em>Por favor presentarse con 10 minutos de anticipación.</em>
     </div>
 
-    <p style="font-size: 13px; color: #687380;">Para cancelar o reprogramar, por favor comuníquese con al menos 24 horas de antelación al WhatsApp <strong>+57 300 123 4567</strong> o respondiendo a este correo.</p>
+    <p style="font-size: 13px; color: #687380;">Para cancelar o reprogramar, por favor comuníquese con al menos 24 horas de antelación al WhatsApp <strong>+57 XXX XXX XXXX</strong> o respondiendo a este correo.</p>
 
     <div class="footer">
-      © 2026 Consultorio Odontológico Dr. Eduar Leal Álvarez • Bogotá, Colombia
+      © 2026 Consultorio Odontológico Dr. Eduar Leal Álvarez
     </div>
   </div>
 </body>
@@ -278,7 +275,7 @@ export class MailerService implements IMailerPort {
         from: this.fromAddress,
         to,
         subject: `Confirmación de Cita Odontológica - ${fecha} a las ${hora}`,
-        text: `Hola ${nombrePaciente}.\n\nTu cita en OdontoLeal ha sido confirmada para el día ${fecha} a las ${hora} con ${doctor}.\nMotivo: ${motivo}.\nDirección: Calle 127 # 14-54, Suite 402, Bogotá.`,
+        text: `Hola ${nombrePaciente}.\n\nTu cita en OdontoLeal ha sido confirmada para el día ${fecha} a las ${hora} con ${doctor}.\nMotivo: ${motivo}.\nCalle 21A # 10-57, Tunja, Boyacá.`,
         html: htmlContent,
       });
 
@@ -342,13 +339,13 @@ export class MailerService implements IMailerPort {
       <div class="detail-item"><span class="label">⏰ Hora:</span> <span class="value">${hora}</span></div>
       <div class="detail-item"><span class="label">👨‍⚕️ Profesional:</span> <span class="value">${doctor}</span></div>
       <div class="detail-item"><span class="label">🦷 Servicio:</span> <span class="value">${servicio}</span></div>
-      <div class="detail-item"><span class="label">📍 Consultorio:</span> <span class="value">Calle 127 # 14-54, Suite 402, Bogotá</span></div>
+      <div class="detail-item"><span class="label">📍 Consultorio:</span> <span class="value">Calle 21A # 10-57, Tunja, Boyacá.</span></div>
     </div>
 
     <p style="font-size: 13px; color: #687380;">Si necesitas cancelar o cambiar la cita, comunícate por teléfono con el consultorio (la cita no se puede cancelar desde la aplicación).</p>
 
     <div class="footer">
-      © 2026 Consultorio Odontológico Dr. Eduar Leal Álvarez • Bogotá, Colombia
+      © 2026 Consultorio Odontológico Dr. Eduar Leal Álvarez
     </div>
   </div>
 </body>
@@ -361,7 +358,7 @@ export class MailerService implements IMailerPort {
         from: this.fromAddress,
         to,
         subject: `Recordatorio de Cita Odontológica: Mañana ${fecha} a las ${hora}`,
-        text: `Hola ${nombrePaciente}.\n\nTe recordamos tu cita mañana ${fecha} a las ${hora} con ${doctor} en el Consultorio OdontoLeal (Calle 127 # 14-54, Suite 402, Bogotá).`,
+        text: `Hola ${nombrePaciente}.\n\nTe recordamos tu cita mañana ${fecha} a las ${hora} con ${doctor} en el Consultorio OdontoLeal (Calle 21A # 10-57, Tunja, Boyacá.).`,
         html: htmlContent,
       });
 
@@ -431,7 +428,6 @@ export class MailerService implements IMailerPort {
       <div class="detail-item"><span class="label">📅 Fecha:</span> <span class="value">${fecha}</span></div>
       <div class="detail-item"><span class="label">⏰ Horario:</span> <span class="value">${hora}</span></div>
       <div class="detail-item"><span class="label">📋 Procedimiento / Motivo:</span> <span class="value">${motivo}</span></div>
-      ${idCita ? `<div class="detail-item"><span class="label">🔢 N° Cita Clínica:</span> <span class="value">#${idCita}</span></div>` : ''}
     </div>
 
     <div class="highlight-box">
@@ -442,7 +438,7 @@ export class MailerService implements IMailerPort {
     <p style="font-size: 13px; color: #687380;">Puedes consultar la historia clínica previa o gestionar la evolución desde el sistema OdontoLeal.</p>
 
     <div class="footer">
-      © 2026 Consultorio Odontológico Dr. Eduar Leal Álvarez • Bogotá, Colombia
+      © 2026 Consultorio Odontológico Dr. Eduar Leal Álvarez
     </div>
   </div>
 </body>
@@ -455,7 +451,7 @@ export class MailerService implements IMailerPort {
         from: this.fromAddress,
         to,
         subject: `Nueva Cita Asignada - ${fecha} a las ${hora} (${patientName})`,
-        text: `Hola ${doctorName}.\n\nSe te ha asignado una nueva cita con el paciente ${patientName} para el día ${fecha} a las ${hora}.\nMotivo: ${motivo}.\nN° Cita: #${idCita || ''}`,
+        text: `Hola ${doctorName}.\n\nSe te ha asignado una nueva cita con el paciente ${patientName} para el día ${fecha} a las ${hora}.\nMotivo: ${motivo}.`,
         html: htmlContent,
       });
 
@@ -526,11 +522,11 @@ export class MailerService implements IMailerPort {
     </div>
 
     <p style="font-size: 13px; color: #687380;">
-      Para cualquier consulta, cambio o cancelación, comunícate directamente con nuestro consultorio al teléfono / WhatsApp: <strong>+57 300 123 4567</strong>.
+      Para cualquier consulta, cambio o cancelación, comunícate directamente con nuestro consultorio al teléfono / WhatsApp: <strong>+57 XXX XXX XXXX</strong>.
     </p>
 
     <div class="footer">
-      © 2026 Consultorio Odontológico Dr. Eduar Leal Álvarez • Bogotá, Colombia
+      © 2026 Consultorio Odontológico Dr. Eduar Leal Álvarez
     </div>
   </div>
 </body>
@@ -631,7 +627,7 @@ export class MailerService implements IMailerPort {
     </div>
 
     <div class="footer">
-      © 2026 Consultorio Odontológico Dr. Eduar Leal Álvarez • Bogotá, Colombia
+      © 2026 Consultorio Odontológico Dr. Eduar Leal Álvarez
     </div>
   </div>
 </body>
@@ -710,19 +706,18 @@ export class MailerService implements IMailerPort {
       <div class="detail-item"><span class="label">⏰ Nuevo Horario:</span> <span class="value">${hora}</span></div>
       <div class="detail-item"><span class="label">👨‍⚕️ Profesional Asignado:</span> <span class="value">${doctor}</span></div>
       <div class="detail-item"><span class="label">📋 Procedimiento / Motivo:</span> <span class="value">${motivo}</span></div>
-      ${idCita ? `<div class="detail-item"><span class="label">🔢 Cita N°:</span> <span class="value">#${idCita}</span></div>` : ''}
       ${notas ? `<div class="detail-item"><span class="label">📝 Observaciones:</span> <span class="value">${notas}</span></div>` : ''}
     </div>
 
     <div class="alert-box">
-      📍 <strong>Ubicación:</strong> Calle 127 # 14-54, Edificio Medical Prestige, Suite 402, Bogotá.<br>
+      📍 <strong>Ubicación:</strong> Calle 21A # 10-57, Tunja, Boyacá.<br>
       ⏰ <em>Por favor presentarse con 10 minutos de anticipación al nuevo horario establecido.</em>
     </div>
 
-    <p style="font-size: 13px; color: #687380;">Si tienes alguna pregunta o requieres una reprogramación adicional, comunícate directamente al WhatsApp <strong>+57 300 123 4567</strong>.</p>
+    <p style="font-size: 13px; color: #687380;">Si tienes alguna pregunta o requieres una reprogramación adicional, comunícate directamente al WhatsApp <strong>+57 XXX XXX XXXX</strong>.</p>
 
     <div class="footer">
-      © 2026 Consultorio Odontológico Dr. Eduar Leal Álvarez • Bogotá, Colombia
+      © 2026 Consultorio Odontológico Dr. Eduar Leal Álvarez
     </div>
   </div>
 </body>
@@ -735,7 +730,7 @@ export class MailerService implements IMailerPort {
         from: this.fromAddress,
         to,
         subject: `Actualización de Cita Odontológica: ${fecha} a las ${hora}`,
-        text: `Hola ${nombrePaciente}.\n\nTu cita en OdontoLeal ha sido modificada.\nNueva fecha: ${fecha}\nNuevo horario: ${hora}\nProfesional: ${doctor}\nMotivo: ${motivo}\nUbicación: Calle 127 # 14-54, Suite 402, Bogotá.`,
+        text: `Hola ${nombrePaciente}.\n\nTu cita en OdontoLeal ha sido modificada.\nNueva fecha: ${fecha}\nNuevo horario: ${hora}\nProfesional: ${doctor}\nMotivo: ${motivo}\nUbicación: Calle 21A # 10-57, Tunja, Boyacá.`,
         html: htmlContent,
       });
 
@@ -803,7 +798,6 @@ export class MailerService implements IMailerPort {
       <div class="detail-item"><span class="label">📅 Fecha Actualizada:</span> <span class="value">${fecha}</span></div>
       <div class="detail-item"><span class="label">⏰ Horario Actualizado:</span> <span class="value">${hora}</span></div>
       <div class="detail-item"><span class="label">📋 Procedimiento / Motivo:</span> <span class="value">${motivo}</span></div>
-      ${idCita ? `<div class="detail-item"><span class="label">🔢 N° Cita Clínica:</span> <span class="value">#${idCita}</span></div>` : ''}
       ${notas ? `<div class="detail-item"><span class="label">📝 Observaciones:</span> <span class="value">${notas}</span></div>` : ''}
     </div>
 
@@ -813,7 +807,7 @@ export class MailerService implements IMailerPort {
     </div>
 
     <div class="footer">
-      © 2026 Consultorio Odontológico Dr. Eduar Leal Álvarez • Bogotá, Colombia
+      © 2026 Consultorio Odontológico Dr. Eduar Leal Álvarez
     </div>
   </div>
 </body>
@@ -826,7 +820,7 @@ export class MailerService implements IMailerPort {
         from: this.fromAddress,
         to,
         subject: `Cita Modificada en tu Agenda - ${fecha} a las ${hora} (${patientName})`,
-        text: `Hola ${doctorName}.\n\nSe ha modificado la cita con el paciente ${patientName}.\nNueva fecha: ${fecha}\nNuevo horario: ${hora}\nMotivo: ${motivo}\nN° Cita: #${idCita || ''}`,
+        text: `Hola ${doctorName}.\n\nSe ha modificado la cita con el paciente ${patientName}.\nNueva fecha: ${fecha}\nNuevo horario: ${hora}\nMotivo: ${motivo}`,
         html: htmlContent,
       });
 
@@ -892,15 +886,14 @@ export class MailerService implements IMailerPort {
       <div class="detail-item"><span class="label">📅 Fecha:</span> <span class="value">${fecha}</span></div>
       <div class="detail-item"><span class="label">⏰ Hora:</span> <span class="value">${hora}</span></div>
       <div class="detail-item"><span class="label">📝 Motivo de Cancelación:</span> <span class="value">${motivo}</span></div>
-      ${idCita ? `<div class="detail-item"><span class="label">🔢 Cita N°:</span> <span class="value">#${idCita}</span></div>` : ''}
     </div>
 
     <p style="font-size: 13px; color: #687380;">
-      ${isDoctor ? 'El bloque horario ha sido liberado en su agenda médica.' : 'Si requiere reagendar su cita, puede comunicarse al WhatsApp +57 300 123 4567 o agendar en línea a través de nuestro portal web.'}
+      ${isDoctor ? 'El bloque horario ha sido liberado en su agenda médica.' : 'Si requiere reagendar su cita, puede comunicarse al WhatsApp +57 XXX XXX XXXX o agendar en línea a través de nuestro portal web.'}
     </p>
 
     <div class="footer">
-      © 2026 Consultorio Odontológico Dr. Eduar Leal Álvarez • Bogotá, Colombia
+      © 2026 Consultorio Odontológico Dr. Eduar Leal Álvarez
     </div>
   </div>
 </body>
@@ -913,7 +906,7 @@ export class MailerService implements IMailerPort {
         from: this.fromAddress,
         to,
         subject: `Cancelación de Cita Odontológica - ${fecha} (${patientName})`,
-        text: `Hola ${recipientName}.\n\nSe ha cancelado la cita con fecha ${fecha} a las ${hora}.\nMotivo: ${motivo}.\nN° Cita: #${idCita || ''}`,
+        text: `Hola ${recipientName}.\n\nSe ha cancelado la cita con fecha ${fecha} a las ${hora}.\nMotivo: ${motivo}.`,
         html: htmlContent,
       });
 

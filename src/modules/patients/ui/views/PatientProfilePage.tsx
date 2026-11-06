@@ -290,6 +290,7 @@ export const PatientProfilePage: React.FC<PatientProfilePageProps> = ({
         <SectionCard
           title="Citas Agendadas e Historial"
           icon={<CalendarIcon />}
+          count={pastAppointments.length > 0 ? `${pastAppointments.length}` : undefined}
           action={
             canScheduleAppointment ? (
               <DetailAction onClick={() => setIsScheduleModalOpen(true)} leftIcon={<span>+</span>}>
@@ -358,27 +359,36 @@ export const PatientProfilePage: React.FC<PatientProfilePageProps> = ({
 
             {/* Citas anteriores */}
             <div className="space-y-2">
-              <h3 className="text-[14px] font-semibold text-[#64748B]">Citas anteriores</h3>
+              <div className="flex items-center justify-between">
+                <h3 className="text-[14px] font-semibold text-[#64748B]">Citas anteriores</h3>
+                {pastAppointments.length > 3 && (
+                  <span className="text-[12px] font-medium text-[#94A3B8]">
+                    Desliza para ver más ({pastAppointments.length})
+                  </span>
+                )}
+              </div>
               {pastAppointments.length > 0 ? (
-                <ul className="divide-y divide-[#F3F4F6]">
-                  {pastAppointments.map((appt) => (
-                    <li
-                      key={appt.idCita}
-                      className="flex min-w-0 flex-wrap items-start justify-between gap-2 py-3 first:pt-1"
-                    >
-                      <div className="min-w-0">
-                        <p className="text-[14px] font-semibold text-[#1E242B]">{formatSlot(appt.bloques)}</p>
-                        <p className="text-break text-[13px] text-[#64748B]">
-                          {appt.titulo} · {appt.nombreProfesional}
-                        </p>
-                        <p className="text-[13px] text-[#64748B]">
-                          Agendado por: {appt.agendadoPor || 'Portal Web'}
-                        </p>
-                      </div>
-                      <StatusBadge tone={appointmentTone(appt.estado)}>{appt.estado}</StatusBadge>
-                    </li>
-                  ))}
-                </ul>
+                <div className="max-h-[260px] overflow-y-auto overscroll-contain pr-1.5 focus:outline-none">
+                  <ul className="divide-y divide-[#F3F4F6]">
+                    {pastAppointments.map((appt) => (
+                      <li
+                        key={appt.idCita}
+                        className="flex min-w-0 flex-wrap items-start justify-between gap-2 py-3 first:pt-1"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-[14px] font-semibold text-[#1E242B]">{formatSlot(appt.bloques)}</p>
+                          <p className="text-break text-[13px] text-[#64748B]">
+                            {appt.titulo} · {appt.nombreProfesional}
+                          </p>
+                          <p className="text-[13px] text-[#64748B]">
+                            Agendado por: {appt.agendadoPor || 'Portal Web'}
+                          </p>
+                        </div>
+                        <StatusBadge tone={appointmentTone(appt.estado)}>{appt.estado}</StatusBadge>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               ) : (
                 <EmptyState>No registra citas anteriores finalizadas.</EmptyState>
               )}
@@ -408,33 +418,35 @@ export const PatientProfilePage: React.FC<PatientProfilePageProps> = ({
           ) : isHistoryLoading ? (
             <EmptyState>Cargando historial clínico...</EmptyState>
           ) : history.length > 0 ? (
-            <ul className="space-y-2">
-              {history.map((item) => (
-                <li key={item.idEvolucion}>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedEvolutionForView(item)}
-                    className="group flex w-full min-w-0 flex-wrap items-center justify-between gap-2 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] p-3.5 text-left transition-colors hover:border-[#D4AF37] hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37]"
-                  >
-                    <span className="min-w-0">
-                      <span className="flex flex-wrap items-center gap-2">
-                        <span className="text-[14px] font-semibold text-[#1E242B]">{item.fechaRegistro}</span>
-                        <StatusBadge tone="neutral">Solo lectura</StatusBadge>
+            <div className="max-h-[320px] overflow-y-auto overscroll-contain pr-1.5 focus:outline-none">
+              <ul className="space-y-2">
+                {history.map((item) => (
+                  <li key={item.idEvolucion}>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedEvolutionForView(item)}
+                      className="group flex w-full min-w-0 flex-wrap items-center justify-between gap-2 rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] p-3.5 text-left transition-colors hover:border-[#D4AF37] hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37]"
+                    >
+                      <span className="min-w-0">
+                        <span className="flex flex-wrap items-center gap-2">
+                          <span className="text-[14px] font-semibold text-[#1E242B]">{item.fechaRegistro}</span>
+                          <StatusBadge tone="neutral">Solo lectura</StatusBadge>
+                        </span>
+                        <span className="mt-0.5 block text-[13px] text-[#64748B]">
+                          {item.profesional.nombreCompleto}
+                        </span>
+                        <span className="text-break block text-[13px] text-[#64748B]">
+                          {item.procedimientoRealizado || item.motivoConsulta}
+                        </span>
                       </span>
-                      <span className="mt-0.5 block text-[13px] text-[#64748B]">
-                        {item.profesional.nombreCompleto}
+                      <span className="text-[14px] font-semibold text-[#B8942A] group-hover:underline">
+                        Ver evolución →
                       </span>
-                      <span className="text-break block text-[13px] text-[#64748B]">
-                        {item.procedimientoRealizado || item.motivoConsulta}
-                      </span>
-                    </span>
-                    <span className="text-[14px] font-semibold text-[#B8942A] group-hover:underline">
-                      Ver evolución →
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
           ) : (
             <EmptyState>
               No hay notas de evolución clínica registradas aún para este paciente. Las evoluciones se

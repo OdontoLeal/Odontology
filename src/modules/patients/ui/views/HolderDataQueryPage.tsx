@@ -424,14 +424,14 @@ export const HolderDataQueryPage: React.FC<HolderDataQueryPageProps> = ({
                       Consultorio Odontológico OdontoLeal
                     </h2>
                     <p className="text-[13px] font-bold text-[#687380]">
-                      OdontoLeal S.A.S. • NIT: 901.458.723-1
+                      OdontoLeal S.A.S. • NIT: XX.XXX.XX
                     </p>
                   </div>
                 </div>
                 <p className="text-[13px] text-[#687380] leading-tight">
-                  Código de Habilitación en Salud (REPS): 110010923401 • Sede Principal: Calle 127 # 19A - 28, Cons. 504, Bogotá D.C.
+                  Código de Habilitación en Salud (REPS): XXXXXXXXXX • Sede Principal: Calle 21A # 10-57, Tunja, Boyacá.
                   <br />
-                  PBX: (601) 745-8920 • WhatsApp: +57 310 892 4512 • Correo Oficial: habeasdata@odontoleal.com.co
+                  PBX: (XXX) XXX-XXXX • WhatsApp: +57 XXX XXX XXXX • Correo Oficial: correo@odontoleal.com.co
                 </p>
               </div>
 
@@ -600,7 +600,7 @@ export const HolderDataQueryPage: React.FC<HolderDataQueryPageProps> = ({
                 </span>
               </div>
               <div className="p-2.5 rounded-xl bg-[#F8F9FA] border border-[#E2E6EA] text-[13px] text-[#687380] leading-tight">
-                <strong>Cláusula de Confidencialidad y Secreto Profesional (Ley 23 de 1981 / Res. 1995 de 1999):</strong> La presente certificación da cuenta de la existencia de atenciones y solicitudes administrativas; por reserva legal estricta y protección de datos sensibles (RF-HCL-010 / RQNF-SEG-007), <strong>no contiene diagnósticos odontológicos, evoluciones clínicas ni notas terapéuticas confidenciales</strong>.
+                <strong>Cláusula de Confidencialidad y Secreto Profesional (Ley 23 de 1981 / Res. 1995 de 1999):</strong> La presente certificación da cuenta de la existencia de atenciones y solicitudes administrativas; por reserva legal estricta y protección de datos sensibles, <strong>no contiene diagnósticos odontológicos, evoluciones clínicas ni notas terapéuticas confidenciales</strong>.
               </div>
 
               {citas.length > 0 ? (
