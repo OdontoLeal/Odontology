@@ -48,7 +48,7 @@ export const AppointmentAttachConsentModal: React.FC<AppointmentAttachConsentMod
               <FileTextIcon size={18} color="#D4AF37" />
             </div>
             <div>
-              <h3 className="text-base font-extrabold text-[#1E242B]">Adjuntar Consentimientos Informados</h3>
+              <h3 className="text-[16px] font-bold leading-6 text-[#1E242B]">Adjuntar Consentimientos Informados</h3>
               <p className="text-xs text-[#8F99A3]">Selecciona plantillas registradas en base de datos para asociarlas a esta cita.</p>
             </div>
           </div>
@@ -97,9 +97,9 @@ export const AppointmentAttachConsentModal: React.FC<AppointmentAttachConsentMod
                     <div className="space-y-1">
                       <div className="flex items-center justify-between">
                         <h4 className="text-xs font-extrabold text-[#1E242B]">{t.titulo || t.nombre}</h4>
-                        <span className="text-[10px] text-[#8F99A3]">Activo</span>
+                        <span className="text-[13px] text-[#8F99A3]">Activo</span>
                       </div>
-                      <p className="text-[11px] text-[#687380] line-clamp-1">{t.descripcion || 'Plantilla oficial OdontoLeal'}</p>
+                      <p className="text-[13px] text-[#687380] line-clamp-1">{t.descripcion || 'Plantilla oficial OdontoLeal'}</p>
                     </div>
                   </div>
                 </div>

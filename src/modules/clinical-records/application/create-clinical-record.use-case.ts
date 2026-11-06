@@ -9,6 +9,7 @@ import {
   EvolutionRecordRow,
   IClinicalRecordRepository,
 } from '../domain/clinical-record.repository.interface';
+import { ClinicalWriteActor } from '../infrastructure/clinical-record.model';
 
 export interface CreateClinicalRecordCommand {
   idPaciente: number;
@@ -16,6 +17,8 @@ export interface CreateClinicalRecordCommand {
   estadoCita?: AppointmentState | string;
   idProfesionalResponsable: number;
   actor: ActorContext;
+  /** Usuario de la sesión que diligencia la apertura (se guarda como "Diligenciado por"). */
+  writer?: ClinicalWriteActor;
   motivoConsulta: string;
   antecedentes?: AntecedentsMap;
   marcarTodoNoAplica?: boolean;
@@ -43,23 +46,16 @@ export class CreateClinicalRecordUseCase {
       );
     }
 
-    const historyRows = await this.clinicalRepo.getClinicalHistoryByPatient(
-      command.idPaciente
-    );
-
-    // Verificar que no exista ya una apertura de historia clínica para la misma cita (1:1 según uq_evolucion_cita)
-    const existingForAppointment = historyRows.find(
-      (row) =>
-        row.idCita === command.idCita &&
-        (row.evolucion?.tipoRegistro === 'APERTURA_CONSULTA' || (row.motivoConsulta && row.motivoConsulta.trim().length > 0))
-    );
-
+    // Una sola historia (apertura) por cita (uq_evolucion_cita)
+    const existingForAppointment = await this.clinicalRepo.findEvolutionByCitaId(command.idCita);
     if (existingForAppointment) {
       throw new ClinicalDomainError(
         'Ya existe una apertura de historia clínica registrada para esta cita.',
         'BAD_REQUEST'
       );
     }
+
+    const historyRows = await this.clinicalRepo.getClinicalHistoryByPatient(command.idPaciente);
 
     // Buscar antecedentes de la última historia clínica registrada para precargar (desde la 2da consulta)
     const lastOpeningRecord = historyRows.find(
@@ -97,6 +93,7 @@ export class CreateClinicalRecordUseCase {
       motivoConsulta: payload.motivoConsulta,
       antecedentesClinicos: payload.antecedentes,
       payload,
+      actor: command.writer,
     });
   }
 }

@@ -1,6 +1,13 @@
 // src/modules/clinical-records/ui/components/EvolutionTemplateEditor.tsx
 import React, { useState, useEffect, useMemo } from 'react';
 import {
+  DetailAction,
+  DetailPageHeader,
+  StatusBadge,
+  UserAvatar,
+} from '../../../../shared/ui/components/DetailPage';
+import { formatLongDateCO } from '../../../../shared/ui/format';
+import {
   OdontogramDataDTO,
   AntecedentesClinicosDTO,
   HabitosHigieneDTO,
@@ -12,9 +19,8 @@ import {
   DEFAULT_PLAN_MANEJO,
 } from '../../infrastructure/clinical-record.model';
 import { useAlertModal } from '../../../../shared/ui/hooks/useAlertModal';
-import { printClinicalDocument } from '../../../clinical-documents/application/print-clinical-document.service';
+import { downloadClinicalDocument } from '../../../clinical-documents/ui/hooks/useClinicalDocuments';
 import {
-  UserIcon,
   CalendarIcon,
   DoctorIcon,
   SaveIcon,
@@ -52,6 +58,9 @@ export interface EvolutionFormData {
 }
 
 export interface EvolutionTemplateEditorProps {
+  /** Cita y paciente de la consulta: el PDF lo genera el servidor (RF-DOC-001 a 004). */
+  idPaciente?: number;
+  idCita?: number;
   initialData?: Partial<EvolutionFormData>;
   patientName: string;
   patientAge?: number;
@@ -98,6 +107,8 @@ function countAffectedTeeth(odontogram?: OdontogramDataDTO): number {
 }
 
 export const EvolutionTemplateEditor: React.FC<EvolutionTemplateEditorProps> = ({
+  idPaciente,
+  idCita,
   initialData,
   patientName,
   patientAge,
@@ -152,9 +163,18 @@ export const EvolutionTemplateEditor: React.FC<EvolutionTemplateEditorProps> = (
   );
 
   const { showAlert, showConfirm, AlertModalComponent } = useAlertModal();
+  const initializedCitaRef = React.useRef<number | null>(null);
 
   useEffect(() => {
     if (!initialData) return;
+    if (idCita && initializedCitaRef.current === idCita) {
+      // Ya se inicializaron los datos para esta cita; no sobreescribir la información digitada por el usuario
+      return;
+    }
+    if (idCita) {
+      initializedCitaRef.current = idCita;
+    }
+
     if (initialData.motivoConsulta !== undefined) setMotivoConsulta(initialData.motivoConsulta);
     if (initialData.enfermedadActual !== undefined) setEnfermedadActual(initialData.enfermedadActual);
     if (initialData.antecedentesClinicos !== undefined || initialData.antecedentes !== undefined) {
@@ -192,18 +212,13 @@ export const EvolutionTemplateEditor: React.FC<EvolutionTemplateEditorProps> = (
       setPlanManejo(initialData.planManejo || DEFAULT_PLAN_MANEJO);
       setConductaPlanManejo(initialData.planManejo?.conducta || '');
     }
-  }, [initialData]);
+  }, [initialData, idCita]);
 
   const affectedTeethCount = useMemo(() => countAffectedTeeth(activeOdontogram), [activeOdontogram]);
 
   const formattedDate = useMemo(() => {
     if (displayDate) return displayDate;
-    return new Intl.DateTimeFormat('es-CO', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    }).format(new Date());
+    return formatLongDateCO(new Date());
   }, [displayDate]);
 
   const getFullFormData = (): EvolutionFormData => ({
@@ -260,39 +275,45 @@ export const EvolutionTemplateEditor: React.FC<EvolutionTemplateEditorProps> = (
     });
   };
 
-  const handlePrintDocument = (tipo: 'RECETA' | 'INCAPACIDAD' | 'REMISION') => {
+  /**
+   * RF-DOC-001 a RF-DOC-004: el documento lo genera el servidor en memoria, con la firma
+   * del profesional fusionada (flatten), y se abre para imprimir o descargar al momento.
+   * El servidor no conserva el archivo. Requiere la apertura guardada (motivo de consulta).
+   */
+  const handlePrintDocument = async (tipo: 'RECETA' | 'INCAPACIDAD' | 'REMISION') => {
+    if (!idPaciente || !idCita) {
+      showAlert({ title: 'Consulta no identificada', message: 'Abra el documento desde la consulta en curso.', type: 'warning' });
+      return;
+    }
+
+    let tipoDocumento: 'ORDEN_MEDICAMENTOS' | 'INCAPACIDAD' | 'REMISION';
+    let detalles: Record<string, unknown>;
+
     if (tipo === 'RECETA') {
       const meds = planManejo.prescripcion_farmacologica || [];
       if (meds.length === 0) {
         showAlert({
           title: 'Prescripción vacía',
-          message: 'Debe agregar al menos un medicamento a la prescripción farmacológica antes de imprimir.',
+          message: 'Debe agregar al menos un medicamento a la prescripción farmacológica.',
           type: 'warning',
         });
         return;
       }
-      printClinicalDocument({
-        tipo: 'RECETA',
-        patientName,
-        patientDoc,
-        patientAge,
-        patientSex,
-        doctorName,
-        doctorSignature,
-        doctorRole,
-        displayDate: formattedDate,
-        diagnostico,
-        procedimiento: procedimientoRealizado,
-        medications: meds,
-      });
-      return;
-    }
-
-    if (tipo === 'INCAPACIDAD') {
+      tipoDocumento = 'ORDEN_MEDICAMENTOS';
+      detalles = {
+        medicamentos: meds.map((m: any) => ({
+          nombrePresentacion: m.medicamento_principio_activo,
+          dosis: m.dosis_concentracion,
+          frecuencia: m.frecuencia_via,
+          duracion: m.duracion_tratamiento,
+        })),
+        indicacionesAdicionales: meds.map((m: any) => m.indicaciones_adicionales).filter(Boolean).join(' · ') || undefined,
+      };
+    } else if (tipo === 'INCAPACIDAD') {
       if (!planManejo.incapacidad_medica?.requiere_incapacidad) {
         showAlert({
           title: 'Incapacidad no requerida',
-          message: 'Marque "¿Requiere Incapacidad?" como Sí y diligencie las fechas antes de imprimir.',
+          message: 'Marque "¿Requiere Incapacidad?" como Sí y diligencie las fechas.',
           type: 'warning',
         });
         return;
@@ -304,56 +325,35 @@ export const EvolutionTemplateEditor: React.FC<EvolutionTemplateEditorProps> = (
         const diff = Math.round((end - start) / (1000 * 60 * 60 * 24)) + 1;
         if (diff > 0) dias = diff;
       }
-      printClinicalDocument({
-        tipo: 'INCAPACIDAD',
-        patientName,
-        patientDoc,
-        patientAge,
-        patientSex,
-        doctorName,
-        doctorSignature,
-        doctorRole,
-        displayDate: formattedDate,
-        diagnostico,
-        procedimiento: procedimientoRealizado,
-        incapacidad: {
-          dias_incapacidad: dias,
-          fecha_inicio: planManejo.incapacidad_medica.fecha_inicio,
-          fecha_fin: planManejo.incapacidad_medica.fecha_culminacion,
-          diagnostico_cie10: diagnostico || planManejo.incapacidad_medica.diagnostico_justificacion,
-          observaciones: planManejo.incapacidad_medica.diagnostico_justificacion,
-        },
-      });
-      return;
-    }
-
-    if (tipo === 'REMISION') {
+      tipoDocumento = 'INCAPACIDAD';
+      detalles = {
+        diasIncapacidad: dias,
+        motivoIncapacidad: planManejo.incapacidad_medica.diagnostico_justificacion || diagnostico,
+      };
+    } else {
       if (!planManejo.remision_medica?.requiere_remision) {
         showAlert({
           title: 'Remisión no requerida',
-          message: 'Marque "¿Requiere Remisión?" como Sí y seleccione la especialidad destino antes de imprimir.',
+          message: 'Marque "¿Requiere Remisión?" como Sí y seleccione la especialidad destino.',
           type: 'warning',
         });
         return;
       }
-      printClinicalDocument({
-        tipo: 'REMISION',
-        patientName,
-        patientDoc,
-        patientAge,
-        patientSex,
-        doctorName,
-        doctorSignature,
-        doctorRole,
-        displayDate: formattedDate,
-        diagnostico,
-        procedimiento: procedimientoRealizado,
-        remision: {
-          especialidad_destino: planManejo.remision_medica.especialidad_destino || 'Especialista Odontológico',
-          motivo_remision: planManejo.remision_medica.motivo_resumen_clinico || '',
-          resumen_clinico: `Prioridad: ${planManejo.remision_medica.prioridad_atencion || 'Programada / Ordinaria'}. ${procedimientoRealizado ? `Procedimiento: ${procedimientoRealizado}.` : ''}`,
-        },
-      });
+      tipoDocumento = 'REMISION';
+      detalles = {
+        especialidadDestino: planManejo.remision_medica.especialidad_destino,
+        otraEspecialidad: planManejo.remision_medica.otra_especialidad_nombre ?? undefined,
+        motivoRemision: planManejo.remision_medica.motivo_resumen_clinico || '',
+      };
+    }
+
+    try {
+      const warning = await downloadClinicalDocument({ idPaciente, idCita, tipoDocumento, detalles });
+      if (warning) {
+        showAlert({ title: 'Documento generado', message: warning, type: 'warning' });
+      }
+    } catch (err: any) {
+      showAlert({ title: 'No se generó el documento', message: err.message, type: 'error' });
     }
   };
 
@@ -370,68 +370,58 @@ export const EvolutionTemplateEditor: React.FC<EvolutionTemplateEditorProps> = (
       <AlertModalComponent />
 
       {/* ENCABEZADO SUPERIOR */}
-      <div className="space-y-4">
-        {onBackToDetail && (
-          <button
-            type="button"
-            onClick={onBackToDetail}
-            className="inline-flex items-center gap-1.5 text-xs font-bold text-[#687380] hover:text-[#111111] transition-colors cursor-pointer"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            Volver a la Agenda
-          </button>
-        )}
-
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-2">
-          <div>
-            <div className="flex flex-wrap items-center gap-2 mb-1.5">
-              <h1 className="text-2xl font-black text-[#111111] tracking-tight">Nueva Evolución</h1>
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#F6F6F4] border border-[#E7E7E3] text-xs font-bold text-[#111111]">
-                <UserIcon size={14} className="text-[#687380]" />
-                <span>
-                  {patientName}
-                  {patientAge !== undefined ? ` | ${patientAge} años` : ''}
-                  {patientSex ? ` | ${patientSex}` : ''}
-                  {patientDoc ? ` (CC: ${patientDoc})` : ''}
-                </span>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-3 text-xs text-[#687380]">
-              <span className="flex items-center gap-1.5">
+      <div>
+        <DetailPageHeader
+          backLabel={onBackToDetail ? 'Volver a la Agenda' : undefined}
+          onBack={onBackToDetail}
+          title="Nueva Evolución"
+          badge={<StatusBadge tone={readOnly ? 'neutral' : 'dark'}>{readOnly ? 'Solo lectura' : 'Consulta en curso'}</StatusBadge>}
+          subtitle={
+            <span className="inline-flex flex-wrap items-center gap-x-3 gap-y-1">
+              <span className="inline-flex items-center gap-1.5">
                 <CalendarIcon size={14} color="#D4AF37" /> {formattedDate}
               </span>
-              <span>•</span>
-              <span className="flex items-center gap-1.5 font-semibold text-[#111111]">
+              <span className="inline-flex items-center gap-1.5 font-semibold text-[#1E242B]">
                 <DoctorIcon size={14} color="#D4AF37" /> {doctorName}
               </span>
+            </span>
+          }
+          meta={
+            <div className="inline-flex max-w-full items-center gap-3 rounded-lg bg-white px-3 py-2 ring-1 ring-[#E2E8F0]">
+              <UserAvatar name={patientName} size="sm" />
+              <span className="text-break min-w-0 text-[14px] text-[#1E242B]">
+                <strong className="font-semibold">{patientName}</strong>
+                <span className="text-[#64748B]">
+                  {patientAge !== undefined ? ` · ${patientAge} años` : ''}
+                  {patientSex ? ` · ${patientSex}` : ''}
+                  {patientDoc ? ` · C.C. ${patientDoc}` : ''}
+                </span>
+              </span>
             </div>
-          </div>
-
-          {!readOnly && (
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
+          }
+          actions={
+            !readOnly ? (
+              <DetailAction
+                variant="primary"
                 onClick={handleSubmit}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#D4AF37] hover:bg-[#C59B27] text-black font-black text-xs shadow-sm hover:shadow transition-all cursor-pointer"
+                leftIcon={<SaveIcon size={16} color="#111111" />}
               >
-                <SaveIcon size={16} color="#000000" />
                 Guardar y finalizar cita
-              </button>
-            </div>
-          )}
-        </div>
+              </DetailAction>
+            ) : undefined
+          }
+        />
 
         {/* BARRA DE PESTAÑAS */}
-        <div className="flex flex-wrap items-center gap-1.5 p-1.5 rounded-2xl bg-white border border-[#E7E7E3] shadow-xs">
+        <div role="tablist" aria-label="Secciones de la evolución" className="flex flex-wrap items-center gap-1.5 rounded-xl border border-[#E2E8F0] bg-white p-1.5">
           {tabsConfig.map((t) => (
             <button
               key={t.id}
               type="button"
               onClick={() => setActiveTab(t.id)}
-              className={`px-4 py-2 text-xs font-black rounded-xl transition-all cursor-pointer ${
+              role="tab"
+              aria-selected={activeTab === t.id}
+              className={`min-h-[44px] flex-[1_1_auto] rounded-lg px-4 py-2 text-[14px] font-semibold transition-all cursor-pointer md:min-h-[40px] md:flex-none ${
                 activeTab === t.id
                   ? 'bg-[#111111] text-white shadow-xs'
                   : 'text-[#687380] hover:text-[#111111] hover:bg-[#F6F6F4]'
@@ -499,10 +489,6 @@ export const EvolutionTemplateEditor: React.FC<EvolutionTemplateEditorProps> = (
           onDiagnosticoChange={setDiagnostico}
           onAccionesChange={setAccionesARealizar}
           onObservacionesChange={setObservaciones}
-          onOdontogramSave={(data) => {
-            setLocalOdontogram(data);
-            onOdontogramChange?.(data);
-          }}
           onOpenExpandedOdontogram={onOpenExpandedOdontogram}
           onDiscardChanges={handleDiscardChanges}
           onNextTab={() => setActiveTab('PLAN_MANEJO')}

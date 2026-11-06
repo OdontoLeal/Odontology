@@ -21,7 +21,6 @@ export * from './application/update-appointment.use-case';
 export * from './application/cancel-appointment.use-case';
 export * from './application/get-weekly-agenda.use-case';
 export * from './application/manage-attention.use-case';
-export * from './application/select-service.use-case';
 export * from './application/mark-no-show.use-case';
 
 export interface ActiveConsultationSummary {

@@ -131,7 +131,7 @@ export class ManageOdontogramUseCase {
     };
 
     if (existingEvolutionRow && existingEvolutionRow.idEvolucion) {
-      return await this.clinicalRepo.updateEvolutionEntrySameDay(
+      return await this.clinicalRepo.updateEvolutionEntry(
         existingEvolutionRow.idEvolucion,
         {
           ...payload,

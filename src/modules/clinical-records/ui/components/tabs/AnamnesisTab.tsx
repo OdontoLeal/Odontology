@@ -41,9 +41,9 @@ export const AnamnesisTab: React.FC<AnamnesisTabProps> = ({
   };
 
   return (
-    <div className="rounded-3xl border border-[#E7E7E3] bg-white p-6 shadow-xs space-y-6">
-      <div className="pb-3 border-b border-[#E7E7E3]">
-        <h3 className="text-base font-black text-[#111111]">1. Anamnesis (Interrogatorio)</h3>
+    <div className="rounded-xl border border-[#E2E8F0] bg-white px-4 py-5 sm:px-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)] space-y-6">
+      <div className="pb-3 border-b border-[#F3F4F6]">
+        <h3 className="text-[16px] font-bold leading-6 text-[#1E242B]">1. Anamnesis (Interrogatorio)</h3>
         <p className="text-xs text-[#687380]">
           Registro de la información aportada directamente por el paciente al inicio de la valoración o tratamiento odontológico.
         </p>
@@ -54,11 +54,11 @@ export const AnamnesisTab: React.FC<AnamnesisTabProps> = ({
         <div className="flex items-center justify-between">
           <label className="text-xs font-black uppercase tracking-wider text-[#111111] flex items-center gap-2">
             <span>Motivo de Consulta</span>
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-red-100 text-red-700">
+            <span className="px-2 py-0.5 rounded-full text-[13px] font-black bg-red-100 text-red-700">
               REQUERIDO
             </span>
           </label>
-          <span className="text-[11px] text-[#8F99A3]">Palabras textuales del paciente</span>
+          <span className="text-[13px] text-[#8F99A3]">Palabras textuales del paciente</span>
         </div>
 
         <input
@@ -72,7 +72,7 @@ export const AnamnesisTab: React.FC<AnamnesisTabProps> = ({
 
         {!readOnly && (
           <div className="rounded-2xl border border-[#E7E7E3] bg-[#FBF6E6]/40 p-4 space-y-2">
-            <span className="text-[11px] font-black uppercase text-[#926C15] flex items-center gap-1.5">
+            <span className="text-[13px] font-black uppercase text-[#926C15] flex items-center gap-1.5">
               <SparklesIcon size={13} color="#D4AF37" />
               Opciones Rápidas de Autocompletado (Casos Generales)
             </span>
@@ -82,7 +82,7 @@ export const AnamnesisTab: React.FC<AnamnesisTabProps> = ({
                   key={idx}
                   type="button"
                   onClick={() => onMotivoConsultaChange(reason)}
-                  className="px-2.5 py-1 rounded-lg border border-[#E7E7E3] bg-white text-[11px] font-semibold text-[#4B5563] hover:border-[#D4AF37] hover:text-[#111111] transition-all"
+                  className="px-2.5 py-1 rounded-lg border border-[#E7E7E3] bg-white text-[13px] font-semibold text-[#4B5563] hover:border-[#D4AF37] hover:text-[#111111] transition-all"
                 >
                   {reason}
                 </button>

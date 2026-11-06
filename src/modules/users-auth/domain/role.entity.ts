@@ -15,7 +15,8 @@ export const INITIAL_ROLE_CODES: ReadonlyArray<InitialRoleCode> = [
   'ROL-ADM',
 ];
 
-// Permisos clínicos restringidos según RF-USR-007 y RF-USR-010
+// Permisos clínicos según RF-USR-007 (ERS v1.3): no se asignan a roles nuevos
+// ni se cambian en los roles existentes (RF-USR-010).
 export const CLINICAL_PERMISSIONS: ReadonlyArray<string> = [
   'RF-HCL-005',
   'RF-HCL-006',
@@ -23,13 +24,12 @@ export const CLINICAL_PERMISSIONS: ReadonlyArray<string> = [
   'RF-HCL-008',
   'RF-HCL-009',
   'RF-CON-001',
+  'RF-CON-002',
   'RF-CON-003',
-  'RF-CON-006',
   'RF-DOC-001',
   'RF-DOC-002',
   'RF-DOC-003',
   'RF-DOC-004',
-  'RF-DOC-005',
 ];
 
 // Permisos de administración de usuarios y roles requeridos para ROL-ADM (RF-USR-010)
@@ -43,7 +43,11 @@ export const ADMIN_USER_ROLE_PERMISSIONS: ReadonlyArray<string> = [
   'RF-USR-011',
 ];
 
-// Catálogo de todos los permisos válidos en sesión iniciada (salvo RF-USR-008 Cerrar sesión)
+/**
+ * Catálogo de permisos (RF-USR-007): uno por cada requisito funcional usado con
+ * sesión iniciada, salvo cerrar sesión. ERS v1.3: RF-AGE-012 es "Marcar
+ * inasistencia"; ya no existen RF-AGE-013, RF-CON-006 ni RF-DOC-005.
+ */
 export const VALID_SESSION_PERMISSIONS: ReadonlyArray<string> = [
   ...ADMIN_USER_ROLE_PERMISSIONS,
   'RF-AGE-001',
@@ -54,7 +58,6 @@ export const VALID_SESSION_PERMISSIONS: ReadonlyArray<string> = [
   'RF-AGE-008',
   'RF-AGE-009',
   'RF-AGE-012',
-  'RF-AGE-013',
   'RF-HCL-001',
   'RF-HCL-002',
   'RF-HCL-003',
@@ -66,16 +69,16 @@ export const VALID_SESSION_PERMISSIONS: ReadonlyArray<string> = [
   'RF-HCL-009',
   'RF-HCL-010',
   'RF-CON-001',
+  'RF-CON-002',
   'RF-CON-003',
   'RF-CON-004',
-  'RF-CON-006',
+  'RF-CON-005',
   'RF-CON-007',
   'RF-CON-008',
   'RF-DOC-001',
   'RF-DOC-002',
   'RF-DOC-003',
   'RF-DOC-004',
-  'RF-DOC-005',
 ];
 
 export interface RoleProps {

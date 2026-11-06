@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
+import { formatDateTimeCO } from '../../../../shared/ui/format';
 import {
   AuthenticateUserCommand,
   AuthenticateUserResult,
 } from '../../application/authenticate-user.use-case';
 import { SessionDraftDTO, UserWithRolesDomainDTO } from '../../domain/user.repository.interface';
 import { LoginAuthCard, LoginAuthSubmitParams } from '../components/LoginAuthCard';
+import { PublicNavbar } from '../../../../shared/ui/components/PublicNavbar';
 
 export interface LoginPageProps {
   onAuthenticate?: (command: AuthenticateUserCommand) => Promise<AuthenticateUserResult>;
@@ -98,10 +100,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({
           });
         }
       }
-    } catch (error: any) {
-      const msg = error?.message || 'Correo o contraseña incorrectos';
+    } catch (err: any) {
+      const msg = err.message || 'Error de autenticación';
       setErrorMessage(msg);
-      if (msg.toLowerCase().includes('15 minutos') || msg.toLowerCase().includes('demasiados intentos')) {
+      if (msg.toLowerCase().includes('bloqueada') || msg.toLowerCase().includes('15 minutos')) {
         setIsLockedOut(true);
       }
     } finally {
@@ -109,68 +111,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({
     }
   };
 
-  const formatColombianDateTime = (date: Date): string => {
-    const d = new Date(date);
-    return d.toLocaleString('es-CO', {
-      timeZone: 'America/Bogota',
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true,
-    });
-  };
+  const formatColombianDateTime = (date: Date): string => formatDateTimeCO(date);
 
   return (
     <div className="min-h-screen w-full flex flex-col justify-between bg-[#F8F9FA] text-[#1E242B] overflow-x-hidden">
-      {/* Cabecera Institucional OdontoLeal (Diseño image_05071f.png) */}
-      <header className="w-full border-b border-[#E2E6EA] bg-white px-4 py-3.5 sm:px-8">
-        <div className="mx-auto flex max-w-7xl items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#111111] text-[#D4AF37] shadow-xs border border-[#D4AF37]/40"
-              aria-hidden="true"
-            >
-              <svg
-                className="h-6 w-6"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={1.8}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M7 4c-2.2 0-4 1.8-4 4 0 2.6 1.5 5.2 2.4 7.7.6 1.7 1.3 4.3 2.6 4.3 1.1 0 1.6-1.8 2.3-3.5.4-.9.9-1.5 1.7-1.5s1.3.6 1.7 1.5c.7 1.7 1.2 3.5 2.3 3.5 1.3 0 2-2.6 2.6-4.3.9-2.5 2.4-5.1 2.4-7.7 0-2.2-1.8-4-4-4-1.5 0-2.9.8-3.8 1.5-.7.5-1.7.5-2.4 0C9.9 4.8 8.5 4 7 4z"
-                />
-              </svg>
-            </div>
-            <div>
-              <span className="block text-base sm:text-lg font-extrabold tracking-tight text-[#1E242B] leading-tight">
-                Portal OdontoLeal
-              </span>
-              <span className="block text-[13px] font-bold uppercase tracking-widest text-[#D4AF37]">
-                DR. EDUAR LEAL
-              </span>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => {
-              if (onNavigateToPublicBooking) {
-                onNavigateToPublicBooking();
-              } else {
-                window.location.href = '/solicitud-cita';
-              }
-            }}
-            className="hidden sm:inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-[#E2E6EA] bg-[#F8F9FA] px-4 py-2 text-[13px] font-bold text-[#1E242B] hover:border-[#D4AF37] hover:bg-[#FBF6E6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37] transition-colors"
-          >
-            <span>Agendar cita como paciente</span>
-          </button>
-        </div>
-      </header>
+      {/* 1. Header Unificado con Marca OdontoLeal y Agendar Cita */}
+      <PublicNavbar onNavigateToBooking={onNavigateToPublicBooking} />
 
       {/* Contenido Principal Centrado */}
       <main className="flex-1 flex flex-col items-center justify-center px-4 py-8 sm:py-12">

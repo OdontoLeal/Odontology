@@ -1,5 +1,6 @@
 // src/modules/consents/infrastructure/consent.repository.ts
 import { db } from '../../../shared/infrastructure/database/database';
+import { auditLog } from '../../../shared/infrastructure/audit/audit-log.service';
 import {
   CreateConsentTemplateDTO,
   SignConsentDTO,
@@ -7,50 +8,28 @@ import {
 } from '../application/consent.dtos';
 import {
   ConsentTemplate,
+  ConsentTemplateType,
   PatientSignedConsentDetail,
   SignedConsent,
 } from '../domain/consent.entity';
 import { IConsentRepository } from '../domain/consent.repository.port';
 
-interface TemplateRow {
-  id_consentimiento: number;
-  nombre: string;
-  texto_plantilla: string;
-  version: number;
-  estado: boolean;
-  id_usuario_modificador?: number | null;
-  fecha_modificacion?: Date | string;
-}
-
-interface SignedConsentRow {
-  id_consentimiento_firmado: number;
-  id_consentimiento: number;
-  id_paciente: number;
-  fecha: Date;
-  version_plantilla: number;
-  texto_firmado: string;
-  firma_base64: string;
-  firma_por_acudiente: boolean;
-  nombre_documento_acudiente: string | null;
-  id_usuario_diligencio: number | null;
-}
-
 export class ConsentRepository implements IConsentRepository {
   // RF-CON-004: Crear plantilla de consentimiento guardándola como texto en BD
   public async createTemplate(dto: CreateConsentTemplateDTO): Promise<ConsentTemplate> {
-    const texto = dto.textoPlantilla ?? dto.plantillaUrl ?? '';
     const sql = `
       INSERT INTO public.plantilla_consentimiento (
-        nombre, texto_plantilla, version, estado, id_usuario_modificador, fecha_modificacion
+        nombre, texto_plantilla, version, estado, id_usuario_modificador, fecha_modificacion, tipo
       )
-      VALUES ($1, $2, $3, TRUE, $4, CURRENT_TIMESTAMP)
+      VALUES ($1, $2, $3, TRUE, $4, CURRENT_TIMESTAMP, $5)
       RETURNING *;
     `;
     const { rows } = await db.query(sql, [
       dto.nombre,
-      texto,
+      dto.textoPlantilla ?? '',
       dto.version ?? 1,
       dto.idUsuarioModificador ?? null,
+      dto.tipo ?? 'PROCEDIMIENTO',
     ]);
 
     return this.mapToTemplateEntity(rows[0]);
@@ -71,7 +50,7 @@ export class ConsentRepository implements IConsentRepository {
     idConsentimiento: number,
     dto: UpdateConsentTemplateDTO
   ): Promise<ConsentTemplate | null> {
-    const texto = dto.textoPlantilla ?? dto.plantillaUrl ?? null;
+    const texto = dto.textoPlantilla ?? null;
     const sql = `
       UPDATE public.plantilla_consentimiento
       SET 
@@ -119,53 +98,57 @@ export class ConsentRepository implements IConsentRepository {
     `;
     const { rows } = await db.query(sql);
 
-    return rows.map((row: TemplateRow) => this.mapToTemplateEntity(row));
+    return rows.map((row: any) => this.mapToTemplateEntity(row));
   }
 
-  // RF-CON-002: Registrar consentimiento firmado guardando texto firmado y firma Base64
-  public async recordSignedConsent(dto: SignConsentDTO): Promise<SignedConsent> {
-    const texto = dto.textoFirmado ?? '';
-    const firma = dto.firmaBase64 ?? dto.archivoUrl ?? '';
-    const acudiente = Boolean(dto.firmaPorAcudiente);
-    const nombreDocAcudiente = acudiente ? (dto.nombreDocumentoAcudiente?.trim() || null) : null;
-    const idUsuarioDiligencio = dto.idUsuarioDiligencio ?? null;
-
-    // Obtener versión vigente de la plantilla
-    let version = 1;
-    const tmplRes = await db.query(
-      `SELECT version FROM public.plantilla_consentimiento WHERE id_consentimiento = $1;`,
-      [dto.idConsentimiento]
+  // RQNF-SEG-005/006: plantilla activa de un tipo especial (autorización de datos o menores)
+  public async findActiveTemplateByType(tipo: ConsentTemplateType): Promise<ConsentTemplate | null> {
+    const { rows } = await db.query(
+      `SELECT * FROM public.plantilla_consentimiento WHERE tipo = $1 AND estado = TRUE ORDER BY id_consentimiento LIMIT 1;`,
+      [tipo]
     );
-    if (tmplRes.rows[0]) {
-      version = Number(tmplRes.rows[0].version);
-    }
+    return rows[0] ? this.mapToTemplateEntity(rows[0]) : null;
+  }
 
-    const sql = `
-      INSERT INTO public.consentimiento_firmado (
-        id_consentimiento,
-        id_paciente,
-        version_plantilla,
-        texto_firmado,
-        firma_base64,
-        firma_por_acudiente,
-        nombre_documento_acudiente,
-        id_usuario_diligencio
-      )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-      RETURNING *;
-    `;
-    const { rows } = await db.query(sql, [
-      dto.idConsentimiento,
-      dto.idPaciente,
-      version,
-      texto,
-      firma,
-      acudiente,
-      nombreDocAcudiente,
-      idUsuarioDiligencio,
-    ]);
-
-    return this.mapToSignedConsentEntity(rows[0]);
+  // RF-CON-002: registra el consentimiento firmado (texto, versión y firma como texto) y lo audita
+  public async recordSignedConsent(dto: SignConsentDTO): Promise<SignedConsent> {
+    return db.withTransaction(async (client) => {
+      const { rows } = await client.query(
+        `INSERT INTO public.consentimiento_firmado (
+           id_consentimiento, id_paciente, version_plantilla, texto_firmado, firma_base64,
+           firma_por_acudiente, nombre_documento_acudiente, id_usuario_diligencio)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         RETURNING *;`,
+        [
+          dto.idConsentimiento,
+          dto.idPaciente,
+          dto.versionPlantilla ?? 1,
+          dto.textoFirmado ?? '',
+          dto.firmaBase64 ?? '',
+          Boolean(dto.firmaPorAcudiente),
+          dto.firmaPorAcudiente ? dto.nombreDocumentoAcudiente?.trim() || null : null,
+          dto.idUsuarioDiligencio ?? null,
+        ]
+      );
+      const signed = this.mapToSignedConsentEntity(rows[0]);
+      await auditLog.record(
+        {
+          idUsuario: dto.idUsuarioDiligencio ?? null,
+          actor: dto.actorCorreo ?? 'Desconocido',
+          accion: 'FIRMAR_CONSENTIMIENTO',
+          entidad: 'consentimiento_firmado',
+          idRegistro: signed.idConsentimientoFirmado ?? null,
+          valorNuevo: {
+            idPaciente: dto.idPaciente,
+            idPlantilla: dto.idConsentimiento,
+            version: dto.versionPlantilla,
+            firmaPorAcudiente: Boolean(dto.firmaPorAcudiente),
+          },
+        },
+        client
+      );
+      return signed;
+    });
   }
 
   // RF-CON-003: Consultar consentimientos firmados de un paciente (más reciente a más antiguo)
@@ -177,6 +160,7 @@ export class ConsentRepository implements IConsentRepository {
         cf.id_consentimiento_firmado AS "idConsentimientoFirmado",
         cf.id_consentimiento AS "idConsentimiento",
         pc.nombre AS "nombrePlantilla",
+        pc.tipo AS "tipoPlantilla",
         cf.version_plantilla AS "versionPlantilla",
         pc.version AS "versionActualPlantilla",
         cf.id_paciente AS "idPaciente",
@@ -206,8 +190,6 @@ export class ConsentRepository implements IConsentRepository {
       idPaciente: Number(r.idPaciente),
       fecha: new Date(r.fecha),
       firmaPorAcudiente: Boolean(r.firmaPorAcudiente),
-      archivoUrl: r.firmaBase64,
-      idCita: 0,
     }));
   }
 
@@ -219,6 +201,7 @@ export class ConsentRepository implements IConsentRepository {
         cf.id_consentimiento_firmado AS "idConsentimientoFirmado",
         cf.id_consentimiento AS "idConsentimiento",
         pc.nombre AS "nombrePlantilla",
+        pc.tipo AS "tipoPlantilla",
         cf.version_plantilla AS "versionPlantilla",
         pc.version AS "versionActualPlantilla",
         cf.id_paciente AS "idPaciente",
@@ -249,9 +232,15 @@ export class ConsentRepository implements IConsentRepository {
       idPaciente: Number(r.idPaciente),
       fecha: new Date(r.fecha),
       firmaPorAcudiente: Boolean(r.firmaPorAcudiente),
-      archivoUrl: r.firmaBase64,
-      idCita: 0,
     };
+  }
+
+  public async findPatientBirthDate(idPaciente: number): Promise<string | null> {
+    const { rows } = await db.query<{ fecha_nacimiento: string }>(
+      `SELECT fecha_nacimiento::text AS fecha_nacimiento FROM public.paciente WHERE id_paciente = $1;`,
+      [idPaciente]
+    );
+    return rows[0]?.fecha_nacimiento ?? null;
   }
 
   private mapToTemplateEntity(row: any): ConsentTemplate {
@@ -263,6 +252,7 @@ export class ConsentRepository implements IConsentRepository {
       estado: Boolean(row.estado),
       idUsuarioModificador: row.id_usuario_modificador ? Number(row.id_usuario_modificador) : null,
       fechaModificacion: row.fecha_modificacion ? new Date(row.fecha_modificacion) : undefined,
+      tipo: row.tipo ?? 'PROCEDIMIENTO',
     });
   }
 
@@ -273,7 +263,7 @@ export class ConsentRepository implements IConsentRepository {
       idPaciente: Number(row.id_paciente),
       versionPlantilla: Number(row.version_plantilla ?? 1),
       textoFirmado: row.texto_firmado ?? '',
-      firmaBase64: row.firma_base64 ?? row.archivo_url ?? '',
+      firmaBase64: row.firma_base64 ?? '',
       firmaPorAcudiente: Boolean(row.firma_por_acudiente),
       nombreDocumentoAcudiente: row.nombre_documento_acudiente ?? null,
       idUsuarioDiligencio: row.id_usuario_diligencio ? Number(row.id_usuario_diligencio) : null,

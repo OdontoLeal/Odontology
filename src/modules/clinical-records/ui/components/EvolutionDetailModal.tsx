@@ -34,7 +34,7 @@ export const EvolutionDetailModal: React.FC<EvolutionDetailModalProps> = ({
             <p className="text-xs font-extrabold text-[#1E242B]">
               👨‍⚕️ {evolution.profesional.nombreCompleto}
             </p>
-            <p className="text-[11px] text-[#687380] mt-0.5">
+            <p className="text-[13px] text-[#687380] mt-0.5">
               {evolution.profesional.rol}
               {evolution.profesional.tarjetaProfesional && ` • TP: ${evolution.profesional.tarjetaProfesional}`}
             </p>
@@ -48,7 +48,7 @@ export const EvolutionDetailModal: React.FC<EvolutionDetailModalProps> = ({
         {/* Motivo y Diagnóstico */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
           <div className="p-4 rounded-2xl bg-[#F8F9FA] border border-[#E2E6EA] space-y-1">
-            <span className="font-extrabold text-[10px] uppercase tracking-wider text-[#8F99A3] block">
+            <span className="font-extrabold text-[13px] uppercase tracking-wider text-[#8F99A3] block">
               1. Motivo de Consulta
             </span>
             <p className="text-[#1E242B] font-semibold leading-relaxed">
@@ -57,7 +57,7 @@ export const EvolutionDetailModal: React.FC<EvolutionDetailModalProps> = ({
           </div>
 
           <div className="p-4 rounded-2xl bg-[#F8F9FA] border border-[#E2E6EA] space-y-1">
-            <span className="font-extrabold text-[10px] uppercase tracking-wider text-[#8F99A3] block">
+            <span className="font-extrabold text-[13px] uppercase tracking-wider text-[#8F99A3] block">
               Diagnóstico (CIE-10 / Presuntivo)
             </span>
             <p className="text-[#1E242B] font-semibold leading-relaxed">
@@ -69,7 +69,7 @@ export const EvolutionDetailModal: React.FC<EvolutionDetailModalProps> = ({
         {/* Enfermedad Actual */}
         {evolution.enfermedadActual && evolution.enfermedadActual !== 'N/A' && (
           <div className="p-4 rounded-2xl bg-[#F8F9FA] border border-[#E2E6EA] space-y-1 text-xs">
-            <span className="font-extrabold text-[10px] uppercase tracking-wider text-[#8F99A3] block">
+            <span className="font-extrabold text-[13px] uppercase tracking-wider text-[#8F99A3] block">
               Enfermedad Actual
             </span>
             <p className="text-[#4B5563] leading-relaxed whitespace-pre-line">
@@ -81,13 +81,13 @@ export const EvolutionDetailModal: React.FC<EvolutionDetailModalProps> = ({
         {/* Antecedentes Clínicos y Hábitos de Higiene */}
         {(evolution.antecedentesClinicos || evolution.habitosHigiene) && (
           <div className="p-4 rounded-2xl bg-[#F8F9FA] border border-[#E2E6EA] space-y-3 text-xs">
-            <span className="font-extrabold text-[10px] uppercase tracking-wider text-[#8F99A3] block">
+            <span className="font-extrabold text-[13px] uppercase tracking-wider text-[#8F99A3] block">
               2. Antecedentes Clínicos y Hábitos Bucodentales
             </span>
 
             {evolution.antecedentesClinicos && Object.keys(evolution.antecedentesClinicos).length > 0 && (
               <div className="space-y-2">
-                <span className="font-bold text-[11px] text-[#1E242B] block">Antecedentes Registrados:</span>
+                <span className="font-bold text-[13px] text-[#1E242B] block">Antecedentes Registrados:</span>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {Object.entries(evolution.antecedentesClinicos).map(([k, val]: [string, any]) => (
                     <div key={k} className="p-2.5 rounded-xl bg-white border border-[#E2E6EA] text-xs">
@@ -100,7 +100,7 @@ export const EvolutionDetailModal: React.FC<EvolutionDetailModalProps> = ({
                         />
                       </div>
                       {val?.observaciones && (
-                        <p className="text-[11px] text-[#687380] mt-1 italic">{val.observaciones}</p>
+                        <p className="text-[13px] text-[#687380] mt-1 italic">{val.observaciones}</p>
                       )}
                     </div>
                   ))}
@@ -110,16 +110,16 @@ export const EvolutionDetailModal: React.FC<EvolutionDetailModalProps> = ({
 
             {evolution.habitosHigiene && Object.keys(evolution.habitosHigiene).length > 0 && (
               <div className="space-y-2 pt-2 border-t border-[#E2E6EA]">
-                <span className="font-bold text-[11px] text-[#1E242B] block">Hábitos y Rutina de Higiene:</span>
+                <span className="font-bold text-[13px] text-[#1E242B] block">Hábitos y Rutina de Higiene:</span>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   {Object.entries(evolution.habitosHigiene).map(([k, val]: [string, any]) => (
-                    <div key={k} className="p-2 rounded-xl bg-white border border-[#E2E6EA] text-[11px]">
+                    <div key={k} className="p-2 rounded-xl bg-white border border-[#E2E6EA] text-[13px]">
                       <span className="font-bold text-[#1E242B] capitalize block">{k.replace(/_/g, ' ')}</span>
                       <span className="text-[#687380]">
                         {val?.aplica ? 'Aplica' : 'No aplica'} • {val?.frecuencia_cantidad || 'N/A'}
                       </span>
                       {val?.observaciones && (
-                        <p className="text-[10px] text-[#8F99A3] mt-0.5 italic">{val.observaciones}</p>
+                        <p className="text-[13px] text-[#8F99A3] mt-0.5 italic">{val.observaciones}</p>
                       )}
                     </div>
                   ))}
@@ -132,7 +132,7 @@ export const EvolutionDetailModal: React.FC<EvolutionDetailModalProps> = ({
         {/* Examen Físico Estomatognático */}
         {(evolution.examenEstomatognatico || evolution.examenFisicoObservaciones) && (
           <div className="p-4 rounded-2xl bg-[#F8F9FA] border border-[#E2E6EA] space-y-3 text-xs">
-            <span className="font-extrabold text-[10px] uppercase tracking-wider text-[#8F99A3] block">
+            <span className="font-extrabold text-[13px] uppercase tracking-wider text-[#8F99A3] block">
               3. Examen Físico Estomatognático
             </span>
 
@@ -149,7 +149,7 @@ export const EvolutionDetailModal: React.FC<EvolutionDetailModalProps> = ({
                       />
                     </div>
                     {val?.observaciones && (
-                      <p className="text-[11px] text-[#687380] mt-1">{val.observaciones}</p>
+                      <p className="text-[13px] text-[#687380] mt-1">{val.observaciones}</p>
                     )}
                   </div>
                 ))}
@@ -158,7 +158,7 @@ export const EvolutionDetailModal: React.FC<EvolutionDetailModalProps> = ({
 
             {evolution.examenFisicoObservaciones && (
               <div className="pt-2 border-t border-[#E2E6EA]">
-                <span className="font-bold text-[11px] text-[#1E242B] block">Observaciones Generales:</span>
+                <span className="font-bold text-[13px] text-[#1E242B] block">Observaciones Generales:</span>
                 <p className="text-[#4B5563] text-xs leading-relaxed whitespace-pre-line mt-0.5">
                   {evolution.examenFisicoObservaciones}
                 </p>
@@ -169,7 +169,7 @@ export const EvolutionDetailModal: React.FC<EvolutionDetailModalProps> = ({
 
         {/* Procedimiento Realizado */}
         <div className="p-4 rounded-2xl bg-[#F8F9FA] border border-[#E2E6EA] space-y-1 text-xs">
-          <span className="font-extrabold text-[10px] uppercase tracking-wider text-[#8F99A3] block">
+          <span className="font-extrabold text-[13px] uppercase tracking-wider text-[#8F99A3] block">
             4. Procedimiento Realizado
           </span>
           <p className="text-[#1E242B] font-medium leading-relaxed whitespace-pre-line">
@@ -180,7 +180,7 @@ export const EvolutionDetailModal: React.FC<EvolutionDetailModalProps> = ({
         {/* Observaciones Clínicas */}
         {evolution.observaciones && (
           <div className="p-4 rounded-2xl bg-[#F8F9FA] border border-[#E2E6EA] space-y-1 text-xs">
-            <span className="font-extrabold text-[10px] uppercase tracking-wider text-[#8F99A3] block">
+            <span className="font-extrabold text-[13px] uppercase tracking-wider text-[#8F99A3] block">
               Hallazgos y Observaciones Clínicas
             </span>
             <p className="text-[#4B5563] leading-relaxed whitespace-pre-line">
@@ -192,7 +192,7 @@ export const EvolutionDetailModal: React.FC<EvolutionDetailModalProps> = ({
         {/* Acciones a Realizar / Recomendaciones */}
         {evolution.accionesARealizar && (
           <div className="p-4 rounded-2xl bg-[#F8F9FA] border border-[#E2E6EA] space-y-1 text-xs">
-            <span className="font-extrabold text-[10px] uppercase tracking-wider text-[#8F99A3] block">
+            <span className="font-extrabold text-[13px] uppercase tracking-wider text-[#8F99A3] block">
               Acciones a Realizar / Plan de Tratamiento
             </span>
             <p className="text-[#4B5563] leading-relaxed whitespace-pre-line">
@@ -204,13 +204,13 @@ export const EvolutionDetailModal: React.FC<EvolutionDetailModalProps> = ({
         {/* Plan de Manejo y Conducta */}
         {evolution.planManejo && (
           <div className="p-4 rounded-2xl bg-[#F8F9FA] border border-[#E2E6EA] space-y-3 text-xs">
-            <span className="font-extrabold text-[10px] uppercase tracking-wider text-[#8F99A3] block">
+            <span className="font-extrabold text-[13px] uppercase tracking-wider text-[#8F99A3] block">
               5. Plan de Manejo y Conducta
             </span>
 
             {evolution.planManejo.conducta && (
               <div>
-                <span className="font-bold text-[11px] text-[#1E242B] block">Conducta y Recomendaciones:</span>
+                <span className="font-bold text-[13px] text-[#1E242B] block">Conducta y Recomendaciones:</span>
                 <p className="text-[#4B5563] leading-relaxed whitespace-pre-line mt-0.5">
                   {evolution.planManejo.conducta}
                 </p>
@@ -220,7 +220,7 @@ export const EvolutionDetailModal: React.FC<EvolutionDetailModalProps> = ({
             {Array.isArray(evolution.planManejo.prescripcion_farmacologica) &&
               evolution.planManejo.prescripcion_farmacologica.length > 0 && (
                 <div className="space-y-1.5 pt-2 border-t border-[#E2E6EA]">
-                  <span className="font-bold text-[11px] text-[#1E242B] block">💊 Prescripción Farmacológica:</span>
+                  <span className="font-bold text-[13px] text-[#1E242B] block">💊 Prescripción Farmacológica:</span>
                   <div className="space-y-1.5">
                     {evolution.planManejo.prescripcion_farmacologica.map((med: any, i: number) => (
                       <div key={i} className="p-2.5 rounded-xl bg-white border border-[#E2E6EA] flex flex-wrap justify-between items-center text-xs">
@@ -267,7 +267,7 @@ export const EvolutionDetailModal: React.FC<EvolutionDetailModalProps> = ({
             {Array.isArray(evolution.planManejo.documentos) && evolution.planManejo.documentos.length > 0 && (
               <div className="pt-2 flex flex-wrap gap-2 border-t border-[#E2E6EA]">
                 {evolution.planManejo.documentos.map((doc: any, i: number) => (
-                  <span key={i} className="px-2.5 py-1 rounded-lg bg-white border border-[#CBD2D9] font-bold text-[#1E242B] text-[11px]">
+                  <span key={i} className="px-2.5 py-1 rounded-lg bg-white border border-[#CBD2D9] font-bold text-[#1E242B] text-[13px]">
                     📄 {doc.tipoDocumento === 'ORDEN_MEDICAMENTOS' ? 'Fórmula / Receta' : doc.tipoDocumento === 'INCAPACIDAD' ? 'Incapacidad' : 'Remisión'}
                   </span>
                 ))}
@@ -283,7 +283,7 @@ export const EvolutionDetailModal: React.FC<EvolutionDetailModalProps> = ({
               <span className="text-xs font-extrabold uppercase text-[#1E242B]">
                 Estado del Odontograma en esta consulta:
               </span>
-              <span className="text-[11px] text-[#8F99A3] italic">
+              <span className="text-[13px] text-[#8F99A3] italic">
                 Modo Lectura • Simbología FDI Inalterable
               </span>
             </div>

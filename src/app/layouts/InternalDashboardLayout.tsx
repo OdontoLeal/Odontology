@@ -1,5 +1,5 @@
 // src/app/layouts/InternalDashboardLayout.tsx
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { UserWithRolesDomainDTO } from '../../modules/users-auth/domain/user.repository.interface';
 import { InactivityWarningModal } from '../../modules/users-auth/ui/components/InactivityWarningModal';
 import { TopPatientSearchBar } from '../../modules/patients/ui/components/TopPatientSearchBar';
@@ -133,109 +133,151 @@ export const InternalDashboardLayout: React.FC<InternalDashboardLayoutProps> = (
 
   const navItems = allNavItems.filter((item) => item.show !== false);
 
+
+  const closeMenu = () => setMobileMenuOpen(false);
+
+  // Bloquea el scroll de la página y permite cerrar con Escape mientras el drawer está abierto.
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    document.body.classList.add('drawer-open');
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMobileMenuOpen(false);
+    };
+    const desktopQuery = window.matchMedia('(min-width: 1024px)');
+    const onDesktop = (e: MediaQueryListEvent) => {
+      if (e.matches) setMobileMenuOpen(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    desktopQuery.addEventListener('change', onDesktop);
+    return () => {
+      document.body.classList.remove('drawer-open');
+      window.removeEventListener('keydown', onKeyDown);
+      desktopQuery.removeEventListener('change', onDesktop);
+    };
+  }, [mobileMenuOpen]);
+
+  const brand = (
+    <div className="flex min-w-0 items-center gap-3">
+      <div
+        className="flex h-10 w-12 shrink-0 items-center justify-center rounded-xl bg-[#111827] text-[#D4AF37] shadow-xs border border-[#D4AF37]/30"
+        aria-hidden="true"
+      >
+        <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.7}>
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M7 4c-2.2 0-4 1.8-4 4 0 2.6 1.5 5.2 2.4 7.7.6 1.7 1.3 4.3 2.6 4.3 1.1 0 1.6-1.8 2.3-3.5.4-.9.9-1.5 1.7-1.5s1.3.6 1.7 1.5c.7 1.7 1.2 3.5 2.3 3.5 1.3 0 2-2.6 2.6-4.3.9-2.5 2.4-5.1 2.4-7.7 0-2.2-1.8-4-4-4-1.5 0-2.9.8-3.8 1.5-.7.5-1.7.5-2.4 0C9.9 4.8 8.5 4 7 4z"
+          />
+        </svg>
+      </div>
+      <div className="min-w-0 leading-tight">
+        <span className="block truncate text-[16px] font-extrabold tracking-tight text-[#1E242B]">
+          OdontoLeal
+        </span>
+        <span className="block truncate text-[13px] font-semibold text-[#B8942A]">
+          Gestión Clínica
+        </span>
+      </div>
+    </div>
+  );
+
   return (
-    <div className="min-h-screen w-full flex flex-col lg:flex-row bg-[#F8F9FA] text-[#1E242B] overflow-x-hidden">
-      {/* Sidebar Izquierdo Blanco según diseño adjunto */}
-      <aside className="w-full lg:w-[235px] shrink-0 bg-white flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-[#E2E6EA]">
-        <div>
-          {/* Cabecera del Sidebar con Logo OdontoLeal */}
-          <div className="flex items-center justify-between px-5 h-[72px]">
-            <div className="flex items-center gap-3">
-              <div
-                className="flex h-10 w-12 shrink-0 items-center justify-center rounded-xl bg-[#111827] text-[#D4AF37] shadow-xs border border-[#D4AF37]/30"
-                aria-hidden="true"
-              >
-                <svg
-                  className="h-6 w-6"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={1.7}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M7 4c-2.2 0-4 1.8-4 4 0 2.6 1.5 5.2 2.4 7.7.6 1.7 1.3 4.3 2.6 4.3 1.1 0 1.6-1.8 2.3-3.5.4-.9.9-1.5 1.7-1.5s1.3.6 1.7 1.5c.7 1.7 1.2 3.5 2.3 3.5 1.3 0 2-2.6 2.6-4.3.9-2.5 2.4-5.1 2.4-7.7 0-2.2-1.8-4-4-4-1.5 0-2.9.8-3.8 1.5-.7.5-1.7.5-2.4 0C9.9 4.8 8.5 4 7 4z"
-                  />
-                </svg>
-              </div>
-              <div className="leading-tight">
-                <span className="block text-[16px] font-extrabold tracking-tight text-[#1E242B]">
-                  OdontoLeal
-                </span>
-                <span className="block text-[12px] font-semibold text-[#D4AF37]">
-                  Gestión Clínica
-                </span>
-              </div>
-            </div>
+    <div className="min-h-screen w-full bg-[#F8FAFC] text-[#1E242B] lg:flex">
+      {/* Fondo oscuro del menú lateral (solo < 1024px) */}
+      <div
+        aria-hidden="true"
+        onClick={closeMenu}
+        className={`fixed inset-0 z-40 bg-[#111111]/50 transition-opacity lg:hidden ${
+          mobileMenuOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
+        }`}
+      />
 
-            <button
-              type="button"
-              onClick={() => setMobileMenuOpen((prev) => !prev)}
-              aria-label="Abrir o cerrar menú de navegación"
-              className="lg:hidden min-h-[44px] min-w-[44px] rounded-xl border border-[#E2E6EA] text-[#1E242B] flex items-center justify-center hover:bg-[#F8F9FA]"
-            >
-              ☰
-            </button>
-          </div>
-
-          {/* Navegación Principal */}
-          <nav
-            aria-label="Menú principal"
-            className={`${
-              mobileMenuOpen ? 'block' : 'hidden'
-            } lg:block px-3.5 py-4 space-y-1.5`}
+      {/* Sidebar: fijo de 240px en escritorio, off-canvas drawer en tablet/móvil */}
+      <aside
+        id="app-sidebar"
+        aria-label="Navegación principal"
+        className={`fixed inset-y-0 left-0 z-50 flex h-[100dvh] w-[min(280px,85vw)] flex-col overflow-y-auto border-r border-[#E2E8F0] bg-white shadow-xl transition-transform duration-200 lg:sticky lg:top-0 lg:left-0 lg:z-20 lg:h-screen lg:min-h-screen lg:w-[240px] lg:shrink-0 lg:self-start lg:translate-x-0 lg:shadow-none ${
+          mobileMenuOpen ? 'visible translate-x-0' : 'invisible -translate-x-full lg:visible lg:translate-x-0'
+        }`}
+      >
+        <div className="flex min-h-[72px] items-center justify-between gap-2 px-5 py-3">
+          {brand}
+          <button
+            type="button"
+            onClick={closeMenu}
+            aria-label="Cerrar menú de navegación"
+            className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-[#E2E8F0] text-[#1E242B] hover:bg-[#F8F9FA] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37] lg:hidden"
           >
-            {navItems.map((item) => {
-              const isActive = activeView === item.id;
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => {
-                    onSelectView(item.id);
-                    setMobileMenuOpen(false);
-                  }}
-                  className={`w-full min-h-[44px] flex items-center gap-3 rounded-xl px-4 py-2.5 text-left text-[14px] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37] ${
-                    isActive
-                      ? 'bg-[#111827] font-bold text-white shadow-xs'
-                      : 'font-medium text-[#687380] hover:bg-[#F3F5F7] hover:text-[#1E242B]'
-                  }`}
-                >
-                  <span
-                    className={isActive ? 'text-[#D4AF37]' : 'text-[#687380]'}
-                    aria-hidden="true"
-                  >
-                    {item.icon}
-                  </span>
-                  <span>{item.label}</span>
-                </button>
-              );
-            })}
-          </nav>
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
+
+        <nav aria-label="Menú principal" className="space-y-1.5 px-3.5 py-4">
+          {navItems.map((item) => {
+            const isActive = activeView === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                aria-current={isActive ? 'page' : undefined}
+                onClick={() => {
+                  onSelectView(item.id);
+                  closeMenu();
+                }}
+                className={`flex min-h-[44px] w-full items-center gap-3 rounded-xl px-4 py-2.5 text-left text-[14px] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37] ${
+                  isActive
+                    ? 'bg-[#111827] font-bold text-white shadow-xs'
+                    : 'font-medium text-[#687380] hover:bg-[#F3F5F7] hover:text-[#1E242B]'
+                }`}
+              >
+                <span className={`shrink-0 ${isActive ? 'text-[#D4AF37]' : 'text-[#687380]'}`} aria-hidden="true">
+                  {item.icon}
+                </span>
+                <span className="text-break">{item.label}</span>
+              </button>
+            );
+          })}
+        </nav>
       </aside>
 
-      {/* Contenedor Derecho: Header Superior + Contenido */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Barra Superior Blanca según diseño adjunto */}
-        <header className="w-full min-h-[72px] bg-white border-b border-[#E2E6EA] px-4 py-3 sm:px-8 flex flex-wrap items-center justify-between gap-4">
-          {/* Buscador superior izquierdo con sugerencias dinámicas */}
-          {onSelectPatientFromSearch ? (
-            <TopPatientSearchBar onSelectPatient={onSelectPatientFromSearch} />
-          ) : (
-            <div className="relative w-full max-w-md" />
+      {/* Contenedor derecho: barra superior + contenido */}
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="sticky top-0 z-30 flex min-h-[64px] w-full flex-wrap items-center gap-x-3 gap-y-2 border-b border-[#E2E8F0] bg-white/95 backdrop-blur-sm px-3 py-2.5 sm:px-6 md:min-h-[72px] md:gap-4 lg:px-8">
+          {/* Hamburguesa (< 1024px) */}
+          <button
+            type="button"
+            onClick={() => setMobileMenuOpen(true)}
+            aria-label="Abrir menú de navegación"
+            aria-controls="app-sidebar"
+            aria-expanded={mobileMenuOpen}
+            className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-xl border border-[#E2E8F0] text-[#1E242B] hover:bg-[#F8F9FA] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37] lg:hidden"
+          >
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+
+          {/* Buscador global: pasa a su propia fila a ancho completo en < 768px */}
+          {onSelectPatientFromSearch && (
+            <div className="order-last w-full min-w-0 md:order-none md:w-auto md:flex-1">
+              <TopPatientSearchBar onSelectPatient={onSelectPatientFromSearch} />
+            </div>
           )}
 
-          {/* Perfil del usuario activo y botón Cerrar sesión (RF-USR-008) */}
-          <div className="flex items-center gap-4 ml-auto">
-            <div className="hidden sm:block h-8 w-px bg-[#E2E6EA]" aria-hidden="true" />
+          {/* Perfil del usuario activo y Cerrar sesión (RF-USR-008) */}
+          <div className="ml-auto flex min-w-0 items-center gap-2 sm:gap-4">
+            <div className="hidden h-8 w-px bg-[#E2E8F0] md:block" aria-hidden="true" />
 
-            <div className="text-right leading-tight">
-              <span className="block text-[14px] font-bold text-[#1E242B]">
+            <div className="min-w-0 text-right leading-tight">
+              <span
+                className="block max-w-[160px] truncate text-[14px] font-bold text-[#1E242B] sm:max-w-[240px]"
+                title={currentUser.nombreCompleto}
+              >
                 {currentUser.nombreCompleto}
               </span>
-              <span className="block text-[12px] font-semibold text-[#D4AF37]">
+              <span className="hidden max-w-[240px] truncate text-[13px] font-semibold text-[#B8942A] md:block">
                 {primaryRoleName}
               </span>
             </div>
@@ -243,32 +285,26 @@ export const InternalDashboardLayout: React.FC<InternalDashboardLayoutProps> = (
             <button
               type="button"
               onClick={onManualCloseSession}
-              className="min-h-[40px] inline-flex items-center gap-1.5 rounded-xl border border-[#E2E6EA] bg-white px-3.5 py-2 text-[13px] font-bold text-[#1E242B] hover:border-[#B91C1C] hover:bg-[#FEE2E2]/40 hover:text-[#B91C1C] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37] transition-colors"
+              aria-label="Cerrar sesión"
+              className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center gap-1.5 rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-[13px] font-bold text-[#1E242B] transition-colors hover:border-[#B91C1C] hover:bg-[#FEE2E2]/40 hover:text-[#B91C1C] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37] sm:px-3.5"
             >
-              <svg
-                className="h-4 w-4 text-[#B91C1C]"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-                aria-hidden="true"
-              >
+              <svg className="h-4 w-4 text-[#B91C1C]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
                 />
               </svg>
-              <span>Cerrar sesión</span>
+              <span className="hidden sm:inline">Cerrar sesión</span>
             </button>
           </div>
         </header>
 
-        {/* Área de Trabajo Principal */}
-        <main className="flex-1">{children}</main>
+        {/* Área de trabajo principal */}
+        <main className="min-w-0 flex-1">{children}</main>
       </div>
 
-      {/* Modal de Advertencia al Minuto 29 de Inactividad (RF-USR-008) */}
+      {/* Modal de advertencia al minuto 29 de inactividad (RF-USR-008) */}
       <InactivityWarningModal
         isOpen={isWarningModalOpen}
         initialSecondsRemaining={60}

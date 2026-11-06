@@ -1,4 +1,11 @@
+// src/modules/patients/domain/patient.repository.interface.ts
 import { Patient } from './patient.entity';
+
+/** Usuario que ejecuta la operación (se guarda en el registro de auditoría). */
+export interface PatientAuditActor {
+  idUsuario: number;
+  actor: string;
+}
 
 export interface CreatedPatientResult {
   patient: ReturnType<Patient['toPrimitives']>;
@@ -35,29 +42,22 @@ export interface PatientProfileRecord {
   correo: string | null;
   telefono: string | null;
   fechaNacimiento: string;
+  edad: number;
+  esMenorDeEdad: boolean;
   sexo: string | null;
   datosIncompletos: boolean;
   idHistoria: number | null;
-  acudiente?: {
-    nombreCompleto: string;
-    documentoIdentidad: string;
-    parentesco: string;
-    telefono: string;
-  } | null;
-  contactoRespaldo?: {
-    nombreCompleto: string;
-    telefono: string;
-    parentesco?: string;
-  } | null;
-  autorizacionDatos?: {
-    autorizado: boolean;
-    fechaHora: string;
-    medio: string;
-    versionAvisoPrivacidad: string;
-    idUsuarioRegistro?: number | null;
-    firmadoPorAcudiente?: boolean;
-  } | null;
   historialCitas: PatientAppointmentSummary[];
+}
+
+/** Prueba de una autorización de tratamiento de datos (RQNF-SEG-005, RQNF-SEG-007). */
+export interface HolderAuthorizationRecord {
+  tipo: 'CONSENTIMIENTO_FIRMADO' | 'ACEPTACION_SOLICITUD';
+  plantilla: string;
+  versionPlantilla: number | null;
+  fechaHora: string;
+  firmadoPorAcudiente?: boolean;
+  diligenciadoPor?: string | null;
 }
 
 export interface HolderDataRecord {
@@ -71,35 +71,19 @@ export interface HolderDataRecord {
       telefono: string | null;
       fechaNacimiento: string;
       sexo: string | null;
-      contactoRespaldo?: {
-        nombreCompleto: string;
-        telefono: string;
-        parentesco?: string;
-      } | null;
     } | null;
-    comoAcudiente: Array<{
-      nombreAcudiente: string;
-      documentoAcudiente: string;
-      telefonoAcudiente: string;
-      nombreMenorRepresentado: string;
-      parentescoConMenor: string;
-    }>;
     comoSolicitante: Array<{
       idSolicitud: number;
       nombreSolicitante: string;
       documentoSolicitante: string;
       correoSolicitante: string;
+      telefonoSolicitante: string | null;
       bloqueSolicitado: string;
       descripcion: string | null;
       estadoSolicitud: string;
     }>;
   };
-  autorizaciones: Array<{
-    fechaHora: string;
-    medio: string;
-    versionAvisoPrivacidad: string;
-    calidad: 'PACIENTE' | 'ACUDIENTE' | 'SOLICITANTE';
-  }>;
+  autorizaciones: HolderAuthorizationRecord[];
   citasRegistradas: Array<{
     idCita: number;
     titulo: string;
@@ -110,12 +94,13 @@ export interface HolderDataRecord {
 }
 
 export interface IPatientRepository {
-  createPatient(patient: Patient): Promise<CreatedPatientResult>;
+  createPatient(patient: Patient, actor?: PatientAuditActor): Promise<CreatedPatientResult>;
   updatePatient(
     idPaciente: number,
     patient: Patient,
     auditMeta?: {
       idUsuarioActor?: number;
+      actor?: string;
       valorAnterior?: Record<string, unknown>;
     }
   ): Promise<ReturnType<Patient['toPrimitives']> | null>;
@@ -126,7 +111,7 @@ export interface IPatientRepository {
     idPaciente?: number;
     documento?: string;
   }): Promise<PatientProfileRecord | null>;
-  getHolderDataByDocument(
-    documentoIdentidad: string
-  ): Promise<HolderDataRecord | null>;
+  getHolderDataByDocument(documentoIdentidad: string): Promise<HolderDataRecord | null>;
+  /** Indica si el paciente tiene una cita En consulta (acceso de ROL-AUX, Regla de Negocio 4). */
+  hasActiveConsultation?(idPaciente: number): Promise<boolean>;
 }

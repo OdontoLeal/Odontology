@@ -1,5 +1,6 @@
 // src/modules/clinical-records/ui/hooks/useClinicalRecord.ts
 import { useState, useCallback, useEffect } from 'react';
+import { formatDateTimeCO } from '../../../../shared/ui/format';
 import { OdontogramDataDTO } from '../../infrastructure/clinical-record.model';
 import { OdontogramEntity } from '../../domain/odontogram.entity';
 
@@ -37,7 +38,13 @@ export interface ClinicalEvolutionEntry {
   }>;
 }
 
-export function useClinicalRecord(idPaciente: number, apiBaseUrl = '/api/v1') {
+/**
+ * Historia clínica del paciente para la consulta en curso.
+ * ROL-ODO/ROL-ESP leen el historial completo (RF-HCL-008). La auxiliar no puede
+ * (Regla de Negocio 4): si el historial responde 403 y hay cita, se usa solo la
+ * historia de esa consulta (`/clinical-records/appointment/:idCita`).
+ */
+export function useClinicalRecord(idPaciente: number, apiBaseUrl = '/api/v1', idCita?: number) {
   const [history, setHistory] = useState<ClinicalEvolutionEntry[]>([]);
   const [currentOdontogram, setCurrentOdontogram] = useState<OdontogramDataDTO>(() =>
     OdontogramEntity.createBlankOdontogramJSON()
@@ -50,10 +57,25 @@ export function useClinicalRecord(idPaciente: number, apiBaseUrl = '/api/v1') {
     setIsLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${apiBaseUrl}/clinical-records/patient/${idPaciente}`);
+      let res = await fetch(`${apiBaseUrl}/clinical-records/patient/${idPaciente}`);
+      let consultaOnly = false;
+      if (res.status === 403 && idCita) {
+        res = await fetch(`${apiBaseUrl}/clinical-records/appointment/${idCita}`);
+        consultaOnly = true;
+      }
       if (res.ok) {
         const json = await res.json();
-        const data = json.data || json;
+        let data = json.data || json;
+        if (consultaOnly) {
+          // Solo la historia de esta consulta; el odontograma de partida es el último guardado
+          const latest = await fetch(`${apiBaseUrl}/clinical-records/odontogram/latest/${idPaciente}`)
+            .then((r) => (r.ok ? r.json() : null))
+            .catch(() => null);
+          data = {
+            evoluciones: data.registro ? [data.registro] : [],
+            ultimoOdontograma: data.registro?.odontograma ?? latest?.data ?? null,
+          };
+        }
         const checkHasFindings = (o: any): boolean => {
           if (!o || !o.cuadrantes) return false;
           for (const q of Object.values(o.cuadrantes) as any[]) {
@@ -88,7 +110,7 @@ export function useClinicalRecord(idPaciente: number, apiBaseUrl = '/api/v1') {
                 idEvolucion: Number(ev.idEvolucion ?? ev.id_evolucion),
                 idHistoriaClinica: Number(ev.idHistoriaClinica ?? ev.id_historia),
                 idCita: Number(ev.idCita ?? ev.id_cita),
-                fechaRegistro: String(ev.fechaRegistro ?? ev.fecha ?? '').replace('T', ' ').slice(0, 16),
+                fechaRegistro: formatDateTimeCO(ev.fechaRegistro ?? ev.fecha),
                 profesional: {
                   idUsuario: Number(ev.profesional?.idUsuario ?? ev.idUsuario ?? 1),
                   nombreCompleto: ev.profesionalResponsable || ev.profesional?.nombreCompleto || 'Dr. Eduar Leal Álvarez',
@@ -134,11 +156,9 @@ export function useClinicalRecord(idPaciente: number, apiBaseUrl = '/api/v1') {
               idEvolucion: Number(item.notasEvolucion?.[0]?.idEvolucion || item.idCita || i + 1),
               idHistoriaClinica: Number(data.idHistoria || 1),
               idCita: Number(item.idCita || i + 1),
-              fechaRegistro: String(
-                item.notasEvolucion?.[0]?.diligenciadoPor?.fechaHoraISO || item.fechaHoraRegistro || ''
-              )
-                .replace('T', ' ')
-                .slice(0, 16),
+              fechaRegistro: formatDateTimeCO(
+                item.notasEvolucion?.[0]?.diligenciadoPor?.fechaHoraISO || item.fechaHoraRegistro
+              ),
               profesional: {
                 idUsuario: Number(item.notasEvolucion?.[0]?.diligenciadoPor?.idUsuario || 1),
                 nombreCompleto:
@@ -201,7 +221,7 @@ export function useClinicalRecord(idPaciente: number, apiBaseUrl = '/api/v1') {
     } finally {
       setIsLoading(false);
     }
-  }, [apiBaseUrl, idPaciente]);
+  }, [apiBaseUrl, idPaciente, idCita]);
 
   useEffect(() => {
     fetchHistory();
@@ -223,28 +243,21 @@ export function useClinicalRecord(idPaciente: number, apiBaseUrl = '/api/v1') {
 
         const payload = {
           tipoRegistro: 'EVOLUCION_ODONTOGRAMA',
-          motivoConsulta: entryData.motivoConsulta || 'Consulta Odontológica',
+          motivoConsulta: entryData.motivoConsulta || '',
           enfermedadActual: entryData.enfermedadActual || '',
           antecedentesClinicos: entryData.antecedentesClinicos || {},
           habitosHigiene: entryData.habitosHigiene || {},
           examenEstomatognatico: entryData.examenEstomatognatico || {},
           examenFisicoObservaciones: entryData.examenFisicoObservaciones || '',
-          procedimientoRealizado:
-            entryData.procedimientoRealizado || 'Valoración y atención odontológica',
+          procedimientoRealizado: entryData.procedimientoRealizado || '',
           notaEvolucion: notaEvolucionFinal,
-          diagnostico: entryData.diagnostico || 'Control y valoración clínica',
+          diagnostico: entryData.diagnostico || '',
           diagnosticoGenerado: entryData.diagnosticoGenerado || entryData.diagnostico || '',
           accionesARealizar: entryData.accionesARealizar || '',
           observaciones: entryData.observaciones || '',
           hallazgosObservaciones: entryData.hallazgosObservaciones || entryData.observaciones || '',
           planManejo: entryData.planManejo || {},
           odontograma: entryData.odontograma || currentOdontogram,
-          diligenciadoPor: {
-            idUsuario: entryData.profesional?.idUsuario || 1,
-            nombreCompleto: entryData.profesional?.nombreCompleto || 'Dr. Eduar Leal Álvarez',
-            rol: entryData.profesional?.rol || 'Odontólogo General',
-            fechaHoraISO: new Date().toISOString(),
-          },
         };
 
         const res = await fetch(`${apiBaseUrl}/clinical-records/evolutions`, {
@@ -252,7 +265,7 @@ export function useClinicalRecord(idPaciente: number, apiBaseUrl = '/api/v1') {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             idPaciente,
-            idCita: entryData.idCita || 1,
+            idCita: entryData.idCita ?? idCita,
             motivoConsulta: entryData.motivoConsulta,
             enfermedadActual: entryData.enfermedadActual,
             antecedentesClinicos: entryData.antecedentesClinicos,
@@ -281,7 +294,7 @@ export function useClinicalRecord(idPaciente: number, apiBaseUrl = '/api/v1') {
           idEvolucion: Number(createdRow.idEvolucion || Date.now()),
           idHistoriaClinica: Number(createdRow.idHistoria || 1),
           idCita: entryData.idCita || 1,
-          fechaRegistro: new Date().toISOString().replace('T', ' ').slice(0, 16),
+          fechaRegistro: formatDateTimeCO(new Date()),
           profesional: {
             idUsuario: 1,
             nombreCompleto: 'Dr. Eduar Leal Álvarez',
@@ -317,7 +330,7 @@ export function useClinicalRecord(idPaciente: number, apiBaseUrl = '/api/v1') {
         setIsLoading(false);
       }
     },
-    [apiBaseUrl, currentOdontogram, idPaciente]
+    [apiBaseUrl, currentOdontogram, idPaciente, idCita]
   );
 
   return {

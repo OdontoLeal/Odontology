@@ -9,7 +9,6 @@ export * from './application/embed-professional-signature.service';
 export * from './application/generate-prescription.use-case';
 export * from './application/generate-sick-leave.use-case';
 export * from './application/generate-referral.use-case';
-export * from './application/get-clinical-documents.use-case';
 
 // Infrastructure exports
 export * from './infrastructure/clinical-document.model';

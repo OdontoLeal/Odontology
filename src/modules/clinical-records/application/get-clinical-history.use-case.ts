@@ -27,6 +27,7 @@ export interface ClinicalHistoryConsultationItem {
   planManejo?: any;
   notasEvolucion: Array<{
     idEvolucion: number;
+    idNota?: number;
     tipoRegistro: string;
     procedimientoRealizado?: string;
     notaEvolucion?: string;
@@ -77,15 +78,11 @@ export class GetClinicalHistoryUseCase {
       };
     }
 
-    const todayColombiaKey = ClinicalRecordEntity.toColombiaDateKey(new Date());
     const consultationsByCita = new Map<number, ClinicalHistoryConsultationItem>();
 
     for (const row of validEvolutionRows) {
       if (!row.idCita) continue;
 
-      const fechaDate = row.fechaRegistro ? new Date(row.fechaRegistro) : new Date();
-      const isSameDay =
-        ClinicalRecordEntity.toColombiaDateKey(fechaDate) === todayColombiaKey;
 
       if (!consultationsByCita.has(row.idCita)) {
         consultationsByCita.set(row.idCita, {
@@ -185,26 +182,31 @@ export class GetClinicalHistoryUseCase {
         item.planManejo = plan;
       }
 
+      // Apertura de la consulta (quien la diligenció) y notas de evolución/aclaratorias con su autor
       item.notasEvolucion.push({
         idEvolucion: row.idEvolucion!,
-        tipoRegistro: row.evolucion?.tipoRegistro ?? 'EVOLUCION_CLINICA',
+        tipoRegistro: 'APERTURA_CONSULTA',
         procedimientoRealizado: proc ?? undefined,
-        notaEvolucion:
-          row.evolucion?.notaEvolucion ??
-          proc ??
-          hallazgos ??
-          motivo ??
-          'Atención odontológica realizada.',
-        diligenciadoPor: row.evolucion?.diligenciadoPor ?? {
-          idUsuario: 1,
-          nombreUsuario: row.profesionalResponsable ?? 'Personal Clínico',
-          idProfesionalResponsable: 1,
-          fechaHoraISO: row.fechaRegistro
-            ? new Date(row.fechaRegistro).toISOString()
-            : new Date().toISOString(),
-        },
-        editableHoy: isSameDay,
+        notaEvolucion: motivo ?? undefined,
+        diligenciadoPor: row.evolucion?.diligenciadoPor as AuthorshipMetadata,
+        editableHoy: row.estadoCita === 'En consulta',
       });
+      for (const nota of row.notas ?? []) {
+        item.notasEvolucion.push({
+          idEvolucion: row.idEvolucion!,
+          idNota: nota.idNota,
+          tipoRegistro: nota.tipo,
+          procedimientoRealizado: nota.procedimientoRealizado ?? undefined,
+          notaEvolucion: nota.texto,
+          diligenciadoPor: {
+            idUsuario: nota.diligenciadoPor.idUsuario,
+            nombreUsuario: nota.diligenciadoPor.nombreUsuario,
+            idProfesionalResponsable: row.evolucion?.diligenciadoPor?.idProfesionalResponsable ?? 0,
+            fechaHoraISO: nota.fecha,
+          } as AuthorshipMetadata,
+          editableHoy: false,
+        });
+      }
     }
 
     for (const inasistencia of inasistencias) {

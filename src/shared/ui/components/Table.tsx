@@ -26,7 +26,7 @@ export function Table<T>({
   return (
     <div className={`w-full overflow-x-auto rounded-2xl border border-[#E2E6EA] bg-white shadow-xs ${className}`}>
       <table className="w-full text-left border-collapse text-sm">
-        <thead className="bg-[#F8F9FA] text-[11px] font-extrabold uppercase tracking-wider text-[#687380] border-b border-[#E2E6EA]">
+        <thead className="bg-[#F8F9FA] text-[13px] font-extrabold uppercase tracking-wider text-[#687380] border-b border-[#E2E6EA]">
           <tr>
             {columns.map((col, idx) => (
               <th key={idx} scope="col" className={`px-4 py-3.5 ${col.className || ''}`}>

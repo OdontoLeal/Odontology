@@ -8,7 +8,6 @@ export interface GetPatientProfileInput {
   idPaciente?: number;
   documento?: string;
   requesterRoles?: string[];
-  hasActiveConsultationWithPatient?: boolean;
 }
 
 export interface PatientProfileOutput extends PatientProfileRecord {
@@ -16,7 +15,6 @@ export interface PatientProfileOutput extends PatientProfileRecord {
   opcionesClinicasVisibles: {
     historiaClinica: boolean;
     consentimientosInformados: boolean;
-    documentosClinicos: boolean;
   };
 }
 
@@ -47,19 +45,14 @@ export class GetPatientProfileUseCase {
       );
     }
 
-    // Regla de Negocio 5 y RF-HCL-004:
-    // ROL-ODO y ROL-ESP ven siempre las 3 opciones clínicas en la ficha.
-    // ROL-AUX solo accede durante una cita "En consulta" de ese paciente.
+    // RF-HCL-004 v1.3 y Regla de Negocio 4: dos opciones clínicas en la ficha.
+    // - "Historia clínica" (RF-HCL-008): solo ROL-ODO y ROL-ESP.
+    // - "Consentimientos informados" (RF-CON-001, RF-CON-003): ROL-ODO, ROL-ESP y
+    //   ROL-AUX (que toma consentimientos desde la ficha de cualquier paciente).
     // ROL-COA y ROL-ADM (por sí solo) no ven opciones clínicas.
     const roles = input.requesterRoles ?? [];
-    const isProfessional =
-      roles.includes('ROL-ODO') || roles.includes('ROL-ESP');
-    const isAuxInActiveConsultation =
-      roles.includes('ROL-AUX') &&
-      Boolean(input.hasActiveConsultationWithPatient);
-
-    const canAccessClinicalTabs =
-      isProfessional || isAuxInActiveConsultation;
+    const isProfessional = roles.includes('ROL-ODO') || roles.includes('ROL-ESP');
+    const isAux = roles.includes('ROL-AUX');
 
     return {
       ...profile,
@@ -68,9 +61,8 @@ export class GetPatientProfileUseCase {
           ? 'El paciente no tiene citas registradas'
           : null,
       opcionesClinicasVisibles: {
-        historiaClinica: canAccessClinicalTabs,
-        consentimientosInformados: canAccessClinicalTabs,
-        documentosClinicos: canAccessClinicalTabs,
+        historiaClinica: isProfessional,
+        consentimientosInformados: isProfessional || isAux,
       },
     };
   }

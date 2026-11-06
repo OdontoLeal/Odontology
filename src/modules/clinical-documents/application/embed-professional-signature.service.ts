@@ -39,11 +39,13 @@ export interface PdfGenerationPayload {
 }
 
 export interface IPdfFlattenPort {
-  renderAndFlattenClinicalPdf(payload: PdfGenerationPayload): Promise<{ archivoPdfUrl: string }>;
+  renderAndFlattenClinicalPdf(payload: PdfGenerationPayload): Promise<{ pdfBytes: Uint8Array; nombreArchivo: string }>;
 }
 
 export interface EmbeddedSignatureResult {
-  archivoPdfUrl: string;
+  /** PDF generado en memoria (no se guarda en el servidor, RF-DOC-001 a 004). */
+  pdfBytes: Uint8Array;
+  nombreArchivo: string;
   modoFirmaAplicado: ModoFirmaDocumento;
   firmaFusionada: boolean;
   aviso?: string;
@@ -113,7 +115,6 @@ export class EmbedProfessionalSignatureService {
     pacienteEdad: number;
     detalles: ClinicalDocumentDetails;
     modoFirma?: ModoFirmaDocumento;
-    archivoPdfUrlPreexistente?: string;
     ahora?: Date;
   }): Promise<EmbeddedSignatureResult> {
     const fechaActual = params.ahora ?? new Date();
@@ -165,27 +166,17 @@ export class EmbedProfessionalSignatureService {
       horaExpedicionColombia: hora12h,
     };
 
-    let archivoPdfUrl = params.archivoPdfUrlPreexistente?.trim() || '';
-
-    if (this.pdfFlattenPort) {
-      const generado = await this.pdfFlattenPort.renderAndFlattenClinicalPdf(pdfPayload);
-      archivoPdfUrl = generado.archivoPdfUrl;
-    } else if (!archivoPdfUrl) {
-      try {
-        const generated = await ClinicalDocumentPdfGeneratorService.generate({
+    const generado = this.pdfFlattenPort
+      ? await this.pdfFlattenPort.renderAndFlattenClinicalPdf(pdfPayload)
+      : await ClinicalDocumentPdfGeneratorService.generate({
           ...pdfPayload,
           idPaciente: params.contexto.paciente.idPaciente,
           idCita: params.contexto.cita.idCita,
         });
-        archivoPdfUrl = generated.archivoPdfUrl;
-      } catch {
-        const slugTipo = params.tipoDocumento.toLowerCase().replace(/_/g, '-');
-        archivoPdfUrl = `/storage/clinical-documents/${params.contexto.paciente.idPaciente}/cita-${params.contexto.cita.idCita}-${slugTipo}-${Date.now()}-flattened.pdf`;
-      }
-    }
 
     return {
-      archivoPdfUrl,
+      pdfBytes: generado.pdfBytes,
+      nombreArchivo: generado.nombreArchivo,
       modoFirmaAplicado: firmaFusionada ? 'CON_FIRMA_REGISTRADA' : 'FIRMA_MANUSCRITA',
       firmaFusionada,
       aviso,

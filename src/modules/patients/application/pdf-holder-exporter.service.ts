@@ -1,3 +1,4 @@
+import { formatColombiaDate, formatColombiaTime } from '../../../shared/domain/colombia-format';
 import { PDFDocument, StandardFonts, rgb, RGB } from 'pdf-lib';
 import { HolderDataRecord } from '../domain/patient.repository.interface';
 import { IPdfHolderExporterPort } from './export-holder-data.use-case';
@@ -173,12 +174,10 @@ export class PdfHolderExporterService implements IPdfHolderExporterPort {
 
     // SECTION 1: IDENTIFICACIÓN DEL TITULAR
     const paciente = data.calidades.comoPaciente;
-    const acudientes = data.calidades.comoAcudiente || [];
     const solicitantes = data.calidades.comoSolicitante || [];
 
     const titularNombre =
       paciente?.nombreCompleto ||
-      acudientes[0]?.nombreAcudiente ||
       solicitantes[0]?.nombreSolicitante ||
       `Titular Documento ${data.documentoConsultado}`;
 
@@ -219,7 +218,7 @@ export class PdfHolderExporterService implements IPdfHolderExporterPort {
     });
 
     page.drawText(
-      this.clean(`Teléfono: ${paciente?.telefono || acudientes[0]?.telefonoAcudiente || 'No registrado'}`),
+      this.clean(`Teléfono: ${paciente?.telefono || solicitantes[0]?.telefonoSolicitante || 'No registrado'}`),
       {
         x: 62,
         y: y - 30,
@@ -240,7 +239,7 @@ export class PdfHolderExporterService implements IPdfHolderExporterPort {
       }
     );
 
-    page.drawText(this.clean(`Fecha Nacimiento: ${paciente?.fechaNacimiento || 'N/A'}`), {
+    page.drawText(this.clean(`Fecha Nacimiento: ${paciente?.fechaNacimiento ? formatColombiaDate(paciente.fechaNacimiento) : 'N/A'}`), {
       x: 62,
       y: y - 44,
       size: 7.5,
@@ -272,13 +271,6 @@ export class PdfHolderExporterService implements IPdfHolderExporterPort {
     const calidadesLines: string[] = [];
     if (paciente) {
       calidadesLines.push(`- Como Paciente: Registrado en la base clínica del consultorio bajo ID #${paciente.idPaciente}.`);
-    }
-    if (acudientes.length > 0) {
-      acudientes.forEach((ac) => {
-        calidadesLines.push(
-          `- Como Acudiente/Representante Legal: Del menor ${ac.nombreMenorRepresentado} (Parentesco: ${ac.parentescoConMenor}).`
-        );
-      });
     }
     if (solicitantes.length > 0) {
       calidadesLines.push(
@@ -329,10 +321,15 @@ export class PdfHolderExporterService implements IPdfHolderExporterPort {
     if (autorizaciones.length > 0) {
       autorizaciones.forEach((aut) => {
         checkPageBreak(14);
-        const fStr = aut.fechaHora ? String(aut.fechaHora).split('T')[0] : 'Vigente';
+        const [fecha, hora] = String(aut.fechaHora || '').split(' ');
+        const fStr = fecha ? `${formatColombiaDate(fecha)}${hora ? ` ${formatColombiaTime(hora)}` : ''}` : 'Sin fecha';
+        const origen =
+          aut.tipo === 'CONSENTIMIENTO_FIRMADO'
+            ? `Firmada${aut.firmadoPorAcudiente ? ' por acudiente' : ''}`
+            : 'Aceptada en solicitud web (firma pendiente en consultorio)';
         page.drawText(
           this.clean(
-            `* Calidad: ${aut.calidad}  |  Aviso: ${aut.versionAvisoPrivacidad}  |  Medio: ${aut.medio}  |  Fecha: ${fStr}`
+            `* ${aut.plantilla} v${aut.versionPlantilla ?? '-'}  |  ${origen}  |  Fecha: ${fStr}`
           ),
           {
             x: 62,
@@ -346,7 +343,7 @@ export class PdfHolderExporterService implements IPdfHolderExporterPort {
       });
     } else {
       page.drawText(
-        this.clean('* Autorización otorgada conforme a los términos y políticas generales del consultorio.'),
+        this.clean('* No hay autorizaciones firmadas ni aceptadas registradas para este titular.'),
         {
           x: 62,
           y: y,
@@ -397,7 +394,8 @@ export class PdfHolderExporterService implements IPdfHolderExporterPort {
     if (citas.length > 0) {
       citas.slice(0, 10).forEach((c) => {
         checkPageBreak(14);
-        const f = c.fechaHora ? String(c.fechaHora).split('T')[0] : 'Fecha no especificada';
+        const [cf, ch] = String(c.fechaHora || '').split(' ');
+        const f = cf ? `${formatColombiaDate(cf)}${ch ? ` ${formatColombiaTime(ch)}` : ''}` : 'Fecha no especificada';
         page.drawText(
           this.clean(`- Cita #${c.idCita}: ${f}  -  Estado: ${c.estado}  -  Profesional: ${c.profesional}`),
           {

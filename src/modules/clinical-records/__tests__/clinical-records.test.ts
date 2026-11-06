@@ -9,7 +9,6 @@ import {
   ClinicalRecordEntity,
 } from '../domain/clinical-record.entity';
 import { OdontogramEntity } from '../domain/odontogram.entity';
-import { EvolutionNoteEntity } from '../domain/evolution-note.entity';
 import {
   ClinicalHistoryRow,
   EvolutionRecordRow,
@@ -17,14 +16,15 @@ import {
 } from '../domain/clinical-record.repository.interface';
 import {
   ClinicalEvolutionPayload,
+  ClinicalWriteActor,
   CreateEvolutionEntryDTO,
+  NotaEvolucionRow,
   OdontogramDataDTO,
 } from '../infrastructure/clinical-record.model';
 import { CreateClinicalRecordUseCase } from '../application/create-clinical-record.use-case';
-import { UpdateClinicalRecordUseCase } from '../application/update-clinical-record.use-case';
 import { ManageOdontogramUseCase } from '../application/manage-odontogram.use-case';
 import { GetClinicalHistoryUseCase } from '../application/get-clinical-history.use-case';
-import { RegisterEvolutionUseCase } from '../application/register-evolution.use-case';
+import { ClinicalAccessPolicy } from '../application/clinical-access.policy';
 import { ClinicalRecordsModulePublicApi } from '../index';
 import { ClinicalCatalogsRepository } from '../infrastructure/catalogs.repository';
 
@@ -34,6 +34,9 @@ class InMemoryClinicalRecordRepository implements IClinicalRecordRepository {
   public historiaIdSeq = 100;
   public evolucionIdSeq = 1;
   public pacienteHistoriaMap: Map<number, number> = new Map();
+  /** Estado de cada cita (por defecto En consulta). */
+  public citaEstado: Map<number, string> = new Map();
+  public notas: Map<number, NotaEvolucionRow[]> = new Map();
 
   async createEvolutionEntry(dto: CreateEvolutionEntryDTO): Promise<EvolutionRecordRow> {
     if (!this.pacienteHistoriaMap.has(dto.idPaciente)) {
@@ -107,33 +110,35 @@ class InMemoryClinicalRecordRepository implements IClinicalRecordRepository {
     return row;
   }
 
-  async updateEvolutionEntrySameDay(
+  async updateEvolutionEntry(
     idEvolucion: number,
-    nuevoPayload: ClinicalEvolutionPayload | Partial<EvolutionRecordRow>
+    nuevoPayload: ClinicalEvolutionPayload | Partial<EvolutionRecordRow>,
+    actor?: ClinicalWriteActor
   ): Promise<EvolutionRecordRow> {
     const existing = this.evoluciones.get(idEvolucion);
-    if (!existing) {
-      throw new Error('Registro de evolución no encontrado.');
+    if (!existing) throw new Error('Registro de evolución no encontrado.');
+    // RF-HCL-006 (v1.3): solo mientras la cita está En consulta
+    if ((this.citaEstado.get(existing.idCita) ?? 'En consulta') !== 'En consulta') {
+      throw new ClinicalDomainError('La historia clínica de una consulta finalizada es de solo lectura.', 'FORBIDDEN');
     }
-
-    const rowDate = new Date(existing.fecha);
-    const todayColombiaKey = ClinicalRecordEntity.toColombiaDateKey(new Date());
-    const rowColombiaKey = ClinicalRecordEntity.toColombiaDateKey(rowDate);
-
-    if (todayColombiaKey !== rowColombiaKey) {
-      throw new Error('La historia clínica solo se puede editar el día en que fue creada');
-    }
-
     const p = nuevoPayload as any;
-    if (p.motivoConsulta) existing.motivoConsulta = p.motivoConsulta;
-    if (p.enfermedadActual) existing.enfermedadActual = p.enfermedadActual;
-    if (p.antecedentes || p.antecedentesClinicos) existing.antecedentesClinicos = p.antecedentesClinicos ?? p.antecedentes;
+    if (actor?.esProfesionalResponsable !== false && p.motivoConsulta) existing.motivoConsulta = p.motivoConsulta;
     if (p.odontograma) existing.odontograma = p.odontograma;
-    if (p.procedimientoRealizado) existing.procedimientoRealizado = p.procedimientoRealizado;
-    if (p.diagnostico || p.diagnosticoGenerado) existing.diagnosticoGenerado = p.diagnosticoGenerado ?? p.diagnostico;
-    if (p.observaciones || p.hallazgosObservaciones) existing.hallazgosObservaciones = p.hallazgosObservaciones ?? p.observaciones;
-    existing.evolucion = structuredClone(p);
+    existing.evolucion = { ...existing.evolucion, ...structuredClone(p) };
     return existing;
+  }
+
+  async addClarificationNote(idEvolucion: number, texto: string, actor: ClinicalWriteActor): Promise<NotaEvolucionRow> {
+    const nota: NotaEvolucionRow = {
+      idNota: Date.now(),
+      tipo: 'NOTA_ACLARATORIA',
+      procedimientoRealizado: null,
+      texto,
+      fecha: new Date().toISOString(),
+      diligenciadoPor: { idUsuario: actor.idUsuario, nombreUsuario: actor.nombreUsuario },
+    };
+    this.notas.set(idEvolucion, [...(this.notas.get(idEvolucion) ?? []), nota]);
+    return nota;
   }
 
   async getClinicalHistoryByPatient(idPaciente: number): Promise<ClinicalHistoryRow[]> {
@@ -167,6 +172,7 @@ class InMemoryClinicalRecordRepository implements IClinicalRecordRepository {
           hallazgosObservaciones: evo.hallazgosObservaciones,
           planManejo: evo.planManejo,
           evolucion: evo.evolucion,
+          notas: this.notas.get(evo.idEvolucion) ?? [],
         });
       }
     }
@@ -369,11 +375,8 @@ describe('MÓDULO C (Parte 2): Historia Clínica, Odontograma y Evolución (RF-H
     );
   });
 
-  it('RF-HCL-006: Edición permitida el mismo día y bloqueada después de las 23:59 UTC-5 (Regla 6 y 8)', async () => {
-    const createUseCase = new CreateClinicalRecordUseCase(repo);
-    const updateUseCase = new UpdateClinicalRecordUseCase(repo);
-
-    const entry = await createUseCase.execute({
+  it('RF-HCL-006 (v1.3): Se edita solo mientras la cita está En consulta y nunca se elimina', async () => {
+    const entry = await new CreateClinicalRecordUseCase(repo).execute({
       idPaciente: 102,
       idCita: 601,
       estadoCita: 'En consulta',
@@ -382,42 +385,29 @@ describe('MÓDULO C (Parte 2): Historia Clínica, Odontograma y Evolución (RF-H
       motivoConsulta: 'Sensibilidad al frío',
       marcarTodoNoAplica: true,
     });
+    const cita = { idCita: 601, idPaciente: 102, idProfesional: DR_LEAL.idUsuario, nombreProfesional: 'Dr. Leal', estado: 'En consulta' };
+    const leal: any = { idUsuario: DR_LEAL.idUsuario, correo: 'leal@x.co', nombreCompleto: DR_LEAL.nombreUsuario, roles: DR_LEAL.roles, permisos: ['RF-HCL-005', 'RF-HCL-006', 'RF-HCL-008', 'RF-HCL-009'] };
+    const diaz: any = { idUsuario: DRA_DIAZ.idUsuario, correo: 'diaz@x.co', nombreCompleto: DRA_DIAZ.nombreUsuario, roles: DRA_DIAZ.roles, permisos: ['RF-HCL-005', 'RF-HCL-006'] };
 
-    // Edición exitosa el mismo día por el profesional responsable
-    const updated = await updateUseCase.execute({
-      idPaciente: 102,
-      idEvolucion: entry.idEvolucion,
-      actor: DR_LEAL,
-      motivoConsulta: 'Sensibilidad al frío corregida: dolor al masticar',
-    });
+    // El profesional responsable edita mientras la cita está En consulta
+    const writer = ClinicalAccessPolicy.resolveWriter(leal, cita);
+    const updated = await repo.updateEvolutionEntry(entry.idEvolucion, { motivoConsulta: 'Dolor al masticar' } as any, writer);
+    assert.strictEqual(updated.motivoConsulta, 'Dolor al masticar');
 
-    assert.strictEqual(updated.evolucion.motivoConsulta, 'Sensibilidad al frío corregida: dolor al masticar');
+    // Otro profesional no edita la historia de una cita ajena (Regla de Negocio 4)
+    assert.throws(() => ClinicalAccessPolicy.resolveWriter(diaz, cita), /No tiene permiso para realizar esta acción/);
 
-    // Intento de edición por otro profesional -> Rechazado (Regla 5)
+    // Finalizada la cita, queda en solo lectura (incluso por petición directa)
+    assert.throws(() => ClinicalAccessPolicy.resolveWriter(leal, { ...cita, estado: 'Atendida' }), /En consulta/);
+    repo.citaEstado.set(601, 'Atendida');
     await assert.rejects(
-      async () => {
-        await updateUseCase.execute({
-          idPaciente: 102,
-          idEvolucion: entry.idEvolucion,
-          actor: DRA_DIAZ,
-          motivoConsulta: 'Intento de edición por profesional no asignado',
-        });
-      },
-      /No tiene permiso para realizar esta acción/
+      () => repo.updateEvolutionEntry(entry.idEvolucion, { motivoConsulta: 'X' } as any, writer),
+      /solo lectura/
     );
 
-    // Intento de eliminación -> Prohibido por Ley 1995 y Regla 8
+    // Ninguna historia se elimina (Regla de Negocio 7)
     assert.throws(
-      () => {
-        const entity = new ClinicalRecordEntity(
-          102,
-          601,
-          'Test',
-          {},
-          entry.evolucion.diligenciadoPor
-        );
-        entity.delete();
-      },
+      () => new ClinicalRecordEntity(102, 601, 'Test', {}, entry.evolucion.diligenciadoPor).delete(),
       /Ninguna historia clínica guardada ni sus anexos pueden ser eliminados/
     );
   });
@@ -503,41 +493,34 @@ describe('MÓDULO C (Parte 2): Historia Clínica, Odontograma y Evolución (RF-H
     assert.strictEqual(historyResult.historial[1].motivoConsulta, 'Consulta 1: Caries');
   });
 
-  it('RF-HCL-009: Registrar evolución con plantillas bloqueadas y Notas Aclaratorias post-cierre', async () => {
-    const evoUseCase = new RegisterEvolutionUseCase(repo);
-
-    // Registro con plantilla de operatoria
-    const evoEntry = await evoUseCase.execute({
+  it('RF-HCL-009 (v1.3): La auxiliar registra notas con su nombre y las correcciones posteriores son notas aclaratorias', async () => {
+    const entry = await new CreateClinicalRecordUseCase(repo).execute({
       idPaciente: 105,
       idCita: 901,
       estadoCita: 'En consulta',
       idProfesionalResponsable: DR_LEAL.idUsuario,
       actor: DR_LEAL,
-      procedimientoRealizado: 'Restauración oclusal con resina',
-      plantillaCodigo: 'operatoria',
-      camposPlantilla: {
-        diente: '16',
-        superficie: 'oclusal',
-        lesion: 'caries cavitada esmalte y dentina',
-      },
+      motivoConsulta: 'Control de resina',
+      marcarTodoNoAplica: true,
     });
+    const cita = { idCita: 901, idPaciente: 105, idProfesional: DR_LEAL.idUsuario, nombreProfesional: 'Dr. Leal', estado: 'En consulta' };
+    const aux: any = { idUsuario: AUX_MILENA.idUsuario, correo: 'milena@x.co', nombreCompleto: AUX_MILENA.nombreUsuario, roles: ['ROL-AUX'], permisos: ['RF-HCL-007', 'RF-HCL-009'] };
+    const leal: any = { idUsuario: DR_LEAL.idUsuario, correo: 'leal@x.co', nombreCompleto: DR_LEAL.nombreUsuario, roles: DR_LEAL.roles, permisos: ['RF-HCL-005', 'RF-HCL-006', 'RF-HCL-008', 'RF-HCL-009'] };
 
-    assert.ok(evoEntry.evolucion.notaEvolucion?.includes('[PLANTILLA OPERATORIA - TEXTO BLOQUEADO]'));
-    assert.ok(evoEntry.evolucion.notaEvolucion?.includes('diente 16'));
+    // La auxiliar escribe como apoyo (no como responsable): no puede cambiar la apertura
+    const auxWriter = ClinicalAccessPolicy.resolveWriter(aux, cita);
+    assert.strictEqual(auxWriter.esProfesionalResponsable, false);
+    // No puede tomar notas aclaratorias ni ver el historial completo
+    assert.throws(() => ClinicalAccessPolicy.resolveClarificationAuthor(aux, { ...cita, estado: 'Atendida' }), /No tiene permiso/);
+    assert.throws(() => ClinicalAccessPolicy.assertCanViewHistory(aux), /No tiene permiso/);
 
-    // Registro de Nota Aclaratoria
-    const aclaratoria = await evoUseCase.execute({
-      idPaciente: 105,
-      idCita: 901,
-      estadoCita: 'Atendida',
-      idProfesionalResponsable: DR_LEAL.idUsuario,
-      actor: DR_LEAL,
-      esNotaAclaratoria: true,
-      procedimientoRealizado: 'Nota aclaratoria posterior a la consulta',
-      notaEvolucionTextoLibre: 'Se aclara que se aplicó protector dentinopulpar previo al grabado.',
-    });
-
-    assert.strictEqual(aclaratoria.evolucion.tipoRegistro, 'NOTA_ACLARATORIA');
+    // Después del cierre, el profesional agrega una nota aclaratoria que aparece en el historial
+    const autor = ClinicalAccessPolicy.resolveClarificationAuthor(leal, { ...cita, estado: 'Atendida' });
+    await repo.addClarificationNote(entry.idEvolucion, 'Se aplicó protector dentinopulpar.', autor);
+    const history = await new GetClinicalHistoryUseCase(repo).execute({ idPaciente: 105, actor: DR_LEAL });
+    const nota = history.historial[0].notasEvolucion.find((n) => n.tipoRegistro === 'NOTA_ACLARATORIA');
+    assert.ok(nota);
+    assert.strictEqual(nota!.diligenciadoPor.nombreUsuario, 'Dr. Eduar Leal Álvarez');
   });
 
   it('ClinicalRecordsModulePublicApi: Integración bidireccional con Appointments (IClinicalRecordCheckerPort)', async () => {

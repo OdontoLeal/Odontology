@@ -3,9 +3,27 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '../../../../shared/ui/components/Button';
 import { useAlertModal } from '../../../../shared/ui/hooks/useAlertModal';
 import {
+  DetailAction,
+  DetailPageContainer,
+  DetailPageHeader,
+  EmptyState,
+  InfoIcons,
+  InfoItem,
+  SECTION_CARD_CLASS,
+  SectionCardHeader,
+  StatusBadge,
+  UserAvatar,
+} from '../../../../shared/ui/components/DetailPage';
+import {
+  formatDateTimeCO,
+  formatLongDateCO,
+  formatTimeCO,
+} from '../../../../shared/ui/format';
+import {
   ClockIcon,
   FileTextIcon,
   UserIcon,
+  StethoscopeIcon,
 } from '../../../../shared/ui/components/Icons';
 
 export interface RequestDetailData {
@@ -68,8 +86,14 @@ export const AppointmentRequestDetailPage: React.FC<AppointmentRequestDetailPage
   const [motivoRechazo, setMotivoRechazo] = useState('');
   const [selectedDoctorId, setSelectedDoctorId] = useState<number>(() => {
     if (doctors.length > 0) return doctors[0].idUsuario;
-    return 101; // Dr. Mateo Gómez
+    return 0;
   });
+
+  useEffect(() => {
+    if (doctors.length > 0 && (!selectedDoctorId || !doctors.some((d) => d.idUsuario === selectedDoctorId))) {
+      setSelectedDoctorId(doctors[0].idUsuario);
+    }
+  }, [doctors, selectedDoctorId]);
   const [tituloCita, setTituloCita] = useState(request.motivoConsulta || 'Valoración Odontológica');
   const [isProcessing, setIsProcessing] = useState(false);
   const { showAlert, AlertModalComponent } = useAlertModal();
@@ -80,22 +104,8 @@ export const AppointmentRequestDetailPage: React.FC<AppointmentRequestDetailPage
   const [isLoadingSlots, setIsLoadingSlots] = useState(false);
 
   // Formateo de fecha en español (ej. Jueves 29 de Octubre de 2026)
-  const formatSpanishDate = (dateStr: string) => {
-    if (!dateStr) return 'Fecha por confirmar';
-    try {
-      const cleanDate = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr.split(' ')[0];
-      const [year, month, day] = cleanDate.split('-').map(Number);
-      const d = new Date(year, month - 1, day);
-      const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-      const months = [
-        'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-        'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
-      ];
-      return `${days[d.getDay()]} ${day} de ${months[d.getMonth()]} de ${year}`;
-    } catch {
-      return dateStr;
-    }
-  };
+  const formatSpanishDate = (dateStr: string) =>
+    dateStr ? formatLongDateCO(dateStr) : 'Fecha por confirmar';
 
   // Cargar bloques de la base de datos para la fecha solicitada
   useEffect(() => {
@@ -231,13 +241,6 @@ export const AppointmentRequestDetailPage: React.FC<AppointmentRequestDetailPage
       ? `${selectedCount} bloques continuos seleccionados`
       : '1 bloque seleccionado';
 
-  // Cálculo de iniciales
-  const getInitials = (name: string) => {
-    if (!name) return 'P';
-    const parts = name.trim().split(' ');
-    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-  };
 
   // Formateo de DNI con puntos: 1025884320 -> 1.025.884.320
   const formatDni = (dni: string) => {
@@ -262,6 +265,14 @@ export const AppointmentRequestDetailPage: React.FC<AppointmentRequestDetailPage
 
   // Manejador de confirmación con elemento de carga explícito
   const handleApproveClick = async () => {
+    if (!selectedDoctorId || selectedDoctorId === 0) {
+      showAlert({
+        title: 'Profesional Requerido',
+        message: 'Debe seleccionar un profesional odontológico para asignar la cita.',
+        type: 'warning',
+      });
+      return;
+    }
     if (selectedBlockStarts.length === 0) {
       showAlert({
         title: 'Horario Requerido',
@@ -285,7 +296,7 @@ export const AppointmentRequestDetailPage: React.FC<AppointmentRequestDetailPage
   };
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto p-4 sm:p-6 lg:p-8 animate-fadeIn relative">
+    <DetailPageContainer className="relative space-y-6">
       <AlertModalComponent />
 
       {/* Modal / Overlay de Procesamiento de Solicitud */}
@@ -299,12 +310,12 @@ export const AppointmentRequestDetailPage: React.FC<AppointmentRequestDetailPage
               </svg>
             </div>
             <div className="space-y-1">
-              <h3 className="text-base font-extrabold text-[#1E242B]">Confirmando Cita Médica</h3>
+              <h3 className="text-[16px] font-bold leading-6 text-[#1E242B]">Confirmando Cita Médica</h3>
               <p className="text-xs text-[#687380] leading-relaxed">
                 Estamos registrando la cita en la base de datos, ocupando los bloques seleccionados y enviando las confirmaciones por correo electrónico al paciente y al doctor...
               </p>
             </div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#F3F4F6] text-[11px] font-semibold text-[#8F99A3]">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#F3F4F6] text-[13px] font-semibold text-[#8F99A3]">
               <span className="h-2 w-2 rounded-full bg-[#D4AF37] animate-pulse"></span>
               Por favor espere un momento
             </div>
@@ -312,99 +323,43 @@ export const AppointmentRequestDetailPage: React.FC<AppointmentRequestDetailPage
         </div>
       )}
 
-      {/* Botón Superior: Volver */}
-      <div>
-        <button
-          type="button"
-          onClick={onBack}
-          disabled={isProcessing}
-          className="inline-flex items-center gap-2 text-xs font-bold text-[#687380] hover:text-[#1E242B] transition-colors cursor-pointer disabled:opacity-50"
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-          </svg>
-          Volver a Solicitudes de Citas
-        </button>
-      </div>
-
-      {/* Cabecera Principal con Acciones */}
-      <div className="rounded-3xl border border-[#E2E6EA] bg-white p-6 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div className="h-12 w-12 rounded-2xl bg-[#EFF6FF] border border-[#BFDBFE] text-[#2563EB] flex items-center justify-center shrink-0">
-            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-          </div>
-          <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-xl sm:text-2xl font-extrabold text-[#1E242B]">
-                Detalle de Solicitud de Cita
-              </h1>
-              <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-semibold bg-[#EFF6FF] text-[#2563EB] border border-[#BFDBFE]">
-                <span className="h-1.5 w-1.5 rounded-full bg-[#2563EB]"></span>
-                Pendiente de Aprobación
-              </span>
-            </div>
-            <p className="mt-1 text-xs sm:text-sm text-[#687380]">
-              Revisa la información enviada por el paciente y confirma o rechaza la reserva en la agenda médica.
-            </p>
-          </div>
-        </div>
-
-        {/* Botones de Acción */}
-        <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
-          <button
-            type="button"
-            onClick={() => setIsRejectModalOpen(true)}
-            disabled={isLoading || isProcessing}
-            className="px-4 py-2.5 rounded-xl border border-[#FCA5A5] text-[#DC2626] bg-white hover:bg-[#FEF2F2] text-xs font-bold transition-colors inline-flex items-center gap-1.5 shadow-2xs cursor-pointer disabled:opacity-50"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
-            </svg>
-            Rechazar Solicitud
-          </button>
-
-          <button
-            type="button"
-            onClick={handleApproveClick}
-            disabled={isLoading || isProcessing || selectedBlockStarts.length === 0}
-            className="px-5 py-2.5 rounded-xl bg-[#D4AF37] hover:bg-[#C29E2F] text-black text-xs font-extrabold transition-all shadow-xs inline-flex items-center gap-2 cursor-pointer disabled:opacity-50"
-          >
-            {isProcessing ? (
-              <>
-                <svg className="w-4 h-4 animate-spin text-black" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                <span>Creando cita...</span>
-              </>
-            ) : (
-              <>
-                <svg className="w-4 h-4 stroke-[2.5]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
-                <span>Crear cita</span>
-              </>
-            )}
-          </button>
-        </div>
-      </div>
+      <DetailPageHeader
+        backLabel="Volver a la Agenda"
+        onBack={isProcessing ? undefined : onBack}
+        title="Detalle de Solicitud de Cita"
+        badge={<StatusBadge tone="info">Pendiente de aprobación</StatusBadge>}
+        subtitle="Revisa la información enviada por el paciente y confirma o rechaza la reserva en la agenda médica."
+        actions={
+          <>
+            <DetailAction
+              variant="danger"
+              onClick={() => setIsRejectModalOpen(true)}
+              disabled={isLoading || isProcessing}
+            >
+              Rechazar solicitud
+            </DetailAction>
+            <DetailAction
+              variant="primary"
+              onClick={handleApproveClick}
+              disabled={isLoading || isProcessing || selectedBlockStarts.length === 0 || !selectedDoctorId}
+            >
+              {isProcessing ? 'Creando cita...' : 'Crear cita'}
+            </DetailAction>
+          </>
+        }
+      />
 
       {/* Grid de 2 Columnas Principal */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      <div className="grid grid-cols-[minmax(0,1fr)] lg:grid-cols-12 gap-6 items-start">
         {/* Columna Izquierda (6 cols): Información Solicitada, Motivo y Asignación de Profesional */}
-        <div className="lg:col-span-6 space-y-6">
+        <div className="min-w-0 lg:col-span-6 space-y-6">
           {/* Card 1: Fecha y Horario Solicitado Originalmente */}
-          <div className="rounded-3xl border border-[#E2E6EA] bg-white p-6 shadow-xs space-y-4">
-            <div className="flex items-center gap-2 text-sm font-extrabold text-[#1E242B]">
-              <ClockIcon size={16} color="#D4AF37" />
-              <h3>Fecha y Horario Solicitado por el Paciente</h3>
-            </div>
+          <div className={SECTION_CARD_CLASS}>
+            <SectionCardHeader title="Fecha y Horario Solicitados" icon={<ClockIcon />} />
 
-            <div className="rounded-2xl border border-[#E2E6EA] bg-[#F8F9FA] p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="rounded-lg bg-[#F8FAFC] p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div>
-                <span className="text-[11px] font-extrabold uppercase text-[#8F99A3] tracking-wider flex items-center gap-1.5">
+                <span className="text-[13px] font-extrabold uppercase text-[#8F99A3] tracking-wider flex items-center gap-1.5">
                   <svg className="w-3.5 h-3.5 text-[#D4AF37]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                   </svg>
@@ -416,27 +371,24 @@ export const AppointmentRequestDetailPage: React.FC<AppointmentRequestDetailPage
               </div>
 
               <div className="sm:text-right">
-                <span className="text-[11px] font-extrabold uppercase text-[#8F99A3] tracking-wider flex items-center sm:justify-end gap-1.5">
+                <span className="text-[13px] font-extrabold uppercase text-[#8F99A3] tracking-wider flex items-center sm:justify-end gap-1.5">
                   <svg className="w-3.5 h-3.5 text-[#D4AF37]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                   Hora Solicitada
                 </span>
                 <p className="mt-1 text-base font-extrabold text-[#1E242B]">
-                  {request.horaSolicitada}
+                  {formatTimeCO(request.horaSolicitada)}
                 </p>
               </div>
             </div>
           </div>
 
           {/* Card 2: Motivo de Consulta Registrado */}
-          <div className="rounded-3xl border border-[#E2E6EA] bg-white p-6 shadow-xs space-y-4">
-            <div className="flex items-center gap-2 text-sm font-extrabold text-[#1E242B]">
-              <FileTextIcon size={16} color="#D4AF37" />
-              <h3>Motivo de Consulta Registrado</h3>
-            </div>
+          <div className={SECTION_CARD_CLASS}>
+            <SectionCardHeader title="Motivo de Consulta Registrado" icon={<FileTextIcon />} />
 
-            <div className="rounded-2xl border border-[#E2E6EA] bg-[#F8F9FA] p-5 space-y-3">
+            <div className="rounded-lg bg-[#F8FAFC] p-4 space-y-3">
               <p className="text-sm italic text-[#374151] font-medium leading-relaxed">
                 "{request.motivoConsulta}"
               </p>
@@ -445,18 +397,16 @@ export const AppointmentRequestDetailPage: React.FC<AppointmentRequestDetailPage
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 <span>
-                  Registrado vía formulario web de solicitud el 24 de Octubre de 2026 a las 09:15 AM
+                  Registrado vía formulario web de solicitud
+                  {request.fechaSolicitud ? ` el ${formatDateTimeCO(request.fechaSolicitud)}` : ''}
                 </span>
               </div>
             </div>
           </div>
 
           {/* Card 3: Asignación de Profesional y Detalles de la Cita */}
-          <div className="rounded-3xl border border-[#E2E6EA] bg-white p-6 shadow-xs space-y-4">
-            <div className="flex items-center gap-2 text-sm font-extrabold text-[#1E242B]">
-              <span className="text-[#D4AF37]">🩺</span>
-              <h3>Asignación de Profesional y Cita Médica</h3>
-            </div>
+          <div className={SECTION_CARD_CLASS}>
+            <SectionCardHeader title="Asignación de Profesional y Cita Médica" icon={<StethoscopeIcon />} />
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
@@ -464,9 +414,10 @@ export const AppointmentRequestDetailPage: React.FC<AppointmentRequestDetailPage
                   Profesional Odontológico Asignado:
                 </label>
                 <select
-                  value={selectedDoctorId}
+                  value={selectedDoctorId || ''}
                   onChange={(e) => setSelectedDoctorId(Number(e.target.value))}
-                  className="w-full rounded-xl border border-[#E2E6EA] bg-[#F8F9FA] px-3 py-2 text-xs font-bold text-[#1E242B] focus:border-[#D4AF37] focus:bg-white focus:outline-none"
+                  disabled={doctors.length === 0}
+                  className="w-full rounded-xl border border-[#E2E6EA] bg-[#F8F9FA] px-3 py-2 text-xs font-bold text-[#1E242B] focus:border-[#D4AF37] focus:bg-white focus:outline-none disabled:opacity-60"
                 >
                   {doctors.length > 0 ? (
                     doctors.map((d) => (
@@ -475,7 +426,7 @@ export const AppointmentRequestDetailPage: React.FC<AppointmentRequestDetailPage
                       </option>
                     ))
                   ) : (
-                    <option value={101}>Dr. Mateo Gómez (Odontología General)</option>
+                    <option value="" disabled>No hay profesionales disponibles</option>
                   )}
                 </select>
               </div>
@@ -504,88 +455,54 @@ export const AppointmentRequestDetailPage: React.FC<AppointmentRequestDetailPage
                 Impacto de la confirmación
               </h4>
               <p className="text-xs text-[#78350F] leading-relaxed">
-                Al hacer click en <strong>Crear cita</strong>, se confirmará formalmente la cita en la agenda del doctor seleccionado, todos los bloques seleccionados ({startHourDisplay} a {endHourDisplay}) quedarán ocupados en la base de datos y se enviará de inmediato el correo de confirmación al <strong>paciente</strong> y la notificación al <strong>doctor</strong>.
+                Al hacer click en <strong>Crear cita</strong>, se confirmará formalmente la cita en la agenda del doctor seleccionado, todos los bloques seleccionados ({formatTimeCO(startHourDisplay)} a {formatTimeCO(endHourDisplay)}) quedarán ocupados en la base de datos y se enviará de inmediato el correo de confirmación al <strong>paciente</strong> y la notificación al <strong>doctor</strong>.
               </p>
             </div>
           </div>
         </div>
 
         {/* Columna Derecha (6 cols): Datos del Paciente arriba y Bloques Horarios Disponibles abajo */}
-        <div className="lg:col-span-6 space-y-6">
+        <div className="min-w-0 lg:col-span-6 space-y-6">
           {/* Card 1: Datos del Paciente */}
-          <div className="rounded-3xl border border-[#E2E6EA] bg-white p-6 shadow-xs space-y-5">
-            <div className="flex items-center justify-between pb-3 border-b border-[#E2E6EA]">
-              <div className="flex items-center gap-2 text-sm font-extrabold text-[#1E242B]">
-                <UserIcon size={16} color="#D4AF37" />
-                <h3>Datos del Paciente</h3>
-              </div>
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#EFF6FF] text-[#2563EB] border border-[#BFDBFE]">
-                {request.esPacienteNuevo !== false ? 'Paciente Nueva' : 'Paciente Registrado'}
-              </span>
-            </div>
+          <div className={SECTION_CARD_CLASS}>
+            <SectionCardHeader
+              title="Datos del Paciente"
+              icon={<UserIcon />}
+              action={
+                <StatusBadge tone="info">
+                  {request.esPacienteNuevo !== false ? 'Paciente nuevo' : 'Paciente registrado'}
+                </StatusBadge>
+              }
+            />
 
-            <div className="flex items-center gap-4">
-              <div className="h-14 w-14 rounded-full bg-[#111827] text-white font-extrabold text-lg flex items-center justify-center shrink-0 shadow-xs border-2 border-white">
-                {getInitials(request.nombrePaciente)}
-              </div>
-              <div>
-                <h4 className="text-base font-extrabold text-[#1E242B]">
-                  {request.nombrePaciente}
-                </h4>
-                <p className="text-xs font-medium text-[#687380] mt-0.5">
-                  DNI: {formatDni(request.documentoIdentidad)}
-                </p>
-                <div className="mt-1.5">
-                  <span className="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-[#F3F4F6] text-[#4B5563]">
-                    {request.sexo || 'Femenino'} • {request.edad || 29} años
-                  </span>
+            <div className="space-y-4">
+              <div className="flex min-w-0 items-center gap-4">
+                <UserAvatar name={request.nombrePaciente} size="md" />
+                <div className="min-w-0">
+                  <p className="text-break text-[18px] font-bold leading-6 text-[#1E242B]">
+                    {request.nombrePaciente}
+                  </p>
+                  <p className="mt-0.5 text-[14px] text-[#64748B]">
+                    Documento: {formatDni(request.documentoIdentidad)}
+                  </p>
                 </div>
               </div>
-            </div>
-
-            <div className="space-y-3 pt-3 border-t border-[#E2E6EA] text-xs">
-              <div className="flex items-center gap-3">
-                <div className="h-8 w-8 rounded-lg bg-[#F8F9FA] border border-[#E2E6EA] flex items-center justify-center text-[#687380] shrink-0">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                  </svg>
-                </div>
-                <div>
-                  <span className="block text-[10px] font-extrabold uppercase text-[#8F99A3]">
-                    Teléfono Móvil
-                  </span>
-                  <span className="font-bold text-[#1E242B]">
-                    {request.telefono || 'Sin registrar'}
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <div className="h-8 w-8 rounded-lg bg-[#F8F9FA] border border-[#E2E6EA] flex items-center justify-center text-[#687380] shrink-0">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                  </svg>
-                </div>
-                <div>
-                  <span className="block text-[10px] font-extrabold uppercase text-[#8F99A3]">
-                    Correo Electrónico
-                  </span>
-                  <span className="font-bold text-[#1E242B] break-all">
-                    {request.correo}
-                  </span>
-                </div>
-              </div>
+              <dl className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-x-6 gap-y-3 rounded-lg bg-[#F8FAFC] p-4">
+                <InfoItem icon={InfoIcons.age} label="Edad" value={request.edad ? `${request.edad} años` : null} />
+                <InfoItem icon={InfoIcons.sex} label="Sexo" value={request.sexo} />
+                <InfoItem icon={InfoIcons.phone} label="Teléfono" value={request.telefono || 'Sin registrar'} />
+                <InfoItem icon={InfoIcons.mail} label="Correo electrónico" value={request.correo} />
+              </dl>
             </div>
           </div>
 
           {/* Card 2: Bloques Horarios Disponibles (Ubicado abajo a la derecha, debajo de datos del paciente, Imagen 1) */}
-          <div className="rounded-3xl border border-[#E2E6EA] bg-white p-6 shadow-xs space-y-4">
-            <div>
-              <h3 className="text-base font-extrabold text-[#1E242B]">Bloques Horarios Disponibles</h3>
-              <p className="text-xs text-[#687380] mt-0.5">
-                Selecciona bloques continuos (1 bloque = 30 minutos)
-              </p>
-            </div>
+          <div className={SECTION_CARD_CLASS}>
+            <SectionCardHeader
+              title="Bloques Horarios Disponibles"
+              icon={<ClockIcon />}
+              description="Selecciona bloques continuos (1 bloque = 30 minutos)"
+            />
 
             {/* Banner de Resumen de Selección (Dorado, Imagen 1) */}
             <div className="rounded-2xl border border-[#D4AF37] bg-[#FEF9E7] p-4 flex items-center justify-between gap-3 shadow-2xs">
@@ -597,7 +514,7 @@ export const AppointmentRequestDetailPage: React.FC<AppointmentRequestDetailPage
                 </div>
                 <div>
                   <h4 className="text-sm font-extrabold text-[#1E242B]">
-                    {startHourDisplay} – {endHourDisplay} hrs ({durationLabel})
+                    {formatTimeCO(startHourDisplay)} – {formatTimeCO(endHourDisplay)} ({durationLabel})
                   </h4>
                   <p className="text-xs text-[#687380] font-medium mt-0.5">
                     {continuousCountLabel}
@@ -613,13 +530,11 @@ export const AppointmentRequestDetailPage: React.FC<AppointmentRequestDetailPage
 
             {/* Listado de Bloques de Horario con Scroll Interno */}
             {isLoadingSlots ? (
-              <div className="p-8 text-center text-xs text-[#8F99A3]">
-                Cargando bloques de horario desde la base de datos...
-              </div>
+              <EmptyState>Cargando bloques de horario desde la base de datos...</EmptyState>
             ) : daySlots.length === 0 ? (
-              <div className="p-8 text-center rounded-2xl border border-dashed border-[#E2E6EA] text-xs text-[#8F99A3]">
+              <EmptyState>
                 No hay bloques de horario generados para este día. Cree los bloques desde la agenda médica.
-              </div>
+              </EmptyState>
             ) : (
               <div className="max-h-72 overflow-y-auto pr-1 space-y-2">
                 {daySlots.map((slot) => {
@@ -635,7 +550,7 @@ export const AppointmentRequestDetailPage: React.FC<AppointmentRequestDetailPage
                       >
                         <div className="flex items-center gap-3">
                           <span className="h-3 w-3 rounded-full bg-[#D4AF37]"></span>
-                          <span className="text-sm font-extrabold text-[#1E242B]">{slot.label}</span>
+                          <span className="text-sm font-extrabold text-[#1E242B]">{formatTimeCO(slot.label)}</span>
                         </div>
                         <span className="text-xs font-bold text-[#1E242B]">
                           Bloque {selectedIdx + 1} Seleccionado
@@ -653,7 +568,7 @@ export const AppointmentRequestDetailPage: React.FC<AppointmentRequestDetailPage
                       >
                         <div className="flex items-center gap-3">
                           <span className="h-3 w-3 rounded-full bg-[#0284C7]"></span>
-                          <span className="text-sm font-extrabold text-[#1E242B]">{slot.label}</span>
+                          <span className="text-sm font-extrabold text-[#1E242B]">{formatTimeCO(slot.label)}</span>
                         </div>
                         <span className="px-3 py-1 rounded-full text-xs font-bold bg-[#0284C7] text-white shadow-2xs">
                           Solicitado (Pendiente)
@@ -670,7 +585,7 @@ export const AppointmentRequestDetailPage: React.FC<AppointmentRequestDetailPage
                       >
                         <div className="flex items-center gap-3 text-[#9CA3AF]">
                           <span className="h-3 w-3 rounded-full bg-[#CBD2D9]"></span>
-                          <span className="text-sm font-semibold line-through">{slot.label}</span>
+                          <span className="text-sm font-semibold line-through">{formatTimeCO(slot.label)}</span>
                         </div>
                         <span className="text-xs font-semibold text-[#8F99A3]">
                           Ocupado {slot.doctorOccupant ? `(${slot.doctorOccupant})` : ''}
@@ -688,7 +603,7 @@ export const AppointmentRequestDetailPage: React.FC<AppointmentRequestDetailPage
                     >
                       <div className="flex items-center gap-3 text-[#1E242B]">
                         <span className="h-3 w-3 rounded-full border-2 border-[#CBD2D9]"></span>
-                        <span className="text-sm font-bold">{slot.label}</span>
+                        <span className="text-sm font-bold">{formatTimeCO(slot.label)}</span>
                       </div>
                       <span className="text-xs font-medium text-[#687380]">
                         Disponible
@@ -759,6 +674,6 @@ export const AppointmentRequestDetailPage: React.FC<AppointmentRequestDetailPage
           </div>
         </div>
       )}
-    </div>
+    </DetailPageContainer>
   );
 };

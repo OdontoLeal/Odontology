@@ -7,6 +7,7 @@ export interface MonthlyDaySummaryItem {
   fecha: string;
   dia: number;
   totalCitas: number;
+  totalSolicitadas?: number;
   totalBloques: number;
   sinBloques: boolean;
 }
@@ -135,7 +136,7 @@ export function useRealtimeAgenda(apiBaseUrl = '/api/v1') {
           ? Math.max(0, Math.floor((Date.now() - new Date(r.fechaNacimiento).getTime()) / (365.25 * 24 * 60 * 60 * 1000)))
           : undefined,
         esPacienteNuevo: r.esPacienteNuevo !== false,
-        doctorAsignado: r.doctorAsignado || 'Dr. Mateo Gómez',
+        doctorAsignado: r.doctorAsignado || 'Por asignar',
       }));
       setRequests(formattedRequests);
 
@@ -204,7 +205,7 @@ export function useRealtimeAgenda(apiBaseUrl = '/api/v1') {
           // Verificar si corresponde a una solicitud pendiente
           const isPending =
             appt.estado === 'Solicitada' ||
-            appt.estado === 'Pendiente de confirmación';
+            appt.estado === 'Solicitada';
 
           unifiedSlots.push({
             idBloque: slotIndex++,
@@ -220,7 +221,7 @@ export function useRealtimeAgenda(apiBaseUrl = '/api/v1') {
             pacienteCorreo: appt.correoPaciente,
             tratamiento: appt.titulo,
             doctorNombre: appt.nombreProfesional,
-            estadoCita: isPending ? 'Pendiente de confirmación' : appt.estado,
+            estadoCita: isPending ? 'Solicitada' : appt.estado,
           });
         } else {
           // CASO B: Bloque libre o no habilitado
@@ -246,8 +247,8 @@ export function useRealtimeAgenda(apiBaseUrl = '/api/v1') {
               pacienteTelefono: matchedRequest.telefono,
               pacienteCorreo: matchedRequest.correo,
               tratamiento: matchedRequest.motivoConsulta,
-              doctorNombre: matchedRequest.doctorAsignado || 'Dr. Mateo Gómez',
-              estadoCita: 'Pendiente de confirmación',
+              doctorNombre: matchedRequest.doctorAsignado || 'Por asignar',
+              estadoCita: 'Solicitada',
             });
           } else {
             unifiedSlots.push({
@@ -287,7 +288,7 @@ export function useRealtimeAgenda(apiBaseUrl = '/api/v1') {
     return slot.doctorNombre?.toLowerCase().includes(term) ?? false;
   });
 
-  // Transiciones de estado de cita en la base de datos (RF-AGE-009, RF-AGE-013)
+  // Transiciones de estado de cita en la base de datos (RF-AGE-009, RF-AGE-012)
   const changeStateAPI = async (
     idCita: number,
     nuevoEstado: string,
@@ -295,25 +296,12 @@ export function useRealtimeAgenda(apiBaseUrl = '/api/v1') {
     liberarBloques?: boolean
   ) => {
     try {
-      let activeUserId: number | undefined;
-      if (typeof window !== 'undefined') {
-        const raw = window.sessionStorage.getItem('odontoleal_active_session_v1');
-        if (raw) {
-          try {
-            const parsed = JSON.parse(raw);
-            if (parsed.usuario?.idUsuario) {
-              activeUserId = Number(parsed.usuario.idUsuario);
-            }
-          } catch {}
-        }
-      }
 
       const res = await fetch(`${apiBaseUrl}/appointments/${idCita}/state`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           nuevoEstado,
-          idUsuarioGestor: activeUserId,
           motivo,
           liberarBloques,
         }),
@@ -368,7 +356,9 @@ export function useRealtimeAgenda(apiBaseUrl = '/api/v1') {
           const errJson = await res.json().catch(() => ({}));
           throw new Error(errJson.message || 'No fue posible cambiar el estado del bloque.');
         }
+        const json = await res.json().catch(() => ({}));
         await fetchAgenda();
+        return json?.data || json;
       } catch (err: any) {
         console.error('Error toggling slot:', err.message);
         setError(err.message);
@@ -392,7 +382,9 @@ export function useRealtimeAgenda(apiBaseUrl = '/api/v1') {
           const err = await res.json().catch(() => ({}));
           throw new Error(err.message || 'Error al generar los bloques.');
         }
+        const json = await res.json().catch(() => ({}));
         await fetchAgenda();
+        return json?.data || json;
       } catch (err: any) {
         console.error('Error generating slots:', err.message);
         setError(err.message);
@@ -440,7 +432,6 @@ export function useRealtimeAgenda(apiBaseUrl = '/api/v1') {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            idUsuarioGestor: options?.idUsuarioGestor || 1,
             aprobar: true,
             motivo: options?.motivo || 'Solicitud aprobada y confirmada en agenda médica',
             idProfesional: options?.idProfesional,
@@ -470,7 +461,6 @@ export function useRealtimeAgenda(apiBaseUrl = '/api/v1') {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            idUsuarioGestor: 1,
             aprobar: false,
             motivo,
           }),
@@ -508,7 +498,6 @@ export function useRealtimeAgenda(apiBaseUrl = '/api/v1') {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             ...data,
-            idUsuarioGestor: 1,
           }),
         });
 

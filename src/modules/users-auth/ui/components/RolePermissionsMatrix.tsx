@@ -22,35 +22,35 @@ export const ERS_PERMISSIONS_CATALOG: ReadonlyArray<PermissionCatalogItem> = [
   { code: 'RF-USR-011', name: 'Eliminar rol', moduleName: 'Usuarios y Roles', description: 'Eliminar roles personalizados sin usuarios asignados.' },
 
   // Módulo B: Agendamiento de Citas
-  { code: 'RF-AGE-001', name: 'Gestionar bloques horario', moduleName: 'Agendamiento de Citas', description: 'Habilitar o deshabilitar bloques de 30 minutos por profesional.' },
+  { code: 'RF-AGE-001', name: 'Gestionar bloques horario', moduleName: 'Agendamiento de Citas', description: 'Habilitar o deshabilitar bloques de 30 minutos de la agenda del consultorio.' },
   { code: 'RF-AGE-002', name: 'Agendar citas', moduleName: 'Agendamiento de Citas', description: 'Crear citas confirmadas internamente en máximo 5 pasos.' },
   { code: 'RF-AGE-005', name: 'Gestionar solicitud', moduleName: 'Agendamiento de Citas', description: 'Confirmar, reprogramar o rechazar solicitudes públicas.' },
   { code: 'RF-AGE-006', name: 'Editar cita', moduleName: 'Agendamiento de Citas', description: 'Modificar fecha, bloques o profesional de citas Confirmadas.' },
   { code: 'RF-AGE-007', name: 'Cancelar cita', moduleName: 'Agendamiento de Citas', description: 'Anular citas Confirmadas con motivo y gestión de bloques.' },
   { code: 'RF-AGE-008', name: 'Consultar agenda', moduleName: 'Agendamiento de Citas', description: 'Visualizar calendario semanal en tiempo real.' },
   { code: 'RF-AGE-009', name: 'Iniciar / finalizar atención', moduleName: 'Agendamiento de Citas', description: 'Cambiar estado de cita a En consulta y Atendida.' },
-  { code: 'RF-AGE-012', name: 'Seleccionar servicio y profesional', moduleName: 'Agendamiento de Citas', description: 'Filtrar disponibilidad por Odontología general u Ortodoncia.' },
-  { code: 'RF-AGE-013', name: 'Marcar inasistencia', moduleName: 'Agendamiento de Citas', description: 'Registrar inasistencia de citas desde su hora de inicio.' },
+  { code: 'RF-AGE-012', name: 'Marcar inasistencia', moduleName: 'Agendamiento de Citas', description: 'Registrar inasistencia de citas desde su hora de inicio.' },
 
   // Módulo C (Parte 1): Pacientes y Habeas Data
-  { code: 'RF-HCL-001', name: 'Crear paciente', moduleName: 'Pacientes y Habeas Data', description: 'Registrar identificación, contacto, acudiente y autorización Ley 1581.' },
+  { code: 'RF-HCL-001', name: 'Crear paciente', moduleName: 'Pacientes y Habeas Data', description: 'Registrar identificación y contacto (sexo, fecha de nacimiento, teléfono y correo).' },
   { code: 'RF-HCL-002', name: 'Editar paciente', moduleName: 'Pacientes y Habeas Data', description: 'Actualizar datos de contacto y subsanar Datos incompletos.' },
   { code: 'RF-HCL-003', name: 'Buscar pacientes', moduleName: 'Pacientes y Habeas Data', description: 'Buscar por documento exacto o nombre sin distinguir tildes.' },
-  { code: 'RF-HCL-004', name: 'Visualizar pacientes', moduleName: 'Pacientes y Habeas Data', description: 'Ver ficha administrativa, autorización e historial de citas.' },
-  { code: 'RF-HCL-010', name: 'Consultar datos del titular', moduleName: 'Pacientes y Habeas Data', description: 'Generar reporte y PDF de Habeas Data sin datos clínicos.' },
+  { code: 'RF-HCL-004', name: 'Visualizar pacientes', moduleName: 'Pacientes y Habeas Data', description: 'Ver ficha administrativa e historial de citas con "Agendado por".' },
+  { code: 'RF-HCL-010', name: 'Consultar datos del titular', moduleName: 'Pacientes y Habeas Data', description: 'Datos del titular como paciente o solicitante, sus autorizaciones y citas (PDF), sin datos clínicos.' },
 
   // Módulo C (Parte 2): Historia Clínica y Odontograma (Clínicos protegidos)
   { code: 'RF-HCL-005', name: 'Crear historia clínica', moduleName: 'Historia Clínica (Restringido)', description: 'Registrar motivo de consulta y antecedentes al iniciar atención.' },
-  { code: 'RF-HCL-006', name: 'Editar historia clínica', moduleName: 'Historia Clínica (Restringido)', description: 'Modificar historia clínica hasta las 23:59 del día de creación.' },
+  { code: 'RF-HCL-006', name: 'Editar historia clínica', moduleName: 'Historia Clínica (Restringido)', description: 'Modificar la historia clínica solo mientras la cita está En consulta.' },
   { code: 'RF-HCL-007', name: 'Gestionar odontograma', moduleName: 'Historia Clínica (Restringido)', description: 'Registrar hallazgos dentales por superficie según numeración FDI.' },
   { code: 'RF-HCL-008', name: 'Consultar historial clínico', moduleName: 'Historia Clínica (Restringido)', description: 'Acceder en solo lectura a historias clínicas previas.' },
   { code: 'RF-HCL-009', name: 'Registrar evolución', moduleName: 'Historia Clínica (Restringido)', description: 'Agregar notas de evolución y notas aclaratorias.' },
 
   // Módulo D: Consentimientos Informados
-  { code: 'RF-CON-001', name: 'Seleccionar consentimiento', moduleName: 'Consentimientos Informados', description: 'Asociar plantillas pendientes de firma en cita En consulta.' },
+  { code: 'RF-CON-001', name: 'Seleccionar consentimiento', moduleName: 'Consentimientos Informados', description: 'Elegir una plantilla activa desde la ficha del paciente, sin cita.' },
+  { code: 'RF-CON-002', name: 'Firmar consentimiento', moduleName: 'Consentimientos Informados', description: 'Tomar la firma del paciente o acudiente dentro de la sesión (tablet o computador).' },
   { code: 'RF-CON-003', name: 'Consultar consentimiento', moduleName: 'Consentimientos Informados', description: 'Visualizar y descargar PDF de consentimientos firmados.' },
-  { code: 'RF-CON-004', name: 'Crear plantilla consentimiento', moduleName: 'Consentimientos Informados', description: 'Registrar nuevas plantillas de consentimiento en versión 1.' },
-  { code: 'RF-CON-006', name: 'Habilitar firma en tablet', moduleName: 'Consentimientos Informados', description: 'Generar enlace de un solo uso y código QR para firma táctil.' },
+  { code: 'RF-CON-004', name: 'Crear plantilla consentimiento', moduleName: 'Consentimientos Informados', description: 'Registrar plantillas en versión 1 (procedimiento, autorización de datos o menores).' },
+  { code: 'RF-CON-005', name: 'Firmar por acudiente', moduleName: 'Consentimientos Informados', description: 'Firma del acudiente o representante legal con la plantilla de menores.' },
   { code: 'RF-CON-007', name: 'Editar plantilla consentimiento', moduleName: 'Consentimientos Informados', description: 'Generar nueva versión incremental de plantilla activa.' },
   { code: 'RF-CON-008', name: 'Cambiar estado de plantilla', moduleName: 'Consentimientos Informados', description: 'Activar o inactivar plantillas sin eliminarlas.' },
 
@@ -59,7 +59,6 @@ export const ERS_PERMISSIONS_CATALOG: ReadonlyArray<PermissionCatalogItem> = [
   { code: 'RF-DOC-002', name: 'Generar incapacidad', moduleName: 'Documentos Clínicos (Restringido)', description: 'Emitir incapacidad odontológica de 1 a 30 días en PDF.' },
   { code: 'RF-DOC-003', name: 'Generar remisión', moduleName: 'Documentos Clínicos (Restringido)', description: 'Emitir remisión a especialidad extramural en PDF.' },
   { code: 'RF-DOC-004', name: 'Insertar firma profesional', moduleName: 'Documentos Clínicos (Restringido)', description: 'Fusionar firma digitalizada del profesional (flatten) en PDF.' },
-  { code: 'RF-DOC-005', name: 'Consultar documentos clínicos', moduleName: 'Documentos Clínicos (Restringido)', description: 'Visualizar e imprimir órdenes, incapacidades y remisiones.' },
 ];
 
 export interface RolePermissionsMatrixProps {
@@ -165,7 +164,7 @@ export const RolePermissionsMatrix: React.FC<RolePermissionsMatrixProps> = ({
         </div>
 
         <div className="flex items-center gap-2 self-start sm:self-center">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-[#FBF6E6] border border-[#D4AF37]/40 px-3 py-1 text-[12px] font-bold text-[#B8942A]">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-[#FBF6E6] border border-[#D4AF37]/40 px-3 py-1 text-[13px] font-bold text-[#B8942A]">
             <span className="h-2 w-2 rounded-full bg-[#D4AF37]" aria-hidden="true" />
             {selectedPermissions.length} permiso(s) activo(s)
           </span>
@@ -176,7 +175,7 @@ export const RolePermissionsMatrix: React.FC<RolePermissionsMatrixProps> = ({
       <div className="mt-4">
         <label
           htmlFor="permission-search-input"
-          className="block text-[12px] font-bold uppercase tracking-wider text-[#1E242B] mb-1.5"
+          className="block text-[13px] font-bold uppercase tracking-wider text-[#1E242B] mb-1.5"
         >
           Filtrar permisos
         </label>

@@ -1,5 +1,7 @@
 // src/modules/appointments/ui/views/AppointmentDetailPage.tsx
 import React, { useState, useEffect } from 'react';
+import { DetailPageContainer } from '../../../../shared/ui/components/DetailPage';
+import { formatDateTimeCO, formatLongDateCO } from '../../../../shared/ui/format';
 import { useAlertModal } from '../../../../shared/ui/hooks/useAlertModal';
 import { DoctorOption } from '../components/ServiceSelector';
 import { AppointmentDetailHeader } from '../components/detail/AppointmentDetailHeader';
@@ -31,11 +33,9 @@ export interface AppointmentDetailPageData {
   estado:
     | 'Confirmada'
     | 'En consulta'
-    | 'En espera'
     | 'Atendida'
-    | 'Completada'
     | 'Cancelada'
-    | 'No asistió';
+    | 'Inasistencia';
 }
 
 export interface AppointmentDetailPageProps {
@@ -72,7 +72,7 @@ export const AppointmentDetailPage: React.FC<AppointmentDetailPageProps> = ({
   onSignConsent,
 }) => {
   const [appointment, setAppointment] = useState<AppointmentDetailPageData>(initialAppointment);
-  const isAttended = appointment.estado === 'Atendida' || appointment.estado === 'Completada';
+  const isAttended = appointment.estado === 'Atendida';
 
   // Modales
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
@@ -109,7 +109,7 @@ export const AppointmentDetailPage: React.FC<AppointmentDetailPageProps> = ({
       setDoctorsList(doctors);
       return;
     }
-    fetch('/api/v1/users')
+    fetch('/api/v1/appointments/professionals')
       .then((res) => (res.ok ? res.json() : { data: [] }))
       .then((json) => {
         const userList: any[] = json.data || [];
@@ -119,6 +119,7 @@ export const AppointmentDetailPage: React.FC<AppointmentDetailPageProps> = ({
             idUsuario: Number(u.id_usuario ?? u.idUsuario),
             nombreCompleto: u.nombre_completo ?? u.nombreCompleto ?? 'Doctor',
             especialidad:
+              u.especialidad ||
               u.roles?.[0]?.nombreRol ||
               u.roles?.[0]?.nombre_rol ||
               'Odontología General',
@@ -129,22 +130,9 @@ export const AppointmentDetailPage: React.FC<AppointmentDetailPageProps> = ({
   }, [doctors]);
 
   // Formateador de fecha en español
-  const formatSpanishHeaderDate = (dateStr: string) => {
-    if (!dateStr) return 'Fecha por confirmar';
-    try {
-      const cleanDate = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr.split(' ')[0];
-      const [year, month, day] = cleanDate.split('-').map(Number);
-      const d = new Date(year, month - 1, day);
-      const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-      const months = [
-        'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-        'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
-      ];
-      return `${days[d.getDay()]} ${day} ${months[d.getMonth()]} ${year}`;
-    } catch {
-      return dateStr;
-    }
-  };
+  // RQNF-USA-002: "Lunes, 09/11/2026"
+  const formatSpanishHeaderDate = (dateStr: string) =>
+    dateStr ? formatLongDateCO(dateStr) : 'Fecha por confirmar';
 
   const getInitials = (name: string) => {
     if (!name) return 'P';
@@ -162,19 +150,9 @@ export const AppointmentDetailPage: React.FC<AppointmentDetailPageProps> = ({
       .then((json) => {
         const hist: any[] = json.data?.historial || [];
         const formatted: HistoryItem[] = hist.map((item: any, idx: number) => {
-          let dateStr = 'Fecha no registrada';
-          if (item.fechaHoraRegistro) {
-            try {
-              const d = new Date(item.fechaHoraRegistro);
-              const months = [
-                'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-                'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
-              ];
-              dateStr = `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
-            } catch {
-              dateStr = item.fechaHoraRegistro;
-            }
-          }
+          const dateStr = item.fechaHoraRegistro
+            ? formatDateTimeCO(item.fechaHoraRegistro)
+            : 'Fecha no registrada';
           return {
             id: item.idCita || idx,
             title:
@@ -319,7 +297,6 @@ export const AppointmentDetailPage: React.FC<AppointmentDetailPageProps> = ({
             titulo: editTitulo,
             descripcion: editDescripcion,
             selectedBlocks: editSelectedBlocks,
-            idUsuarioGestor: 1,
             motivo: 'Modificación de cita desde el panel de detalle',
           }),
         });
@@ -368,17 +345,16 @@ export const AppointmentDetailPage: React.FC<AppointmentDetailPageProps> = ({
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            nuevoEstado: 'No asistió',
-            idUsuarioGestor: 1,
+            nuevoEstado: 'Inasistencia',
             motivo: fullReason,
             liberarBloques: false,
           }),
         });
       }
-      setAppointment((prev) => ({ ...prev, estado: 'No asistió' }));
+      setAppointment((prev) => ({ ...prev, estado: 'Inasistencia' }));
       showAlert({
         title: 'Inasistencia Registrada',
-        message: 'Se ha registrado la inasistencia conforme a RF-AGE-013. Los bloques horarios se mantienen.',
+        message: 'Se ha registrado la inasistencia conforme a RF-AGE-012. Los bloques horarios se mantienen.',
         type: 'warning',
       });
     } catch (err: any) {
@@ -400,7 +376,6 @@ export const AppointmentDetailPage: React.FC<AppointmentDetailPageProps> = ({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             nuevoEstado: 'Cancelada',
-            idUsuarioGestor: 1,
             motivo: fullReason,
             liberarBloques: true,
           }),
@@ -449,27 +424,15 @@ export const AppointmentDetailPage: React.FC<AppointmentDetailPageProps> = ({
   }
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto p-4 sm:p-6 lg:p-8 animate-fadeIn">
+    <DetailPageContainer className="space-y-6">
       <AlertModalComponent />
-
-      <div>
-        <button
-          type="button"
-          onClick={onBack}
-          className="inline-flex items-center gap-2 text-xs font-bold text-[#687380] hover:text-[#1E242B] transition-colors cursor-pointer"
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-          </svg>
-          Volver a la Agenda
-        </button>
-      </div>
 
       <AppointmentDetailHeader
         appointment={appointment}
         canStartAttention={canStartAttention}
         formatSpanishHeaderDate={formatSpanishHeaderDate}
         getInitials={getInitials}
+        onBack={onBack}
         onStartAttention={onStartAttention}
         onOpenEditMode={handleOpenEditMode}
         onOpenNoShowModal={() => setIsNoShowModalOpen(true)}
@@ -531,6 +494,6 @@ export const AppointmentDetailPage: React.FC<AppointmentDetailPageProps> = ({
           });
         }}
       />
-    </div>
+    </DetailPageContainer>
   );
 };

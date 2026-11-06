@@ -1,10 +1,14 @@
 // src/modules/appointments/ui/views/PublicBookingPage.tsx
 import React, { useState, useEffect } from 'react';
+import { formatLongDateCO, formatTimeCO } from '../../../../shared/ui/format';
 import { Button } from '../../../../shared/ui/components/Button';
 import { Input } from '../../../../shared/ui/components/Input';
 import { Modal } from '../../../../shared/ui/components/Modal';
 import { useAlertModal } from '../../../../shared/ui/hooks/useAlertModal';
 import { Badge } from '../../../../shared/ui/components/Badge';
+import { PrivacyNoticeModal } from '../../../patients/ui/components/PrivacyNoticeModal';
+import { usePrivacyNotice } from '../../../consents/ui/hooks/usePrivacyNotice';
+import { PublicNavbar } from '../../../../shared/ui/components/PublicNavbar';
 
 export interface AvailableSlotItem {
   label: string;
@@ -13,25 +17,28 @@ export interface AvailableSlotItem {
 
 export interface PublicBookingPageProps {
   onNavigateToStaffLogin?: () => void;
-  onSubmitPublicBooking?: (bookingData: any) => Promise<void> | void;
+  /** RQNF-SEG-006: abre el aviso de privacidad completo (página pública). */
+  onOpenPrivacyNotice?: () => void;
 }
 
 export const PublicBookingPage: React.FC<PublicBookingPageProps> = ({
   onNavigateToStaffLogin,
-  onSubmitPublicBooking,
+  onOpenPrivacyNotice,
 }) => {
   // Datos del Paciente
   const [nombreCompleto, setNombreCompleto] = useState('');
   const [documentoIdentidad, setDocumentoIdentidad] = useState('');
-  const [genero, setGenero] = useState<string>('');
   const [fechaNacimiento, setFechaNacimiento] = useState('');
   const [telefono, setTelefono] = useState('');
+  const [genero, setGenero] = useState<'Femenino' | 'Masculino' | 'Indeterminado' | ''>('');
   const [correo, setCorreo] = useState('');
   const [motivoConsulta, setMotivoConsulta] = useState('');
 
-
-  // DEF-07 & CPS-AGE-003-03, CPS-AGE-003-05: Autorización de tratamiento de datos personales (Ley 1581)
+  // RQNF-SEG-005 (ERS v1.3): se acepta el texto de la plantilla vigente de autorización del Módulo D;
+  // la autorización firmada se toma después en el consultorio.
   const [autorizacionDatos, setAutorizacionDatos] = useState(false);
+  const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
+  const { notice: privacyNotice } = usePrivacyNotice();
 
   // Fecha y Horario Dinámicos desde Base de Datos (estado = true AND ocupacion = false)
   const defaultDate = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
@@ -65,7 +72,8 @@ export const PublicBookingPage: React.FC<PublicBookingPageProps> = ({
           const [hStr, mStr] = timePart.split(':');
           const h = Number(hStr);
           const m = (mStr || '00').replace(/\D/g, '').padStart(2, '0');
-          const period = h >= 12 ? 'PM' : 'AM';
+          // RQNF-USA-002: Formato colombiano 12 horas con 'a. m.' y 'p. m.' en minúsculas
+          const period = h >= 12 ? 'p. m.' : 'a. m.';
           let h12 = h % 12;
           if (h12 === 0) h12 = 12;
           const label = `${h12.toString().padStart(2, '0')}:${m} ${period}`;
@@ -103,9 +111,9 @@ export const PublicBookingPage: React.FC<PublicBookingPageProps> = ({
     setIsSuccessModalOpen(false);
     setNombreCompleto('');
     setDocumentoIdentidad('');
-    setGenero('Femenino');
     setFechaNacimiento('');
     setTelefono('');
+    setGenero('');
     setCorreo('');
     setMotivoConsulta('');
     setAutorizacionDatos(false);
@@ -117,12 +125,31 @@ export const PublicBookingPage: React.FC<PublicBookingPageProps> = ({
 
   const handlePreConfirm = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!nombreCompleto.trim() || !documentoIdentidad.trim() || !correo.trim() || !telefono.trim()) {
+    if (
+      !nombreCompleto.trim() ||
+      !documentoIdentidad.trim() ||
+      !correo.trim() ||
+      !telefono.trim() ||
+      !fechaNacimiento.trim()
+    ) {
       showAlert({
         title: 'Campos Obligatorios Incompletos',
-        message: 'Por favor complete su Nombre Completo, Documento de Identidad, Teléfono de Contacto y Correo Electrónico antes de continuar.',
+        message:
+          'Complete su nombre completo, documento de identidad, fecha de nacimiento, teléfono y correo electrónico antes de continuar.',
         type: 'warning',
       });
+      return;
+    }
+    if (!/^\d+$/.test(documentoIdentidad.trim())) {
+      showAlert({ title: 'Documento no válido', message: 'El documento debe contener solo dígitos.', type: 'warning' });
+      return;
+    }
+    if (!/^\d{10}$/.test(telefono.trim())) {
+      showAlert({ title: 'Teléfono no válido', message: 'El teléfono debe tener 10 dígitos.', type: 'warning' });
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo.trim())) {
+      showAlert({ title: 'Correo no válido', message: 'El correo electrónico debe tener un formato válido (usuario@dominio).', type: 'warning' });
       return;
     }
 
@@ -156,16 +183,13 @@ export const PublicBookingPage: React.FC<PublicBookingPageProps> = ({
         documentoSolicitante: documentoIdentidad.trim(),
         correoSolicitante: correo.trim().toLowerCase(),
         telefonoSolicitante: telefono.trim(),
-        fechaNacimiento: fechaNacimiento.trim() || undefined,
-        sexo: genero ? (genero as any) : undefined,
+        fechaNacimiento: fechaNacimiento.trim(),
+        sexo: genero ? genero : undefined,
         bloqueSolicitado: selectedSlot.rawInicio,
         descripcion: motivoConsulta.trim() || 'Solicitud de valoración odontológica',
         autorizacionDatos: true,
+        versionPlantillaAutorizacion: privacyNotice?.version,
       };
-
-      if (onSubmitPublicBooking) {
-        await onSubmitPublicBooking(payload);
-      }
 
       const res = await fetch('/api/v1/appointments/public-requests', {
         method: 'POST',
@@ -199,39 +223,23 @@ export const PublicBookingPage: React.FC<PublicBookingPageProps> = ({
     }
   };
 
+  const isFormValid =
+    Boolean(nombreCompleto.trim()) &&
+    Boolean(documentoIdentidad.trim()) &&
+    Boolean(telefono.trim()) &&
+    Boolean(correo.trim()) &&
+    Boolean(fechaNacimiento.trim()) &&
+    Boolean(selectedSlot) &&
+    autorizacionDatos &&
+    !isLoadingSlots &&
+    availableHours.length > 0;
+
   return (
     <div className="min-h-screen bg-[#F8F9FA] text-[#1E242B] flex flex-col justify-between">
       <AlertModalComponent />
 
-      {/* Header Superior del Portal */}
-      <header className="w-full border-b border-[#E2E6EA] bg-white px-6 py-4 flex items-center justify-between sticky top-0 z-10 shadow-2xs">
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-[#111111] text-[#D4AF37] font-extrabold flex items-center justify-center text-sm shadow-xs">
-            OL
-          </div>
-          <div>
-            <span className="text-base font-extrabold text-[#1E242B] tracking-tight block">
-              Portal OdontoLeal
-            </span>
-            <span className="text-[11px] font-bold text-[#8F99A3]">
-              Dr. Eduar Leal Álvarez • Dirección Médica
-            </span>
-          </div>
-        </div>
-
-        {onNavigateToStaffLogin && (
-          <button
-            type="button"
-            onClick={onNavigateToStaffLogin}
-            className="min-h-[40px] rounded-xl border border-[#E2E6EA] px-4 py-2 text-xs font-bold text-[#1E242B] hover:border-[#D4AF37] hover:bg-[#FBF6E6]/40 transition-colors inline-flex items-center gap-2 cursor-pointer"
-          >
-            <svg className="h-4 w-4 text-[#D4AF37]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
-            </svg>
-            Ingresar al Sistema (Staff)
-          </button>
-        )}
-      </header>
+      {/* 1. Header Unificado con Marca OdontoLeal y Acceso Personal */}
+      <PublicNavbar onNavigateToStaffLogin={onNavigateToStaffLogin} />
 
       {/* Contenedor Principal */}
       <main className="max-w-4xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
@@ -242,22 +250,27 @@ export const PublicBookingPage: React.FC<PublicBookingPageProps> = ({
           <h1 className="text-2xl sm:text-3xl font-extrabold text-[#1E242B]">
             Solicitud de Cita Odontológica
           </h1>
-          <p className="text-xs sm:text-sm text-[#687380] max-w-xl mx-auto">
+          <p className="text-xs sm:text-sm text-[#64748B] max-w-xl mx-auto">
             Agenda tu valoración o tratamiento dental con nuestro equipo de profesionales de forma rápida y sin registros previos.
           </p>
         </div>
 
-        <form onSubmit={handlePreConfirm} className="rounded-3xl border border-[#E2E6EA] border-t-4 border-t-[#D4AF37] bg-white p-6 sm:p-8 shadow-md space-y-8">
+        {/* 2. Tarjeta Principal de Solicitud */}
+        <form
+          onSubmit={handlePreConfirm}
+          className="rounded-3xl border border-[#E2E6EA] border-t-4 border-t-[#D4AF37] bg-white p-5 sm:p-8 shadow-md space-y-8"
+        >
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Columna 1: Datos del Paciente */}
+            {/* Columna 1: 1. DATOS DEL PACIENTE */}
             <div className="space-y-4">
               <h3 className="text-sm font-extrabold uppercase tracking-wider text-[#1E242B] flex items-center gap-2 pb-2 border-b border-[#E2E6EA]">
-                <span className="h-6 w-6 rounded-full bg-[#111111] text-[#D4AF37] text-xs flex items-center justify-center font-bold">
+                <span className="h-6 w-6 rounded-full bg-[#111111] text-[#D4AF37] text-xs flex items-center justify-center font-bold shadow-2xs">
                   1
                 </span>
                 Datos del Paciente
               </h3>
 
+              {/* Fila 1: Nombre Completo (100% de ancho) */}
               <Input
                 label="Nombre Completo"
                 required
@@ -266,7 +279,8 @@ export const PublicBookingPage: React.FC<PublicBookingPageProps> = ({
                 onChange={(e) => setNombreCompleto(e.target.value)}
               />
 
-              <div className="grid grid-cols-2 gap-3">
+              {/* Fila 2: Documento de Identidad y Fecha de Nacimiento (2 columnas iguales) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
                 <Input
                   label="Documento de Identidad"
                   required
@@ -275,14 +289,47 @@ export const PublicBookingPage: React.FC<PublicBookingPageProps> = ({
                   onChange={(e) => setDocumentoIdentidad(e.target.value)}
                 />
 
-                <div>
-                  <label className="block text-xs font-extrabold uppercase tracking-wider text-[#687380] mb-1.5">
-                    Género (Opcional)
+                <div className="w-full space-y-1.5 text-left">
+                  <label
+                    htmlFor="fecha-nacimiento"
+                    className="block text-xs font-extrabold uppercase tracking-wider text-[#64748B]"
+                  >
+                    Fecha de Nacimiento <span className="ml-1 text-[#DC2626]">*</span>
+                  </label>
+                  <input
+                    id="fecha-nacimiento"
+                    type="date"
+                    required
+                    max={new Date().toISOString().split('T')[0]}
+                    value={fechaNacimiento}
+                    onChange={(e) => setFechaNacimiento(e.target.value)}
+                    className="w-full h-[42px] min-h-[42px] rounded-xl border border-[#E2E6EA] bg-white px-3.5 py-2 text-sm text-[#1E242B] transition-colors focus:border-[#D4AF37] focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/30"
+                  />
+                </div>
+              </div>
+
+              {/* Fila 3: Teléfono y Género (2 columnas iguales) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
+                <Input
+                  label="Teléfono"
+                  required
+                  placeholder="3001234567"
+                  value={telefono}
+                  onChange={(e) => setTelefono(e.target.value)}
+                />
+
+                <div className="w-full space-y-1.5 text-left">
+                  <label
+                    htmlFor="genero"
+                    className="block text-xs font-extrabold uppercase tracking-wider text-[#64748B]"
+                  >
+                    Género
                   </label>
                   <select
+                    id="genero"
                     value={genero}
-                    onChange={(e) => setGenero(e.target.value)}
-                    className="w-full min-h-[44px] rounded-xl border border-[#E2E6EA] bg-white px-3 py-2 text-xs font-semibold text-[#1E242B] focus:border-[#D4AF37] focus:outline-none"
+                    onChange={(e) => setGenero(e.target.value as any)}
+                    className="w-full h-[42px] min-h-[42px] rounded-xl border border-[#E2E6EA] bg-white px-3.5 py-2 text-sm text-[#1E242B] transition-colors focus:border-[#D4AF37] focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/30"
                   >
                     <option value="">Seleccione género...</option>
                     <option value="Femenino">Femenino</option>
@@ -292,28 +339,7 @@ export const PublicBookingPage: React.FC<PublicBookingPageProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-extrabold uppercase tracking-wider text-[#687380] mb-1.5">
-                    Fecha de Nacimiento
-                  </label>
-                  <input
-                    type="date"
-                    value={fechaNacimiento}
-                    onChange={(e) => setFechaNacimiento(e.target.value)}
-                    className="w-full min-h-[44px] rounded-xl border border-[#E2E6EA] px-3 text-xs text-[#1E242B]"
-                  />
-                </div>
-
-                <Input
-                  label="Teléfono / WhatsApp"
-                  required
-                  placeholder="3001234567"
-                  value={telefono}
-                  onChange={(e) => setTelefono(e.target.value)}
-                />
-              </div>
-
+              {/* Fila 4: Correo Electrónico (100% de ancho) */}
               <Input
                 type="email"
                 label="Correo Electrónico"
@@ -324,76 +350,84 @@ export const PublicBookingPage: React.FC<PublicBookingPageProps> = ({
                 helperText="Enviaremos la confirmación oficial a este correo"
               />
 
-              <div>
-                <label className="block text-xs font-extrabold uppercase tracking-wider text-[#687380] mb-1.5">
+              {/* Fila 5: Motivo de la Cita / Detalle de Consulta (100% de ancho) */}
+              <div className="w-full space-y-1.5 text-left">
+                <label
+                  htmlFor="motivo-consulta"
+                  className="block text-xs font-extrabold uppercase tracking-wider text-[#64748B]"
+                >
                   Motivo de la Cita / Detalle de Consulta
                 </label>
                 <textarea
-                  rows={3}
+                  id="motivo-consulta"
+                  rows={4}
                   placeholder="Describe brevemente tus síntomas o el tratamiento que deseas consultar (ej: dolor en molar inferior, limpieza dental, valoración para diseño de sonrisa)..."
                   value={motivoConsulta}
                   onChange={(e) => setMotivoConsulta(e.target.value)}
-                  className="w-full rounded-xl border border-[#E2E6EA] p-3 text-xs text-[#1E242B] focus:border-[#D4AF37] focus:outline-none"
+                  className="w-full min-h-[108px] rounded-xl border border-[#E2E6EA] px-3.5 py-3 text-sm leading-[1.45] text-[#1E242B] placeholder-[#64748B] resize-y transition-colors focus:border-[#D4AF37] focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/30"
+                  style={{ minHeight: '108px', padding: '12px 14px', lineHeight: 1.45, resize: 'vertical' }}
                 />
               </div>
             </div>
 
-            {/* Columna 2: Fecha y Horario Deseado */}
+            {/* Columna 2: 2. FECHA Y HORARIO DESEADO */}
             <div className="space-y-4">
               <h3 className="text-sm font-extrabold uppercase tracking-wider text-[#1E242B] flex items-center gap-2 pb-2 border-b border-[#E2E6EA]">
-                <span className="h-6 w-6 rounded-full bg-[#111111] text-[#D4AF37] text-xs flex items-center justify-center font-bold">
+                <span className="h-6 w-6 rounded-full bg-[#111111] text-[#D4AF37] text-xs flex items-center justify-center font-bold shadow-2xs">
                   2
                 </span>
                 Fecha y Horario Deseado
               </h3>
 
               {/* Selector de Fecha */}
-              <div className="space-y-2">
-                <label className="block text-xs font-bold text-[#687380]">
+              <div className="space-y-1.5 text-left">
+                <label htmlFor="fecha-solicitada" className="block text-xs font-extrabold uppercase tracking-wider text-[#64748B]">
                   Seleccione el Día Deseado:
                 </label>
                 <input
+                  id="fecha-solicitada"
                   type="date"
                   min={new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
                   max={new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
                   value={selectedDate}
                   onChange={(e) => setSelectedDate(e.target.value)}
-                  className="w-full min-h-[44px] rounded-xl border border-[#E2E6EA] px-3 text-sm font-bold text-[#1E242B]"
+                  className="w-full h-[42px] min-h-[42px] rounded-xl border border-[#E2E6EA] px-3.5 text-sm font-semibold text-[#1E242B] transition-colors focus:border-[#D4AF37] focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/30"
                 />
-                <p className="text-[11px] text-[#8F99A3]">
-                  💡 Reserva con antelación mínima de 5 días y máxima de 60 días (Regla 1).
+                <p className="text-[13px] text-[#64748B] flex items-center gap-1.5 pt-0.5">
+                  <span>💡</span>
+                  <span>Puedes solicitar tu cita entre 5 y 60 días calendario a partir de hoy.</span>
                 </p>
               </div>
 
-              {/* Horario Disponible Dinámico desde Base de Datos */}
-              <div className="space-y-2 pt-2">
+              {/* Horario Disponible Dinámico */}
+              <div className="space-y-2 pt-1">
                 <div className="flex items-center justify-between">
-                  <label className="block text-xs font-bold text-[#687380]">
+                  <label className="block text-xs font-extrabold uppercase tracking-wider text-[#64748B]">
                     Horario Disponible:
                   </label>
                   {isLoadingSlots && (
-                    <span className="text-[11px] font-medium text-[#D4AF37] animate-pulse">
+                    <span className="text-[13px] font-medium text-[#B8942A] animate-pulse">
                       Consultando base de datos...
                     </span>
                   )}
                 </div>
 
                 {isLoadingSlots ? (
-                  <div className="rounded-2xl border border-[#E2E6EA] bg-[#F8F9FA] p-6 text-center text-xs text-[#8F99A3]">
+                  <div className="rounded-2xl border border-[#E2E6EA] bg-[#F8FAFC] p-6 text-center text-xs text-[#64748B]">
                     Cargando horarios disponibles...
                   </div>
                 ) : availableHours.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed border-[#E2E6EA] bg-[#F8F9FA] p-6 text-center space-y-1">
-                    <span className="text-xl">📅</span>
-                    <p className="text-xs font-bold text-[#687380]">
+                  <div className="rounded-2xl border border-dashed border-[#E2E6EA] bg-[#F8FAFC] p-6 text-center space-y-1">
+                    <span className="text-2xl">📅</span>
+                    <p className="text-xs font-bold text-[#1E242B]">
                       No hay horarios disponibles en esta fecha
                     </p>
-                    <p className="text-[11px] text-[#8F99A3]">
+                    <p className="text-[13px] text-[#64748B]">
                       Por favor seleccione otra fecha en el calendario.
                     </p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-2 gap-2.5 max-h-60 overflow-y-auto pr-1">
+                  <div className="grid grid-cols-[repeat(auto-fill,minmax(130px,1fr))] gap-2.5 max-h-64 sm:max-h-72 overflow-y-auto p-2 border border-[#E2E6EA] rounded-2xl bg-[#F8FAFC]">
                     {availableHours.map((slot, idx) => {
                       const isSelected = selectedSlot?.rawInicio === slot.rawInicio;
                       return (
@@ -404,7 +438,7 @@ export const PublicBookingPage: React.FC<PublicBookingPageProps> = ({
                           className={`min-h-[44px] rounded-xl border text-xs font-bold p-2.5 transition-all text-center flex items-center justify-between px-3 cursor-pointer ${
                             isSelected
                               ? 'border-[#D4AF37] bg-[#FBF6E6] text-[#1E242B] ring-2 ring-[#D4AF37]/50 shadow-xs'
-                              : 'border-[#E2E6EA] bg-white text-[#687380] hover:border-[#CBD2D9] hover:bg-[#F8F9FA]'
+                              : 'border-[#E2E6EA] bg-white text-[#64748B] hover:border-[#CBD2D9] hover:bg-[#F1F5F9]'
                           }`}
                         >
                           <span>{slot.label}</span>
@@ -416,68 +450,165 @@ export const PublicBookingPage: React.FC<PublicBookingPageProps> = ({
                 )}
               </div>
 
-              {/* DEF-07 & CPS-AGE-003-03, CPS-AGE-003-05: Checkbox de Autorización Ley 1581 (ui_03) */}
-              <div className="pt-2 border-t border-[#E2E6EA]">
-                <label className="flex items-start gap-2.5 text-xs text-[#687380] cursor-pointer">
+              {/* Casilla de Autorización Ley 1581 y Enlaces — RQNF-SEG-005 */}
+              <div className="pt-4 border-t border-[#E2E6EA]">
+                <label className="flex items-start gap-3 min-h-[44px] py-2 cursor-pointer select-none">
                   <input
                     type="checkbox"
                     checked={autorizacionDatos}
                     onChange={(e) => setAutorizacionDatos(e.target.checked)}
-                    className="mt-0.5 h-4 w-4 rounded border-[#E2E6EA] text-[#D4AF37] focus:ring-[#D4AF37]"
+                    className="form-checkbox-custom"
                   />
-                  <span>
-                    Autorizo de manera previa, expresa e informada el tratamiento de mis datos personales conforme a la <strong>Ley 1581 de 2012</strong> y la Política de Privacidad de OdontoLeal. <span className="text-[#DC2626]">*</span>
-                  </span>
+                  {/* Párrafo de flujo continuo: los <span> actúan como enlaces inline puros.
+                      No usar <button> aquí para evitar display:inline-flex por defecto del navegador. */}
+                  <p style={{ textAlign: 'left', fontSize: '13.5px', lineHeight: 1.5, color: '#475569', margin: 0 }}>
+                    He leído y acepto la{' '}
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      style={{
+                        display: 'inline',
+                        fontWeight: 600,
+                        color: '#B8942A',
+                        textDecoration: 'underline',
+                        textUnderlineOffset: '2px',
+                        cursor: 'pointer',
+                      }}
+                      onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = '#111111')}
+                      onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = '#B8942A')}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setIsPrivacyModalOpen(true);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setIsPrivacyModalOpen(true);
+                        }
+                      }}
+                    >
+                      {privacyNotice
+                        ? `${privacyNotice.nombre} (versión ${privacyNotice.version})`
+                        : 'autorización de tratamiento de datos personales'}
+                    </span>{' '}
+                    y el{' '}
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      style={{
+                        display: 'inline',
+                        fontWeight: 600,
+                        color: '#B8942A',
+                        textDecoration: 'underline',
+                        textUnderlineOffset: '2px',
+                        cursor: 'pointer',
+                      }}
+                      onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = '#111111')}
+                      onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = '#B8942A')}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setIsPrivacyModalOpen(true);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setIsPrivacyModalOpen(true);
+                        }
+                      }}
+                    >
+                      aviso de privacidad
+                    </span>{' '}
+                    del consultorio (<strong>Ley 1581 de 2012</strong>). La autorización firmada se toma en el consultorio.{' '}
+                    <span style={{ color: '#DC2626', fontWeight: 700 }}>*</span>
+                  </p>
                 </label>
               </div>
 
-              <div className="pt-4">
-                <Button
+              {/* Botón CTA Confirmar Solicitud de Cita */}
+              <div className="pt-2">
+                <button
                   type="submit"
-                  variant="primary"
-                  disabled={availableHours.length === 0 || !selectedSlot || isLoadingSlots || !autorizacionDatos}
-                  className="w-full text-base py-3"
-                  rightIcon={<span>→</span>}
+                  disabled={!isFormValid}
+                  className={`w-full min-h-[46px] rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2 ${
+                    !isFormValid
+                      ? 'bg-[#E2E8F0] text-[#94A3B8] border border-[#CBD5E1] cursor-not-allowed shadow-none'
+                      : 'bg-[#D4AF37] text-[#111111] hover:bg-[#C9A227] shadow-sm active:scale-[0.99] cursor-pointer'
+                  }`}
                 >
-                  Confirmar Solicitud de Cita
-                </Button>
+                  <span>Confirmar Solicitud de Cita</span>
+                  <span>→</span>
+                </button>
               </div>
             </div>
           </div>
         </form>
 
-        {/* Tarjetas informativas de pie */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="rounded-2xl border border-[#E2E6EA] bg-white p-4 space-y-1 text-xs">
-            <span className="text-base">📅</span>
-            <h4 className="font-extrabold text-[#1E242B]">Antelación de Reserva</h4>
-            <p className="text-[#687380]">
-              Las citas deben solicitarse con mínimo 5 días de anticipación y un máximo de 2 meses.
+        {/* 3. Tarjetas informativas inferiores de pie */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full">
+          <div className="rounded-2xl border border-[#E2E6EA] bg-white p-5 space-y-2 text-xs shadow-xs">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">📅</span>
+              <h4 className="font-extrabold text-[#1E242B] text-sm">Antelación de Reserva</h4>
+            </div>
+            <p className="text-[#64748B] leading-relaxed">
+              Las citas deben solicitarse con mínimo 5 días calendario de anticipación y un máximo de 60 días (2 meses).
             </p>
           </div>
 
-          <div className="rounded-2xl border border-[#E2E6EA] bg-white p-4 space-y-1 text-xs">
-            <span className="text-base">✉️</span>
-            <h4 className="font-extrabold text-[#1E242B]">Confirmación y Recordatorio</h4>
-            <p className="text-[#687380]">
+          <div className="rounded-2xl border border-[#E2E6EA] bg-white p-5 space-y-2 text-xs shadow-xs">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">✉️</span>
+              <h4 className="font-extrabold text-[#1E242B] text-sm">Confirmación y Recordatorio</h4>
+            </div>
+            <p className="text-[#64748B] leading-relaxed">
               Recibirás la confirmación formal por correo electrónico y aviso previo 24 horas antes.
             </p>
+            <div className="pt-2 border-t border-[#F1F5F9] text-[11px] text-[#475569] space-y-0.5">
+              <p className="font-semibold text-[#1E242B]">Canales de atención:</p>
+              <p>
+                Teléfono: <span className="font-medium text-[#1E242B]">+57 300 123 4567</span>
+              </p>
+              <p>
+                Correo: <span className="font-medium text-[#1E242B]">citas@odontoleal.com</span>
+              </p>
+            </div>
           </div>
 
-          <div className="rounded-2xl border border-[#E2E6EA] bg-white p-4 space-y-1 text-xs">
-            <span className="text-base">📍</span>
-            <h4 className="font-extrabold text-[#1E242B]">Ubicación Consultorio</h4>
-            <p className="text-[#687380]">
-              Calle 127 # 14-54, Edificio Medical Prestige, Suite 402, Bogotá.
+          <div className="rounded-2xl border border-[#E2E6EA] bg-white p-5 space-y-2 text-xs shadow-xs">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">📍</span>
+              <h4 className="font-extrabold text-[#1E242B] text-sm">Ubicación Consultorio</h4>
+            </div>
+            <p className="text-[#64748B] leading-relaxed">
+              Calle 127 # 14-54, Edificio Medical Prestige, Suite 402, Bogotá D.C.
             </p>
+            <div className="pt-2 border-t border-[#F1F5F9] text-[11px] text-[#475569]">
+              <p>Horario de atención: Lunes a Sábado de 07:00 a. m. a 07:00 p. m.</p>
+            </div>
           </div>
         </div>
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-[#E2E6EA] bg-white py-4 text-center text-xs text-[#8F99A3]">
-        © 2026 OdontoLeal • Presidencia Médica Dr. Eduar Leal • Todos los derechos reservados.
+      <footer className="border-t border-[#E2E6EA] bg-white py-5 px-4 text-center text-xs text-[#64748B] space-y-1.5 mt-auto">
+        <div>© 2026 OdontoLeal • Consultorio Odontológico Dr. Eduar Leal Álvarez • Todos los derechos reservados.</div>
+        <div>
+          <button
+            type="button"
+            className="font-bold text-[#B8962E] hover:text-[#97741C] underline cursor-pointer focus:outline-none"
+            onClick={() => (onOpenPrivacyNotice ? onOpenPrivacyNotice() : setIsPrivacyModalOpen(true))}
+          >
+            Aviso de privacidad y política de tratamiento de datos personales
+          </button>
+        </div>
       </footer>
+
+      {/* Modal de Lectura de Aviso de Privacidad */}
+      <PrivacyNoticeModal isOpen={isPrivacyModalOpen} onClose={() => setIsPrivacyModalOpen(false)} />
 
       {/* Modal 1: ¿Confirmar tu Solicitud de Cita? */}
       <Modal
@@ -504,21 +635,24 @@ export const PublicBookingPage: React.FC<PublicBookingPageProps> = ({
       >
         <div className="space-y-4 text-xs">
           <div className="rounded-2xl border border-[#E2E6EA] p-3.5 bg-[#F8F9FA] space-y-1">
-            <span className="text-[10px] font-extrabold uppercase text-[#8F99A3]">Fecha y Horario Solicitado</span>
+            <span className="text-[13px] font-extrabold uppercase text-[#64748B]">Fecha y Horario Solicitado</span>
             <p className="font-extrabold text-[#1E242B] text-sm">
-              {selectedDate} • {selectedSlot?.label || ''}
+              {formatLongDateCO(selectedDate)} · {selectedSlot?.label || ''}
             </p>
           </div>
 
           <div className="rounded-2xl border border-[#E2E6EA] p-3.5 space-y-1">
-            <span className="text-[10px] font-extrabold uppercase text-[#8F99A3]">Paciente</span>
+            <span className="text-[13px] font-extrabold uppercase text-[#64748B]">Paciente</span>
             <p className="font-bold text-[#1E242B]">{nombreCompleto}</p>
-            <p className="text-[#687380]">C.C. {documentoIdentidad} • Tel: +57 {telefono}</p>
-            <p className="text-[#687380]">{correo}</p>
+            <p className="text-[#64748B]">
+              C.C. {documentoIdentidad} • Tel: +57 {telefono}
+              {genero ? ` • Género: ${genero}` : ''}
+            </p>
+            <p className="text-[#64748B]">{correo}</p>
           </div>
 
           <div className="rounded-2xl border border-[#E2E6EA] p-3.5 space-y-1">
-            <span className="text-[10px] font-extrabold uppercase text-[#8F99A3]">Motivo</span>
+            <span className="text-[13px] font-extrabold uppercase text-[#64748B]">Motivo</span>
             <p className="italic text-[#1E242B]">&ldquo;{motivoConsulta || 'Valoración odontológica'}&rdquo;</p>
           </div>
         </div>
@@ -555,15 +689,18 @@ export const PublicBookingPage: React.FC<PublicBookingPageProps> = ({
 
           <div className="rounded-2xl border border-[#E2E6EA] p-4 bg-[#F8F9FA] space-y-2">
             <div>
-              <span className="text-[10px] font-bold text-[#8F99A3]">FECHA Y HORA SOLICITADA</span>
-              <p className="font-bold text-[#1E242B]">{selectedDate} • {selectedSlot?.label || ''}</p>
+              <span className="text-[13px] font-bold text-[#64748B]">FECHA Y HORA SOLICITADA</span>
+              <p className="font-bold text-[#1E242B]">{formatLongDateCO(selectedDate)} · {selectedSlot?.label || ''}</p>
             </div>
             <div>
-              <span className="text-[10px] font-bold text-[#8F99A3]">PACIENTE</span>
-              <p className="font-bold text-[#1E242B]">{nombreCompleto} • {documentoIdentidad}</p>
+              <span className="text-[13px] font-bold text-[#64748B]">PACIENTE</span>
+              <p className="font-bold text-[#1E242B]">
+                {nombreCompleto} • {documentoIdentidad}
+                {genero ? ` • ${genero}` : ''}
+              </p>
             </div>
             <div>
-              <span className="text-[10px] font-bold text-[#8F99A3]">CORREO DE NOTIFICACIÓN</span>
+              <span className="text-[13px] font-bold text-[#64748B]">CORREO DE NOTIFICACIÓN</span>
               <p className="font-bold text-[#1E242B]">{correo}</p>
             </div>
           </div>

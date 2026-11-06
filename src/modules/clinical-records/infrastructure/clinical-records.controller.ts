@@ -1,23 +1,17 @@
+// src/modules/clinical-records/infrastructure/clinical-records.controller.ts
 import { Request, Response } from 'express';
-import { db } from '../../../shared/infrastructure/database/database';
+import { handleRequestError } from '../../../shared/infrastructure/http/http-error.handler';
+import { getSessionUser, SessionUser } from '../../../shared/infrastructure/security/access-control';
 import { CreateClinicalRecordUseCase } from '../application/create-clinical-record.use-case';
 import { GetClinicalHistoryUseCase } from '../application/get-clinical-history.use-case';
 import { ManageOdontogramUseCase } from '../application/manage-odontogram.use-case';
-import { RegisterEvolutionUseCase } from '../application/register-evolution.use-case';
-import { UpdateClinicalRecordUseCase } from '../application/update-clinical-record.use-case';
+import { ClinicalAccessPolicy } from '../application/clinical-access.policy';
+import { ActorContext, ClinicalDomainError, UserRoleCode } from '../domain/clinical-record.entity';
 import {
-  ActorContext,
-  ClinicalDomainError,
-  UserRoleCode,
-} from '../domain/clinical-record.entity';
-import { IClinicalRecordRepository } from '../domain/clinical-record.repository.interface';
-import { OdontogramDataDTO } from './clinical-record.model';
+  AppointmentClinicalContext,
+  IClinicalRecordRepository,
+} from '../domain/clinical-record.repository.interface';
 import {
-  createDefaultAntecedentesClinicos,
-  createDefaultHabitosHigiene,
-  createDefaultExamenEstomatognatico,
-  createInitialOdontograma,
-  createDefaultPlanManejo,
   AntecedentesClinicosSchema,
   HabitosHigieneSchema,
   ExamenEstomatognaticoSchema,
@@ -25,645 +19,227 @@ import {
   PlanManejoSchema,
 } from '../../../schemas';
 
+type ZodLike = { safeParse(v: unknown): { success: boolean; data?: any; error?: any } };
+
+/** Valida un bloque JSONB con su esquema Zod (contratos de la Capa 2) si viene informado. */
+function validateJson(value: unknown, schema: ZodLike, marker: string, label: string): unknown {
+  if (!value || typeof value !== 'object' || Object.keys(value as object).length === 0) return undefined;
+  if (!(marker in (value as object))) return value;
+  const parsed = schema.safeParse(value);
+  if (!parsed.success) {
+    throw new ClinicalDomainError(
+      parsed.error?.issues?.[0]?.message || `Estructura inválida de ${label}.`,
+      'BAD_REQUEST'
+    );
+  }
+  return parsed.data;
+}
+
+const text = (v: unknown): string | undefined => (typeof v === 'string' && v.trim() ? v.trim() : undefined);
+
 export class ClinicalRecordsController {
-  private readonly repo?: IClinicalRecordRepository;
   private readonly createClinicalRecordUseCase: CreateClinicalRecordUseCase;
-  private readonly updateClinicalRecordUseCase: UpdateClinicalRecordUseCase;
   private readonly manageOdontogramUseCase: ManageOdontogramUseCase;
   private readonly getClinicalHistoryUseCase: GetClinicalHistoryUseCase;
-  private readonly registerEvolutionUseCase: RegisterEvolutionUseCase;
 
-  constructor(
-    repoOrUseCase: IClinicalRecordRepository | CreateClinicalRecordUseCase,
-    updateClinicalRecordUseCase?: UpdateClinicalRecordUseCase,
-    manageOdontogramUseCase?: ManageOdontogramUseCase,
-    getClinicalHistoryUseCase?: GetClinicalHistoryUseCase,
-    registerEvolutionUseCase?: RegisterEvolutionUseCase
-  ) {
-    if ('createEvolutionEntry' in repoOrUseCase) {
-      const repo = repoOrUseCase as IClinicalRecordRepository;
-      this.repo = repo;
-      this.createClinicalRecordUseCase = new CreateClinicalRecordUseCase(repo);
-      this.updateClinicalRecordUseCase = new UpdateClinicalRecordUseCase(repo);
-      this.manageOdontogramUseCase = new ManageOdontogramUseCase(repo);
-      this.getClinicalHistoryUseCase = new GetClinicalHistoryUseCase(repo);
-      this.registerEvolutionUseCase = new RegisterEvolutionUseCase(repo);
-    } else {
-      this.createClinicalRecordUseCase = repoOrUseCase;
-      this.updateClinicalRecordUseCase = updateClinicalRecordUseCase!;
-      this.manageOdontogramUseCase = manageOdontogramUseCase!;
-      this.getClinicalHistoryUseCase = getClinicalHistoryUseCase!;
-      this.registerEvolutionUseCase = registerEvolutionUseCase!;
-    }
+  constructor(private readonly repo: IClinicalRecordRepository) {
+    this.createClinicalRecordUseCase = new CreateClinicalRecordUseCase(repo);
+    this.manageOdontogramUseCase = new ManageOdontogramUseCase(repo);
+    this.getClinicalHistoryUseCase = new GetClinicalHistoryUseCase(repo);
   }
 
-  private extractActor(req: Request): ActorContext {
-    const authUser = (req as any).user;
-    const headerRole = (req.headers['x-user-role'] || req.headers['x-user-roles']) as string;
-    let roles: UserRoleCode[] = [];
-
-    if (Array.isArray(authUser?.roles) && authUser.roles.length > 0) {
-      roles = authUser.roles.map((r: any) => (typeof r === 'string' ? r : r.codigoRol || r.nombreRol));
-    } else if (headerRole) {
-      roles = headerRole.split(',').map((r) => r.trim() as UserRoleCode);
-    }
-
-    const idUsuario = Number(
-      authUser?.idUsuario ??
-        req.headers['x-user-id'] ??
-        req.body?.payload?.diligenciadoPor?.idUsuario ??
-        req.body?.diligenciadoPor?.idUsuario ??
-        (roles.includes('ROL-AUX') ? 5 : 1)
-    );
-
-    const nombreUsuario = String(
-      authUser?.nombreCompleto ??
-        req.headers['x-user-name'] ??
-        req.body?.payload?.diligenciadoPor?.nombreUsuario ??
-        req.body?.diligenciadoPor?.nombreUsuario ??
-        (roles.includes('ROL-AUX') ? 'Milena' : 'Personal Clínico')
-    );
-
+  /** El actor siempre sale de la sesión (antes se aceptaban cabeceras x-user-role). */
+  private actorContext(user: SessionUser): ActorContext {
     return {
-      idUsuario,
-      nombreUsuario,
-      roles,
+      idUsuario: user.idUsuario,
+      nombreUsuario: user.nombreCompleto,
+      roles: user.roles as UserRoleCode[],
     };
   }
 
-  private isOdontogramObject(value: unknown): value is OdontogramDataDTO {
-    return (
-      Boolean(value) &&
-      typeof value === 'object' &&
-      'cuadrantes' in (value as Record<string, unknown>)
-    );
+  private async loadCita(idCita: number): Promise<AppointmentClinicalContext> {
+    const cita = this.repo.getAppointmentContext ? await this.repo.getAppointmentContext(idCita) : null;
+    if (!cita) throw new ClinicalDomainError('Cita no encontrada.', 'NOT_FOUND');
+    return cita;
   }
 
-  private handleError(error: unknown, res: Response): void {
-    if (error instanceof ClinicalDomainError) {
-      const statusMap = {
-        BAD_REQUEST: 400,
-        FORBIDDEN: 403,
-        NOT_FOUND: 404,
-      } as const;
-      res.status(statusMap[error.statusCode]).json({ message: error.message });
-      return;
-    }
-
-    const message =
-      error instanceof Error ? error.message : 'Error interno del servidor.';
-    const status =
-      message.includes('solo se puede editar el día') || message.includes('permiso')
-        ? 403
-        : 400;
-    res.status(status).json({ message });
+  /** Extrae y valida los datos estructurados de la consulta (5 pestañas). */
+  private structuredData(body: any) {
+    const p = body.payload ?? {};
+    return {
+      motivoConsulta: text(body.motivoConsulta ?? p.motivoConsulta),
+      enfermedadActual: text(body.enfermedadActual ?? p.enfermedadActual),
+      antecedentesClinicos: validateJson(
+        body.antecedentesClinicos ?? p.antecedentesClinicos ?? p.antecedentes,
+        AntecedentesClinicosSchema,
+        'accidentes_traumas',
+        'antecedentes clínicos'
+      ),
+      habitosHigiene: validateJson(body.habitosHigiene ?? p.habitosHigiene, HabitosHigieneSchema, 'cepillado_dental', 'hábitos de higiene'),
+      examenEstomatognatico: validateJson(
+        body.examenEstomatognatico ?? p.examenEstomatognatico,
+        ExamenEstomatognaticoSchema,
+        'labios',
+        'examen estomatognático'
+      ),
+      examenFisicoObservaciones: text(body.examenFisicoObservaciones ?? p.examenFisicoObservaciones),
+      odontograma: validateJson(body.odontograma ?? p.odontograma, OdontogramaSchema, 'cuadrantes', 'odontograma') as any,
+      procedimientoRealizado: text(body.procedimientoRealizado ?? p.procedimientoRealizado),
+      diagnosticoGenerado: text(body.diagnosticoGenerado ?? p.diagnosticoGenerado ?? p.diagnostico),
+      accionesARealizar: text(body.accionesARealizar ?? p.accionesARealizar),
+      hallazgosObservaciones: text(body.hallazgosObservaciones ?? p.hallazgosObservaciones ?? p.observaciones),
+      planManejo: validateJson(body.planManejo ?? p.planManejo, PlanManejoSchema, 'prescripcion_farmacologica', 'plan de manejo'),
+    };
   }
 
-  // RF-HCL-005, RF-HCL-007, RF-HCL-009: Crear entrada de historia clínica, odontograma JSON o evolución
+  // RF-HCL-005, RF-HCL-007, RF-HCL-009: registrar en la historia de la consulta en curso
   createEntry = async (req: Request, res: Response): Promise<void> => {
     try {
-      const { idPaciente, idCita, estadoCita, esMenorDe18Anios } = req.body;
-      const body = req.body;
-      const payload = body.payload || {};
-      const actor = this.extractActor(req);
-
+      const user = getSessionUser(req)!;
+      const body = req.body ?? {};
+      const idPaciente = Number(body.idPaciente);
+      const idCita = Number(body.idCita);
       if (!idPaciente || !idCita) {
-        res.status(400).json({
-          message: 'idPaciente e idCita son obligatorios.',
-        });
+        throw new ClinicalDomainError('idPaciente e idCita son obligatorios.', 'BAD_REQUEST');
+      }
+
+      const cita = await this.loadCita(idCita);
+      // D-25: la cita debe ser del paciente indicado
+      if (cita.idPaciente !== idPaciente) {
+        throw new ClinicalDomainError('La cita indicada no corresponde al paciente especificado.', 'BAD_REQUEST');
+      }
+
+      const tipo = body.payload?.tipoRegistro ?? body.tipoRegistro;
+
+      // RF-HCL-006/009: corrección posterior al cierre como nota aclaratoria
+      if (tipo === 'NOTA_ACLARATORIA') {
+        const autor = ClinicalAccessPolicy.resolveClarificationAuthor(user, cita);
+        const evolucion = await this.repo.findEvolutionByCitaId(idCita);
+        if (!evolucion) throw new ClinicalDomainError('La consulta no tiene historia clínica registrada.', 'NOT_FOUND');
+        const nota = await this.repo.addClarificationNote!(
+          evolucion.idEvolucion,
+          String(body.notaAclaratoria ?? body.notaEvolucion ?? body.payload?.notaEvolucion ?? ''),
+          autor
+        );
+        res.status(201).json({ message: 'Nota aclaratoria registrada.', data: nota });
         return;
       }
 
-      // DEF-13 & CPS-HCL-005-03: Validar estado de la cita directamente en la BD (public.cita)
-      const citaRes = await db.query<{ estado: string; id_usuario: number; profesional_nombre?: string }>(
-        `SELECT c.estado, c.id_usuario, u.nombre_completo as profesional_nombre
-         FROM public.cita c
-         LEFT JOIN public.usuario u ON u.id_usuario = c.id_usuario
-         WHERE c.id_cita = $1;`,
-        [idCita]
-      );
-
-      if (citaRes.rows.length === 0) {
-        res.status(404).json({ message: 'Cita no encontrada.' });
-        return;
-      }
-
-      const citaDb = citaRes.rows[0];
-      if (citaDb.estado !== 'En consulta') {
-        res.status(409).json({
-          message: 'Solo se puede crear o abrir la historia clínica cuando la cita está "En consulta".',
-        });
-        return;
-      }
-
-      // DEF-01: Coordinadora no tiene permisos clínicos
-      if (
-        actor.roles.includes('ROL-COA') &&
-        !actor.roles.includes('ROL-ADM') &&
-        !actor.roles.includes('ROL-ODO') &&
-        !actor.roles.includes('ROL-ESP')
-      ) {
-        res.status(403).json({ message: 'No tiene permiso para realizar esta acción' });
-        return;
-      }
-
-      const idProfesionalResponsable = Number(
-        citaDb.id_usuario ??
-          body.idProfesionalResponsable ??
-          payload.diligenciadoPor?.idProfesionalResponsable ??
-          actor.idUsuario
-      );
-
+      const writer = ClinicalAccessPolicy.resolveWriter(user, cita);
       let entry;
 
-      if (payload.tipoRegistro === 'APERTURA_CONSULTA') {
+      if (tipo === 'APERTURA_CONSULTA') {
+        // Apertura con catálogo de antecedentes ("No aplica" para todos y "Sí" con observación)
+        if (!writer.esProfesionalResponsable) throw new ClinicalDomainError('Solo el profesional responsable abre la historia clínica.', 'FORBIDDEN');
         entry = await this.createClinicalRecordUseCase.execute({
-          idPaciente: Number(idPaciente),
-          idCita: Number(idCita),
-          estadoCita: 'En consulta',
-          idProfesionalResponsable,
-          actor,
-          motivoConsulta: payload.motivoConsulta ?? body.motivoConsulta ?? '',
-          antecedentes: payload.antecedentes ?? body.antecedentesClinicos,
-          marcarTodoNoAplica: Boolean(req.body.marcarTodoNoAplica),
+          idPaciente,
+          idCita,
+          estadoCita: cita.estado,
+          idProfesionalResponsable: cita.idProfesional,
+          actor: this.actorContext(user),
+          writer,
+          motivoConsulta: body.payload?.motivoConsulta ?? body.motivoConsulta ?? '',
+          antecedentes: body.payload?.antecedentes ?? body.antecedentesClinicos,
+          marcarTodoNoAplica: Boolean(body.marcarTodoNoAplica),
         });
-      } else if (
-        (payload.tipoRegistro === 'EVOLUCION_ODONTOGRAMA' || this.isOdontogramObject(body.odontograma)) &&
-        this.isOdontogramObject(payload.odontograma || body.odontograma) &&
-        !payload.procedimientoRealizado &&
-        !body.procedimientoRealizado
-      ) {
-        entry = await this.manageOdontogramUseCase.execute({
-          idPaciente: Number(idPaciente),
-          idCita: Number(idCita),
-          estadoCita: 'En consulta',
-          idProfesionalResponsable,
-          esMenorDe18Anios: Boolean(esMenorDe18Anios),
-          actor,
-          odontograma: payload.odontograma || body.odontograma,
-        });
-      } else if (this.repo) {
-        // Guardado estructurado directo mapeado a las 5 pestañas de la tabla evolucion
-        const motivoConsulta =
-          body.motivoConsulta ?? payload.motivoConsulta ?? 'Consulta Odontológica';
-        const enfermedadActual =
-          body.enfermedadActual ?? payload.enfermedadActual ?? 'N/A';
-
-        // 1. Antecedentes Clínicos
-        let antecedentesClinicos =
-          body.antecedentesClinicos ??
-          payload.antecedentesClinicos ??
-          payload.antecedentes;
-        if (
-          !antecedentesClinicos ||
-          (typeof antecedentesClinicos === 'object' &&
-            Object.keys(antecedentesClinicos).length === 0)
-        ) {
-          antecedentesClinicos = createDefaultAntecedentesClinicos();
-        } else if (
-          typeof antecedentesClinicos === 'object' &&
-          'accidentes_traumas' in antecedentesClinicos
-        ) {
-          const parsed = AntecedentesClinicosSchema.safeParse(antecedentesClinicos);
-          if (!parsed.success) {
-            res.status(400).json({
-              message:
-                parsed.error.issues[0]?.message ||
-                'Estructura inválida de antecedentes clínicos.',
-              errors: parsed.error.issues,
-            });
-            return;
-          }
-          antecedentesClinicos = parsed.data;
-        }
-
-        // 2. Hábitos de Higiene
-        let habitosHigiene = body.habitosHigiene ?? payload.habitosHigiene;
-        if (
-          !habitosHigiene ||
-          (typeof habitosHigiene === 'object' &&
-            Object.keys(habitosHigiene).length === 0)
-        ) {
-          habitosHigiene = createDefaultHabitosHigiene();
-        } else if (
-          typeof habitosHigiene === 'object' &&
-          'cepillado_dental' in habitosHigiene
-        ) {
-          const parsed = HabitosHigieneSchema.safeParse(habitosHigiene);
-          if (!parsed.success) {
-            res.status(400).json({
-              message:
-                parsed.error.issues[0]?.message ||
-                'Estructura inválida de hábitos de higiene.',
-              errors: parsed.error.issues,
-            });
-            return;
-          }
-          habitosHigiene = parsed.data;
-        }
-
-        // 3. Examen Estomatognático
-        let examenEstomatognatico =
-          body.examenEstomatognatico ?? payload.examenEstomatognatico;
-        if (
-          !examenEstomatognatico ||
-          (typeof examenEstomatognatico === 'object' &&
-            Object.keys(examenEstomatognatico).length === 0)
-        ) {
-          examenEstomatognatico = createDefaultExamenEstomatognatico();
-        } else if (
-          typeof examenEstomatognatico === 'object' &&
-          'labios' in examenEstomatognatico
-        ) {
-          const parsed = ExamenEstomatognaticoSchema.safeParse(examenEstomatognatico);
-          if (!parsed.success) {
-            res.status(400).json({
-              message:
-                parsed.error.issues[0]?.message ||
-                'Estructura inválida de examen estomatognático.',
-              errors: parsed.error.issues,
-            });
-            return;
-          }
-          examenEstomatognatico = parsed.data;
-        }
-
-        const examenFisicoObservaciones =
-          body.examenFisicoObservaciones ?? payload.examenFisicoObservaciones ?? null;
-
-        // 4. Odontograma
-        let odontograma = body.odontograma ?? payload.odontograma;
-        if (
-          !odontograma ||
-          (typeof odontograma === 'object' &&
-            Object.keys(odontograma).length === 0)
-        ) {
-          odontograma = createInitialOdontograma(Boolean(esMenorDe18Anios));
-        } else if (this.isOdontogramObject(odontograma)) {
-          const parsed = OdontogramaSchema.safeParse(odontograma);
-          if (!parsed.success) {
-            res.status(400).json({
-              message:
-                parsed.error.issues[0]?.message ||
-                'Estructura inválida de odontograma.',
-              errors: parsed.error.issues,
-            });
-            return;
-          }
-          odontograma = parsed.data;
-        }
-
-        const procedimientoRealizado =
-          body.procedimientoRealizado ??
-          payload.procedimientoRealizado ??
-          payload.notaEvolucion ??
-          null;
-        const diagnosticoGenerado =
-          body.diagnosticoGenerado ??
-          payload.diagnosticoGenerado ??
-          payload.diagnostico ??
-          null;
-        const accionesARealizar =
-          body.accionesARealizar ?? payload.accionesARealizar ?? null;
-        const hallazgosObservaciones =
-          body.hallazgosObservaciones ??
-          payload.hallazgosObservaciones ??
-          payload.observaciones ??
-          null;
-
-        // 5. Plan de Manejo
-        let planManejo = body.planManejo ?? payload.planManejo;
-        if (
-          !planManejo ||
-          (typeof planManejo === 'object' &&
-            Object.keys(planManejo).length === 0)
-        ) {
-          planManejo = createDefaultPlanManejo();
-        } else if (
-          typeof planManejo === 'object' &&
-          ('prescripcion_farmacologica' in planManejo ||
-            'incapacidad_medica' in planManejo ||
-            'remision_medica' in planManejo)
-        ) {
-          const parsed = PlanManejoSchema.safeParse(planManejo);
-          if (!parsed.success) {
-            res.status(400).json({
-              message:
-                parsed.error.issues[0]?.message ||
-                'Estructura inválida de plan de manejo.',
-              errors: parsed.error.issues,
-            });
-            return;
-          }
-          planManejo = parsed.data;
-        }
-
-        const diligenciadoPor = {
-          idUsuario: actor.idUsuario,
-          nombreUsuario: actor.nombreUsuario,
-          idProfesionalResponsable,
-          fechaHoraISO: new Date().toISOString(),
-        };
+      } else {
+        const data = this.structuredData(body);
+        // La auxiliar no escribe la apertura: lo que diligencia queda como nota de evolución con su nombre.
+        const notaTexto = text(body.notaEvolucion) ??
+          (writer.esProfesionalResponsable ? undefined : data.hallazgosObservaciones ?? data.procedimientoRealizado);
 
         entry = await this.repo.createEvolutionEntry({
-          idPaciente: Number(idPaciente),
-          idCita: Number(idCita),
-          motivoConsulta,
-          enfermedadActual,
-          antecedentesClinicos,
-          habitosHigiene,
-          examenEstomatognatico,
-          examenFisicoObservaciones,
-          odontograma,
-          procedimientoRealizado,
-          diagnosticoGenerado,
-          accionesARealizar,
-          hallazgosObservaciones,
-          planManejo,
-          payload: {
-            tipoRegistro: 'EVOLUCION_ODONTOGRAMA',
-            motivoConsulta,
-            enfermedadActual,
-            antecedentesClinicos,
-            habitosHigiene,
-            examenEstomatognatico,
-            examenFisicoObservaciones: examenFisicoObservaciones ?? undefined,
-            odontograma,
-            procedimientoRealizado: procedimientoRealizado ?? undefined,
-            diagnostico: diagnosticoGenerado ?? undefined,
-            accionesARealizar: accionesARealizar ?? undefined,
-            observaciones: hallazgosObservaciones ?? undefined,
-            planManejo,
-            diligenciadoPor,
-          },
-        });
-      } else {
-        const notaEvolucionTextoLibre =
-          payload.notaEvolucion ||
-          body.observaciones ||
-          payload.observaciones ||
-          body.procedimientoRealizado ||
-          payload.procedimientoRealizado ||
-          (body.motivoConsulta
-            ? `Atención clínica: ${body.motivoConsulta}`
-            : 'Evolución clínica registrada.');
-
-        entry = await this.registerEvolutionUseCase.execute({
-          idPaciente: Number(idPaciente),
-          idCita: Number(idCita),
-          estadoCita: 'En consulta',
-          idProfesionalResponsable,
-          actor,
-          procedimientoRealizado:
-            body.procedimientoRealizado ||
-            payload.procedimientoRealizado ||
-            'Atención odontológica en consulta',
-          notaEvolucionTextoLibre,
-          plantillaCodigo: req.body.plantillaCodigo,
-          camposPlantilla: req.body.camposPlantilla,
-          esNotaAclaratoria: Boolean(req.body.esNotaAclaratoria),
+          idPaciente,
+          idCita,
+          ...data,
+          actor: writer,
+          nota: notaTexto
+            ? { texto: notaTexto, procedimientoRealizado: writer.esProfesionalResponsable ? undefined : data.procedimientoRealizado }
+            : undefined,
         });
       }
 
-      res.status(201).json({
-        message: 'Entrada clínica registrada exitosamente.',
-        data: entry,
-      });
+      res.status(201).json({ message: 'Registro clínico guardado.', data: entry });
     } catch (error) {
-      this.handleError(error, res);
+      await handleRequestError(req, res, error, 400);
     }
   };
 
-  // RF-HCL-006: Actualizar historia clínica, odontograma o campos de evolución hasta las 23:59 UTC-5
+  // RF-HCL-006: editar la historia de la consulta mientras está En consulta
   updateEntry = async (req: Request, res: Response): Promise<void> => {
     try {
+      const user = getSessionUser(req)!;
       const idEvolucion = Number(req.params.idEvolucion);
-      const { idPaciente, estadoCita } = req.body;
-      const body = req.body;
-      const payload = body.payload || {};
-      const actor = this.extractActor(req);
-
-      let updated;
-
-      if (payload?.tipoRegistro === 'APERTURA_CONSULTA') {
-        updated = await this.updateClinicalRecordUseCase.execute({
-          idPaciente: Number(idPaciente),
-          idEvolucion,
-          actor,
-          motivoConsulta: payload.motivoConsulta ?? body.motivoConsulta,
-          antecedentes: payload.antecedentes ?? body.antecedentesClinicos,
-        });
-      } else if (
-        payload?.tipoRegistro === 'EVOLUCION_ODONTOGRAMA' &&
-        this.isOdontogramObject(payload?.odontograma) &&
-        !payload?.procedimientoRealizado &&
-        !body.procedimientoRealizado
-      ) {
-        updated = await this.manageOdontogramUseCase.execute({
-          idPaciente: Number(idPaciente),
-          idCita: Number(req.body.idCita),
-          idEvolucionExistente: idEvolucion,
-          estadoCita: estadoCita ?? 'En consulta',
-          idProfesionalResponsable: Number(
-            payload.diligenciadoPor?.idProfesionalResponsable ?? actor.idUsuario
-          ),
-          actor,
-          odontograma: payload.odontograma,
-        });
-      } else if (this.repo) {
-        // Validación Zod con safeParse en actualización (Capa 2)
-        const rawAntecedentes =
-          body.antecedentesClinicos ??
-          payload.antecedentesClinicos ??
-          payload.antecedentes;
-        if (
-          rawAntecedentes &&
-          typeof rawAntecedentes === 'object' &&
-          'accidentes_traumas' in rawAntecedentes
-        ) {
-          const parsed = AntecedentesClinicosSchema.safeParse(rawAntecedentes);
-          if (!parsed.success) {
-            res.status(400).json({
-              message:
-                parsed.error.issues[0]?.message ||
-                'Estructura inválida de antecedentes clínicos.',
-              errors: parsed.error.issues,
-            });
-            return;
-          }
-        }
-
-        const rawHabitos = body.habitosHigiene ?? payload.habitosHigiene;
-        if (
-          rawHabitos &&
-          typeof rawHabitos === 'object' &&
-          'cepillado_dental' in rawHabitos
-        ) {
-          const parsed = HabitosHigieneSchema.safeParse(rawHabitos);
-          if (!parsed.success) {
-            res.status(400).json({
-              message:
-                parsed.error.issues[0]?.message ||
-                'Estructura inválida de hábitos de higiene.',
-              errors: parsed.error.issues,
-            });
-            return;
-          }
-        }
-
-        const rawExamen =
-          body.examenEstomatognatico ?? payload.examenEstomatognatico;
-        if (
-          rawExamen &&
-          typeof rawExamen === 'object' &&
-          'labios' in rawExamen
-        ) {
-          const parsed = ExamenEstomatognaticoSchema.safeParse(rawExamen);
-          if (!parsed.success) {
-            res.status(400).json({
-              message:
-                parsed.error.issues[0]?.message ||
-                'Estructura inválida de examen estomatognático.',
-              errors: parsed.error.issues,
-            });
-            return;
-          }
-        }
-
-        const rawOdontograma = body.odontograma ?? payload.odontograma;
-        if (this.isOdontogramObject(rawOdontograma)) {
-          const parsed = OdontogramaSchema.safeParse(rawOdontograma);
-          if (!parsed.success) {
-            res.status(400).json({
-              message:
-                parsed.error.issues[0]?.message ||
-                'Estructura inválida de odontograma.',
-              errors: parsed.error.issues,
-            });
-            return;
-          }
-        }
-
-        const rawPlan = body.planManejo ?? payload.planManejo;
-        if (
-          rawPlan &&
-          typeof rawPlan === 'object' &&
-          ('prescripcion_farmacologica' in rawPlan ||
-            'incapacidad_medica' in rawPlan ||
-            'remision_medica' in rawPlan)
-        ) {
-          const parsed = PlanManejoSchema.safeParse(rawPlan);
-          if (!parsed.success) {
-            res.status(400).json({
-              message:
-                parsed.error.issues[0]?.message ||
-                'Estructura inválida de plan de manejo.',
-              errors: parsed.error.issues,
-            });
-            return;
-          }
-        }
-
-        updated = await this.repo.updateEvolutionEntrySameDay(idEvolucion, {
-          motivoConsulta: body.motivoConsulta ?? payload.motivoConsulta,
-          enfermedadActual: body.enfermedadActual ?? payload.enfermedadActual,
-          antecedentesClinicos: rawAntecedentes,
-          habitosHigiene: rawHabitos,
-          examenEstomatognatico: rawExamen,
-          examenFisicoObservaciones:
-            body.examenFisicoObservaciones ?? payload.examenFisicoObservaciones,
-          odontograma: rawOdontograma,
-          procedimientoRealizado:
-            body.procedimientoRealizado ?? payload.procedimientoRealizado ?? payload.notaEvolucion,
-          diagnosticoGenerado:
-            body.diagnosticoGenerado ?? payload.diagnosticoGenerado ?? payload.diagnostico,
-          accionesARealizar: body.accionesARealizar ?? payload.accionesARealizar,
-          hallazgosObservaciones:
-            body.hallazgosObservaciones ?? payload.hallazgosObservaciones ?? payload.observaciones,
-          planManejo: rawPlan,
-          evolucion: payload,
-          diligenciadoPor: {
-            idUsuario: actor.idUsuario,
-            nombreUsuario: actor.nombreUsuario,
-            idProfesionalResponsable: Number(payload.diligenciadoPor?.idProfesionalResponsable ?? actor.idUsuario),
-            fechaHoraISO: new Date().toISOString(),
-          },
-        });
-      } else {
-        updated = await this.registerEvolutionUseCase.updateNote({
-          idPaciente: Number(idPaciente),
-          idEvolucion,
-          estadoCita: estadoCita ?? 'En consulta',
-          actor,
-          procedimientoRealizado:
-            body?.procedimientoRealizado ?? payload?.procedimientoRealizado ?? '',
-          notaEvolucionTextoLibre:
-            body?.observaciones ?? payload?.notaEvolucion ?? payload?.observaciones,
-          plantillaCodigo: req.body.plantillaCodigo,
-          camposPlantilla: req.body.camposPlantilla,
-        });
+      const body = req.body ?? {};
+      const idCita = Number(body.idCita);
+      if (!idEvolucion || !idCita) {
+        throw new ClinicalDomainError('idEvolucion e idCita son obligatorios.', 'BAD_REQUEST');
       }
-
-      res.json({
-        message: 'Historia clínica actualizada dentro del plazo legal.',
-        data: updated,
-      });
+      const cita = await this.loadCita(idCita);
+      const evolucion = await this.repo.findEvolutionByCitaId(idCita);
+      if (!evolucion || evolucion.idEvolucion !== idEvolucion) {
+        throw new ClinicalDomainError('El registro no corresponde a la cita indicada.', 'BAD_REQUEST');
+      }
+      const writer = ClinicalAccessPolicy.resolveWriter(user, cita);
+      const data = this.structuredData(body);
+      const updated = await this.repo.updateEvolutionEntry(
+        idEvolucion,
+        { ...data, notaEvolucion: text(body.notaEvolucion) } as any,
+        writer
+      );
+      res.json({ message: 'Historia clínica actualizada.', data: updated });
     } catch (error) {
-      this.handleError(error, res);
+      await handleRequestError(req, res, error, 400);
     }
   };
 
-  // RF-HCL-007: Obtener el último JSON de odontograma del paciente (o plantilla limpia en 1ra consulta)
+  // Historia de la consulta de una cita (vista de la consulta en curso)
+  getConsultationRecord = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const user = getSessionUser(req)!;
+      const cita = await this.loadCita(Number(req.params.idCita));
+      ClinicalAccessPolicy.assertCanViewConsultation(user, cita);
+      const evolucion = await this.repo.findEvolutionByCitaId(cita.idCita);
+      res.json({
+        data: {
+          cita,
+          registro: evolucion,
+          mensaje: evolucion ? null : 'La consulta aún no tiene apertura de historia clínica.',
+        },
+      });
+    } catch (error) {
+      await handleRequestError(req, res, error, 400);
+    }
+  };
+
+  // RF-HCL-007: último odontograma del paciente (o uno en blanco en la primera consulta)
   getLatestOdontogram = async (req: Request, res: Response): Promise<void> => {
     try {
-      const idPaciente = Number(req.params.idPaciente);
-      const esMenorDe18Anios = req.query.esMenor === 'true';
-
-      const odontograma =
-        await this.manageOdontogramUseCase.getLatestOdontogramSnapshot(
-          idPaciente,
-          esMenorDe18Anios
-        );
-
+      const odontograma = await this.manageOdontogramUseCase.getLatestOdontogramSnapshot(
+        Number(req.params.idPaciente),
+        req.query.esMenor === 'true'
+      );
       res.json({ data: odontograma });
     } catch (error) {
-      this.handleError(error, res);
+      await handleRequestError(req, res, error, 400);
     }
   };
 
-  // RF-HCL-008: Consultar historial clínico completo de un paciente
+  // RF-HCL-008: historial clínico completo (solo ROL-ODO y ROL-ESP), con inasistencias
   getHistoryByPatient = async (req: Request, res: Response): Promise<void> => {
     try {
-      const authUser = (req as any).user;
-      if (!authUser && !req.headers['x-user-role'] && !req.headers['authorization']) {
-        res.status(401).json({
-          message: 'Se requiere iniciar sesión para consultar el expediente clínico.',
-        });
-        return;
-      }
-
-      const actor = this.extractActor(req);
-      const isAllowed =
-        actor.roles.includes('ROL-ODO') ||
-        actor.roles.includes('ROL-ESP') ||
-        actor.roles.includes('ROL-ADM');
-
-      if (!isAllowed) {
-        res.status(403).json({
-          message: 'No tiene permiso para consultar la historia clínica.',
-        });
-        return;
-      }
-
+      const user = getSessionUser(req)!;
+      ClinicalAccessPolicy.assertCanViewHistory(user);
       const idPaciente = Number(req.params.idPaciente);
+      const inasistencias = this.repo.getNoShowsByPatient ? await this.repo.getNoShowsByPatient(idPaciente) : [];
       const history = await this.getClinicalHistoryUseCase.execute({
         idPaciente,
-        actor,
+        actor: this.actorContext(user),
+        inasistenciasPaciente: inasistencias,
       });
-
       res.json({ data: history });
     } catch (error) {
-      this.handleError(error, res);
+      await handleRequestError(req, res, error, 400);
     }
   };
 }

@@ -4,13 +4,9 @@ import assert from 'node:assert/strict';
 
 import {
   IClinicalDocumentRepository,
-  CreateClinicalDocumentDTO,
-  ClinicalDocumentRecord,
+  GeneratedClinicalDocument,
   ConsultationContextData,
 } from '../domain/clinical-document.repository.interface';
-import { PrescriptionEntity } from '../domain/prescription.entity';
-import { SickLeaveEntity } from '../domain/sick-leave.entity';
-import { ReferralEntity } from '../domain/referral.entity';
 
 import {
   EmbedProfessionalSignatureService,
@@ -19,54 +15,24 @@ import {
 import { GeneratePrescriptionUseCase } from '../application/generate-prescription.use-case';
 import { GenerateSickLeaveUseCase } from '../application/generate-sick-leave.use-case';
 import { GenerateReferralUseCase } from '../application/generate-referral.use-case';
-import { GetClinicalDocumentsUseCase } from '../application/get-clinical-documents.use-case';
 
-// Implementación en memoria del repositorio de documentos clínicos
+// Repositorio en memoria (ERS v1.2/v1.3): no guarda documentos, solo la constancia de auditoría
 class InMemoryClinicalDocumentRepository implements IClinicalDocumentRepository {
-  public documents: Map<number, ClinicalDocumentRecord> = new Map();
   public contexts: Map<string, ConsultationContextData> = new Map();
-  private docIdSeq = 1;
+  public auditados: Array<Omit<GeneratedClinicalDocument, 'pdfBase64'>> = [];
 
-  async createClinicalDocument(
-    dto: CreateClinicalDocumentDTO
-  ): Promise<ClinicalDocumentRecord> {
-    const id = this.docIdSeq++;
-    const record: ClinicalDocumentRecord = {
-      idDocumento: id,
-      fecha: new Date(),
-      idCita: dto.idCita,
-      tipoDocumento: dto.tipoDocumento,
-      archivoPdfUrl: dto.archivoPdfUrl,
-      modoFirma: dto.modoFirma,
-      detalles: dto.detalles,
-      diligenciadoPor: dto.diligenciadoPor,
-    };
-    this.documents.set(id, record);
-    return record;
+  async getConsultationContext(idPaciente: number, idCita: number): Promise<ConsultationContextData | null> {
+    return this.contexts.get(`${idPaciente}_${idCita}`) ?? null;
   }
 
-  async getDocumentsByPatient(idPaciente: number): Promise<ClinicalDocumentRecord[]> {
-    return Array.from(this.documents.values()).sort(
-      (a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()
-    );
-  }
-
-  async getConsultationContext(
-    idPaciente: number,
-    idCita: number
-  ): Promise<ConsultationContextData | null> {
-    const key = `${idPaciente}_${idCita}`;
-    return this.contexts.get(key) ?? null;
-  }
-
-  async hasActiveConsultationForPatient(idPaciente: number): Promise<boolean> {
-    return Array.from(this.contexts.values()).some(
-      (c) => c.paciente.idPaciente === idPaciente && c.cita.estado === 'En consulta'
-    );
+  async recordGeneration(documento: Omit<GeneratedClinicalDocument, 'pdfBase64'>): Promise<void> {
+    this.auditados.push(documento);
   }
 }
 
-describe('MÓDULO E: Documentos Clínicos (Órdenes, Incapacidades, Remisiones, RF-DOC-001 a RF-DOC-005)', () => {
+const esPdf = (b64: string) => Buffer.from(b64, 'base64').subarray(0, 5).toString('ascii') === '%PDF-';
+
+describe('MÓDULO E: Documentos Clínicos (Órdenes, Incapacidades, Remisiones, RF-DOC-001 a RF-DOC-004)', () => {
   let repo: InMemoryClinicalDocumentRepository;
   let signatureService: EmbedProfessionalSignatureService;
 
@@ -106,6 +72,7 @@ describe('MÓDULO E: Documentos Clínicos (Órdenes, Incapacidades, Remisiones, 
         estado: 'En consulta',
         fechaInicioCita: new Date(),
       },
+      tieneApertura: true,
     });
 
     // Contexto de consulta paciente menor de edad
@@ -117,12 +84,6 @@ describe('MÓDULO E: Documentos Clínicos (Órdenes, Incapacidades, Remisiones, 
         fechaNacimiento: '2016-08-20', // 10 años
         sexo: 'Masculino',
         idHistoria: 2002,
-        acudiente: {
-          nombreCompleto: 'Valeria Gómez',
-          documentoIdentidad: '63889900',
-          parentesco: 'Madre',
-          telefono: '3151112233',
-        },
       },
       cita: {
         idCita: 502,
@@ -132,6 +93,7 @@ describe('MÓDULO E: Documentos Clínicos (Órdenes, Incapacidades, Remisiones, 
         estado: 'En consulta',
         fechaInicioCita: new Date(),
       },
+      tieneApertura: true,
     });
   });
 
@@ -160,9 +122,12 @@ describe('MÓDULO E: Documentos Clínicos (Órdenes, Incapacidades, Remisiones, 
       actor: DR_LEAL,
     });
 
-    assert.ok(result.documento.idDocumento);
+    assert.ok(esPdf(result.documento.pdfBase64), 'Se entrega el PDF generado en memoria');
     assert.strictEqual(result.documento.tipoDocumento, 'ORDEN_MEDICAMENTOS');
     assert.strictEqual(result.documento.modoFirma, 'CON_FIRMA_REGISTRADA');
+    // Solo queda la constancia (sin el PDF) en la auditoría
+    assert.strictEqual(repo.auditados.length, 1);
+    assert.strictEqual((repo.auditados[0] as any).pdfBase64, undefined);
     assert.strictEqual(result.documento.detalles.medicamentos?.length, 2);
     assert.strictEqual(result.documento.diligenciadoPor.nombreProfesional, 'Dr. Eduar Leal Álvarez');
   });
@@ -186,6 +151,7 @@ describe('MÓDULO E: Documentos Clínicos (Órdenes, Incapacidades, Remisiones, 
         nombreProfesionalResponsable: 'Dr. Eduar Leal Álvarez',
         estado: 'En consulta',
       },
+      tieneApertura: true,
     });
 
     await assert.rejects(
@@ -233,11 +199,11 @@ describe('MÓDULO E: Documentos Clínicos (Órdenes, Incapacidades, Remisiones, 
       actor: DR_LEAL,
     });
 
-    assert.ok(result.documento.idDocumento);
+    assert.ok(esPdf(result.documento.pdfBase64));
     assert.strictEqual(result.documento.tipoDocumento, 'INCAPACIDAD');
     assert.strictEqual(result.documento.detalles.diasIncapacidad, 3);
+    // Menor de 18 años: campos en blanco para el acudiente (no se exige acudiente en la ficha)
     assert.strictEqual(result.documento.detalles.requiereFirmaAcudiente, true);
-    assert.strictEqual(result.documento.detalles.acudiente?.nombreCompleto, 'Valeria Gómez');
     assert.ok(result.documento.detalles.fechaInicioIncapacidad);
     assert.ok(result.documento.detalles.fechaFinIncapacidad);
   });
@@ -285,7 +251,7 @@ describe('MÓDULO E: Documentos Clínicos (Órdenes, Incapacidades, Remisiones, 
       actor: DR_LEAL,
     });
 
-    assert.ok(result.documento.idDocumento);
+    assert.ok(esPdf(result.documento.pdfBase64));
     assert.strictEqual(result.documento.tipoDocumento, 'REMISION');
     assert.strictEqual(result.documento.detalles.especialidadDestino, 'Endodoncia');
     assert.strictEqual(
@@ -343,6 +309,7 @@ describe('MÓDULO E: Documentos Clínicos (Órdenes, Incapacidades, Remisiones, 
         firmaProfesionalUrl: null,
         estado: 'En consulta',
       },
+      tieneApertura: true,
     });
 
     const resSinFirma = await useCase.execute({
@@ -365,44 +332,33 @@ describe('MÓDULO E: Documentos Clínicos (Órdenes, Incapacidades, Remisiones, 
     );
   });
 
-  it('RF-DOC-005: Consultar documentos clínicos del paciente segregando acceso por rol (ROL-ODO/ESP vs ROL-COA)', async () => {
-    const getDocsUseCase = new GetClinicalDocumentsUseCase(repo);
-    const prescrUseCase = new GeneratePrescriptionUseCase(repo, signatureService);
+  it('D-24 y Regla de Negocio 4: Sin apertura no hay documento; solo el profesional responsable lo genera', async () => {
+    const useCase = new GeneratePrescriptionUseCase(repo, signatureService);
+    const med = [{ nombrePresentacion: 'Ketorolaco 10mg', dosis: '1 tab', frecuencia: 'Cada 8h', duracion: '2 días' }];
 
-    // Crear un documento clínico previo
-    await prescrUseCase.execute({
-      idPaciente: 101,
-      idCita: 501,
-      medicamentos: [
-        {
-          nombrePresentacion: 'Ketorolaco 10mg sublingual',
-          dosis: '1 tab',
-          frecuencia: 'Cada 8h',
-          duracion: '2 días',
-        },
-      ],
-      actor: DR_LEAL,
-    });
-
-    // Coordinadora (ROL-COA): NO tiene acceso a documentos clínicos (Regla de Negocio 5)
+    repo.contexts.get('101_501')!.tieneApertura = false;
     await assert.rejects(
-      async () => {
-        await getDocsUseCase.execute({
-          idPaciente: 101,
-          actor: { idUsuario: 30, roles: ['ROL-COA'] },
-        });
-      },
+      () => useCase.execute({ idPaciente: 101, idCita: 501, medicamentos: med, actor: DR_LEAL }),
+      /Falta registrar el motivo de consulta/
+    );
+    repo.contexts.get('101_501')!.tieneApertura = true;
+
+    // La Dra. Díaz no es la responsable de la cita 501
+    await assert.rejects(
+      () => useCase.execute({ idPaciente: 101, idCita: 501, medicamentos: med, actor: DRA_DIAZ }),
       /No tiene permiso para realizar esta acción/
     );
-
-    // Odontólogo (ROL-ODO): SÍ puede consultar en solo lectura
-    const odoDocs = await getDocsUseCase.execute({
-      idPaciente: 101,
-      actor: { idUsuario: 10, roles: ['ROL-ODO'] },
-    });
-
-    assert.strictEqual(odoDocs.soloLectura, true);
-    assert.strictEqual(odoDocs.data.length, 1);
-    assert.strictEqual(odoDocs.data[0].tipoDocumento, 'ORDEN_MEDICAMENTOS');
+    // Una auxiliar nunca prescribe
+    await assert.rejects(
+      () =>
+        useCase.execute({
+          idPaciente: 101,
+          idCita: 501,
+          medicamentos: med,
+          actor: { idUsuario: 30, nombreCompleto: 'Milena', roles: ['ROL-AUX'] },
+        }),
+      /No tiene permiso para realizar esta acción/
+    );
+    assert.strictEqual(repo.auditados.length, 0);
   });
 });

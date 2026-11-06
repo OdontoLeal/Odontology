@@ -1,15 +1,8 @@
 export {
-  DataAuthorizationVO,
-  AuthorizationMedium,
-  DataAuthorizationProps,
-} from './domain/data-authorization.vo';
-
-export {
   Patient,
   PatientProps,
   PatientSex,
-  GuardianInfo,
-  BackupContactInfo,
+  PatientChanges,
   PatientDomainError,
 } from './domain/patient.entity';
 
@@ -19,6 +12,8 @@ export {
   PatientSearchItem,
   PatientProfileRecord,
   HolderDataRecord,
+  HolderAuthorizationRecord,
+  PatientAuditActor,
 } from './domain/patient.repository.interface';
 
 export {

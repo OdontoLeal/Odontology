@@ -1,5 +1,6 @@
 // src/modules/appointments/ui/components/WeeklyCalendarGrid.tsx
 import React from 'react';
+import { formatTimeCO } from '../../../../shared/ui/format';
 import {
   CalendarIcon,
   ClockIcon,
@@ -23,16 +24,7 @@ export interface CalendarTimeSlot {
   tratamiento?: string | null;
   doctorNombre?: string | null;
   estadoCita?:
-    | 'Confirmada'
-    | 'En consulta'
-    | 'En espera'
-    | 'Atendida'
-    | 'Completada'
-    | 'Cancelada'
-    | 'No asistió'
-    | 'Pendiente de confirmación'
-    | 'Solicitada'
-    | null;
+    'Confirmada' | 'En consulta' | 'Atendida' | 'Cancelada' | 'Inasistencia' | 'Solicitada' | null;
 }
 
 export interface WeeklyCalendarGridProps {
@@ -63,10 +55,7 @@ export const WeeklyCalendarGrid: React.FC<WeeklyCalendarGridProps> = ({
   onCreateBlocks,
 }) => {
   const filteredSlots = slots.filter((slot) => {
-    const isPending =
-      slot.estadoCita === 'Pendiente de confirmación' ||
-      slot.estadoCita === 'Solicitada' ||
-      Boolean(slot.idSolicitud);
+    const isPending = slot.estadoCita === 'Solicitada' || Boolean(slot.idSolicitud);
 
     if (filterMode === 'appointments_only') {
       return Boolean(slot.idCita && !isPending);
@@ -80,11 +69,15 @@ export const WeeklyCalendarGrid: React.FC<WeeklyCalendarGridProps> = ({
   const renderStatusBadge = (estado: CalendarTimeSlot['estadoCita']) => {
     switch (estado) {
       case 'Atendida':
-      case 'Completada':
         return (
           <span className="inline-flex items-center gap-1 px-3 py-0.5 rounded-full text-xs font-semibold bg-[#ECFDF5] text-[#059669] border border-[#A7F3D0]">
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2.5}
+                d="M5 13l4 4L19 7"
+              />
             </svg>
             {estado}
           </span>
@@ -96,34 +89,36 @@ export const WeeklyCalendarGrid: React.FC<WeeklyCalendarGridProps> = ({
             En consulta
           </span>
         );
-      case 'En espera':
-        return (
-          <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-semibold bg-[#FFFBEB] text-[#B45309] border border-[#FDE68A]">
-            <span>⏳</span>
-            En espera
-          </span>
-        );
       case 'Confirmada':
         return (
           <span className="inline-flex items-center gap-1 px-3 py-0.5 rounded-full text-xs font-semibold bg-[#F9FAFB] text-[#374151] border border-[#E5E7EB]">
-            <svg className="w-3.5 h-3.5 text-[#059669]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+            <svg
+              className="w-3.5 h-3.5 text-[#059669]"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2.5}
+                d="M5 13l4 4L19 7"
+              />
             </svg>
             Confirmada
           </span>
         );
-      case 'Pendiente de confirmación':
       case 'Solicitada':
         return (
           <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-semibold bg-[#EFF6FF] text-[#2563EB] border border-[#BFDBFE]">
             <ClockIcon size={12} className="text-[#2563EB]" />
-            Pendiente de confirmación
+            Solicitada
           </span>
         );
-      case 'No asistió':
+      case 'Inasistencia':
         return (
           <span className="inline-flex items-center gap-1 px-3 py-0.5 rounded-full text-xs font-semibold bg-[#FEF2F2] text-[#DC2626] border border-[#FCA5A5]">
-            No asistió
+            Inasistencia
           </span>
         );
       case 'Cancelada':
@@ -139,12 +134,12 @@ export const WeeklyCalendarGrid: React.FC<WeeklyCalendarGridProps> = ({
 
   if (isLoading) {
     return (
-      <div className="rounded-3xl border border-[#E2E6EA] bg-white p-12 text-center space-y-5 shadow-2xs">
+      <div className="rounded-xl border border-[#E2E8F0] bg-white p-12 text-center space-y-5">
         <div className="h-14 w-14 mx-auto rounded-2xl bg-[#FFFBEB] text-[#D4AF37] flex items-center justify-center border border-[#FDE68A]">
           <div className="w-6 h-6 border-3 border-[#D4AF37] border-t-transparent rounded-full animate-spin" />
         </div>
         <div>
-          <h3 className="text-base font-extrabold text-[#1E242B]">
+          <h3 className="text-[16px] font-bold leading-6 text-[#1E242B]">
             Cargando bloques de horario...
           </h3>
           <p className="mt-1 text-xs text-[#687380] max-w-md mx-auto">
@@ -171,25 +166,26 @@ export const WeeklyCalendarGrid: React.FC<WeeklyCalendarGridProps> = ({
 
   if (slots.length === 0) {
     return (
-      <div className="rounded-3xl border border-dashed border-[#E2E6EA] bg-white p-12 text-center space-y-4 shadow-2xs">
+      <div className="rounded-xl border border-dashed border-[#CBD5E1] bg-white p-12 text-center space-y-4">
         <div className="h-14 w-14 mx-auto rounded-2xl bg-[#FFFBEB] text-[#D4AF37] flex items-center justify-center border border-[#FDE68A]">
           <CalendarIcon size={24} color="#D4AF37" />
         </div>
         <div>
-          <h3 className="text-base font-extrabold text-[#1E242B]">
+          <h3 className="text-[16px] font-bold leading-6 text-[#1E242B]">
             No hay bloques de horario generados para este día
           </h3>
           <p className="mt-1 text-xs text-[#687380] max-w-md mx-auto leading-relaxed">
-            Para habilitar la programación de citas, genera los bloques de 30 minutos (06:00 a 20:00) establecidos en las especificaciones del sistema.
+            Para habilitar la programación de citas, genera los bloques de 30 minutos (06:00 a
+            20:00) establecidos en las especificaciones del sistema.
           </p>
         </div>
         {onCreateBlocks && !isPastDate && canManageSlots ? (
           <button
             type="button"
             onClick={onCreateBlocks}
-            className="px-5 py-2.5 rounded-xl bg-[#D4AF37] hover:bg-[#C29E2F] text-black text-xs font-extrabold inline-flex items-center gap-2 shadow-xs transition-all cursor-pointer"
+            className="h-10 px-5 rounded-lg bg-[#111111] hover:bg-[#1E242B] text-white text-[13px] font-semibold inline-flex items-center gap-2 transition-colors cursor-pointer"
           >
-            <span>➕</span> Crear bloques (06:00 - 20:00)
+            <span className="text-[#D4AF37]">+</span> Crear bloques (06:00 - 20:00)
           </button>
         ) : isPastDate ? (
           <span className="inline-block px-4 py-2 rounded-xl bg-gray-100 text-gray-400 text-xs font-bold border border-gray-200">
@@ -202,28 +198,26 @@ export const WeeklyCalendarGrid: React.FC<WeeklyCalendarGridProps> = ({
 
   if (filteredSlots.length === 0) {
     return (
-      <div className="rounded-3xl border border-[#E2E6EA] bg-white p-12 text-center text-xs text-[#8F99A3]">
+      <div className="rounded-xl border border-[#E2E8F0] bg-white p-12 text-center text-xs text-[#64748B]">
         No hay citas ni solicitudes que coincidan con el filtro seleccionado.
       </div>
     );
   }
 
   return (
-    <div className="max-h-[calc(100vh-270px)] min-h-[520px] overflow-y-auto pr-2 space-y-3.5">
+    <div className="space-y-3">
       {filteredSlots.map((slot) => {
-        const isPending =
-          slot.estadoCita === 'Pendiente de confirmación' ||
-          slot.estadoCita === 'Solicitada';
+        const isPending = slot.estadoCita === 'Solicitada';
         const hasAppointment = Boolean(slot.idCita) || Boolean(slot.pacienteNombre);
 
         // CASO 1: BLOQUE CON CITA O SOLICITUD ASIGNADA (Imagen 3)
         if (hasAppointment || isPending) {
           return (
-            <div key={slot.idBloque} className="flex items-center gap-4">
+            <div key={slot.idBloque} className="flex min-w-0 items-center gap-2 sm:gap-4">
               {/* Horario a la izquierda */}
-              <div className="w-16 shrink-0 text-center font-extrabold text-[#1E242B] text-sm select-none">
-                <div className="leading-tight">{slot.horaInicio}</div>
-                <div className="text-xs text-[#8F99A3] font-semibold mt-0.5">{slot.horaFin}</div>
+              <div className="w-[84px] min-w-[78px] shrink-0 text-right font-extrabold text-[#1E242B] text-sm select-none whitespace-nowrap">
+                <div className="leading-tight whitespace-nowrap">{formatTimeCO(slot.horaInicio)}</div>
+                <div className="text-xs text-[#8F99A3] font-semibold mt-0.5 whitespace-nowrap">{formatTimeCO(slot.horaFin)}</div>
               </div>
 
               {/* Tarjeta de Cita con Borde Izquierdo Dorado */}
@@ -235,16 +229,16 @@ export const WeeklyCalendarGrid: React.FC<WeeklyCalendarGridProps> = ({
                     onSelectSlot?.(slot);
                   }
                 }}
-                className="flex-1 rounded-2xl border border-[#E2E6EA] border-l-5 border-l-[#D4AF37] bg-white p-4 shadow-xs hover:border-[#D4AF37] hover:shadow-sm transition-all cursor-pointer flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 group"
+                className="min-w-0 flex-1 rounded-2xl border border-[#E2E6EA] border-l-5 border-l-[#D4AF37] bg-white p-4 shadow-xs hover:border-[#D4AF37] hover:shadow-sm transition-all cursor-pointer flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 group"
               >
-                <div className="space-y-1">
-                  <div className="flex items-center gap-3 flex-wrap">
-                    <h4 className="text-sm font-extrabold text-[#1E242B] group-hover:text-[#D4AF37] transition-colors">
+                <div className="min-w-0 space-y-1">
+                  <div className="flex items-center gap-x-3 gap-y-1 flex-wrap">
+                    <h4 className="text-break text-sm font-extrabold text-[#1E242B] group-hover:text-[#B8942A] transition-colors">
                       {slot.pacienteNombre}
                     </h4>
                     {renderStatusBadge(slot.estadoCita)}
                   </div>
-                  <div className="flex items-center gap-2 text-xs text-[#687380] font-medium">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-[#687380] font-medium">
                     <ToothIcon size={14} color="#D4AF37" />
                     <span>{slot.tratamiento || 'Consulta Odontológica'}</span>
                     {slot.doctorNombre && (
@@ -270,16 +264,16 @@ export const WeeklyCalendarGrid: React.FC<WeeklyCalendarGridProps> = ({
         const isEnabled = slot.habilitado;
 
         return (
-          <div key={slot.idBloque} className="flex items-center gap-4">
+          <div key={slot.idBloque} className="flex min-w-0 items-center gap-2 sm:gap-4">
             {/* Horario a la izquierda */}
-            <div className="w-16 shrink-0 text-center font-extrabold text-[#8F99A3] text-sm select-none">
-              <div className="leading-tight">{slot.horaInicio}</div>
-              <div className="text-xs text-[#CBD2D9] font-medium mt-0.5">{slot.horaFin}</div>
+            <div className="w-[84px] min-w-[78px] shrink-0 text-right font-extrabold text-[#8F99A3] text-sm select-none whitespace-nowrap">
+              <div className="leading-tight whitespace-nowrap">{formatTimeCO(slot.horaInicio)}</div>
+              <div className="text-xs text-[#CBD2D9] font-medium mt-0.5 whitespace-nowrap">{formatTimeCO(slot.horaFin)}</div>
             </div>
 
             {/* Tarjeta: Sin cita asignada vs Bloque no habilitado */}
             <div
-              className={`flex-1 rounded-2xl border p-3.5 transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${
+              className={`min-w-0 flex-1 rounded-2xl border p-3.5 transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${
                 isEnabled
                   ? 'border-[#E2E6EA] bg-white shadow-2xs'
                   : 'border-[#E2E6EA] bg-[#F1F3F5] text-[#8F99A3]'
@@ -303,38 +297,28 @@ export const WeeklyCalendarGrid: React.FC<WeeklyCalendarGridProps> = ({
                 )}
               </div>
 
-              <div className="flex items-center gap-2 self-end sm:self-center">
+              <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end [&>button]:flex-1 sm:[&>button]:flex-none">
                 {isPastDate ? (
-                  <span className="text-[11px] font-bold text-[#8F99A3] px-2 py-1 rounded-lg bg-gray-100">
+                  <span className="text-[13px] font-bold text-[#8F99A3] px-2 py-1 rounded-lg bg-gray-100">
                     Fecha pasada
                   </span>
                 ) : isEnabled ? (
-                  <>
-                    {canManageSlots && onToggleSlotStatus && (
-                      <button
-                        type="button"
-                        onClick={() => onToggleSlotStatus(slot)}
-                        className="text-xs font-semibold px-3 py-1.5 rounded-xl border border-[#E2E6EA] bg-white text-[#B45309] hover:bg-[#FFFBEB] transition-colors inline-flex items-center gap-1.5 shadow-2xs"
-                      >
-                        <UnlockIcon size={14} className="text-[#B45309]" /> Deshabilitar bloque
-                      </button>
-                    )}
-                    {canCreateAppointment && onScheduleSlot && (
-                      <button
-                        type="button"
-                        onClick={() => onScheduleSlot(slot)}
-                        className="text-xs font-bold px-3 py-1.5 rounded-xl border border-[#E2E6EA] bg-white text-[#1E242B] hover:bg-[#F3F4F6] transition-colors inline-flex items-center gap-1 shadow-2xs"
-                      >
-                        <span className="font-extrabold text-sm leading-none">+</span> Agendar
-                      </button>
-                    )}
-                  </>
-                ) : (
-                  canManageSlots && onToggleSlotStatus && (
+                  canManageSlots && onToggleSlotStatus ? (
                     <button
                       type="button"
                       onClick={() => onToggleSlotStatus(slot)}
-                      className="text-xs font-semibold px-3 py-1.5 rounded-xl border border-[#E2E6EA] bg-white text-[#B45309] hover:bg-[#FFFBEB] transition-colors inline-flex items-center gap-1.5 shadow-2xs"
+                      className="text-xs font-semibold min-h-[44px] justify-center px-3 py-1.5 rounded-xl border border-[#E2E6EA] bg-white text-[#B45309] hover:bg-[#FFFBEB] transition-colors inline-flex items-center gap-1.5 shadow-2xs"
+                    >
+                      <UnlockIcon size={14} className="text-[#B45309]" /> Deshabilitar bloque
+                    </button>
+                  ) : null
+                ) : (
+                  canManageSlots &&
+                  onToggleSlotStatus && (
+                    <button
+                      type="button"
+                      onClick={() => onToggleSlotStatus(slot)}
+                      className="text-xs font-semibold min-h-[44px] justify-center px-3 py-1.5 rounded-xl border border-[#E2E6EA] bg-white text-[#B45309] hover:bg-[#FFFBEB] transition-colors inline-flex items-center gap-1.5 shadow-2xs"
                     >
                       <LockIcon size={14} className="text-[#B45309]" /> Habilitar bloque
                     </button>

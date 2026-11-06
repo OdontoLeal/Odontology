@@ -322,15 +322,15 @@ export const MedicalBackgroundForm: React.FC<MedicalBackgroundFormProps> = ({
   return (
     <div className="space-y-6">
       {/* Sección 2: Antecedentes Clínicos del Paciente (Imagen 2) */}
-      <div className="rounded-3xl border border-[#E7E7E3] bg-white p-6 shadow-xs space-y-5">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-[#E7E7E3]">
+      <div className="rounded-xl border border-[#E2E8F0] bg-white px-4 py-5 sm:px-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)] space-y-5">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-[#F3F4F6]">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-2xl bg-[#FBF3D5] flex items-center justify-center text-lg text-[#D4AF37] border border-[#F6E7B0]">
               📋
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-[10px] font-extrabold tracking-wider text-[#B8942A] uppercase">
+                <span className="text-[13px] font-extrabold tracking-wider text-[#B8942A] uppercase">
                   MÓDULO CLÍNICO
                 </span>
               </div>
@@ -356,7 +356,7 @@ export const MedicalBackgroundForm: React.FC<MedicalBackgroundFormProps> = ({
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
-            <thead className="bg-[#F8F9FA] text-[10px] font-extrabold uppercase text-[#6B7280] border-b border-[#E7E7E3]">
+            <thead className="bg-[#F8F9FA] text-[13px] font-extrabold uppercase text-[#6B7280] border-b border-[#E7E7E3]">
               <tr>
                 <th className="p-3 w-1/3">Tipo de Antecedente</th>
                 <th className="p-3 text-center w-36">¿Presenta?</th>
@@ -373,7 +373,7 @@ export const MedicalBackgroundForm: React.FC<MedicalBackgroundFormProps> = ({
                         {icon}
                         <div>
                           <p className="font-extrabold text-[#111111] text-xs">{label}</p>
-                          <p className="text-[11px] text-[#6B7280] mt-0.5 leading-tight">{descripcion}</p>
+                          <p className="text-[13px] text-[#6B7280] mt-0.5 leading-tight">{descripcion}</p>
                         </div>
                       </div>
                     </td>
@@ -448,14 +448,14 @@ export const MedicalBackgroundForm: React.FC<MedicalBackgroundFormProps> = ({
       </div>
 
       {/* Sección 3: Hábitos y Rutina de Higiene Oral (Imagen 2) */}
-      <div className="rounded-3xl border border-[#E7E7E3] bg-white p-6 shadow-xs space-y-5">
-        <div className="pb-3 border-b border-[#E7E7E3] flex items-center gap-3">
+      <div className="rounded-xl border border-[#E2E8F0] bg-white px-4 py-5 sm:px-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)] space-y-5">
+        <div className="pb-3 border-b border-[#F3F4F6] flex items-center gap-3">
           <div className="h-10 w-10 rounded-2xl bg-[#FBF3D5] flex items-center justify-center text-lg text-[#D4AF37] border border-[#F6E7B0]">
             🪥
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-extrabold tracking-wider text-[#B8942A] uppercase">
+              <span className="text-[13px] font-extrabold tracking-wider text-[#B8942A] uppercase">
                 ESTILO DE VIDA • Factores de Riesgo
               </span>
             </div>
@@ -470,7 +470,7 @@ export const MedicalBackgroundForm: React.FC<MedicalBackgroundFormProps> = ({
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
-            <thead className="bg-[#F8F9FA] text-[10px] font-extrabold uppercase text-[#6B7280] border-b border-[#E7E7E3]">
+            <thead className="bg-[#F8F9FA] text-[13px] font-extrabold uppercase text-[#6B7280] border-b border-[#E7E7E3]">
               <tr>
                 <th className="p-3 w-1/4">Hábito / Práctica</th>
                 <th className="p-3 text-center w-36">¿Aplica?</th>
@@ -488,7 +488,7 @@ export const MedicalBackgroundForm: React.FC<MedicalBackgroundFormProps> = ({
                         {icon}
                         <div>
                           <p className="font-extrabold text-[#111111] text-xs">{label}</p>
-                          <p className="text-[11px] text-[#6B7280] mt-0.5 leading-tight">{descripcion}</p>
+                          <p className="text-[13px] text-[#6B7280] mt-0.5 leading-tight">{descripcion}</p>
                         </div>
                       </div>
                     </td>

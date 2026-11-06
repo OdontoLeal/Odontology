@@ -6,9 +6,33 @@ import { PrivacyNoticeModal } from '../components/PrivacyNoticeModal';
 import { Button } from '../../../../shared/ui/components/Button';
 import { Badge } from '../../../../shared/ui/components/Badge';
 import { Modal } from '../../../../shared/ui/components/Modal';
+import { PageLayout } from '../../../../shared/ui/components/PageLayout';
+import {
+  PageHeader,
+  PageHeaderAction,
+  PlusIcon,
+} from '../../../../shared/ui/components/PageHeader';
+import {
+  PageToolbar,
+  ToolbarSearch,
+  ToolbarSelect,
+  ToolbarLabel,
+} from '../../../../shared/ui/components/PageToolbar';
+import {
+  PageList,
+  ListCard,
+  ListState,
+  InitialsAvatar,
+} from '../../../../shared/ui/components/PageList';
+import { Pagination } from '../../../../shared/ui/components/Pagination';
+import { useAlertModal } from '../../../../shared/ui/hooks/useAlertModal';
+import { useToast } from '../../../../shared/ui/hooks/useToast';
 
 export interface PatientsDirectoryPageProps {
-  onSelectPatient: (patient: PatientListItem, tab?: 'APPOINTMENTS' | 'CLINICAL' | 'CONSENTS' | 'DOCUMENTS') => void;
+  onSelectPatient: (
+    patient: PatientListItem,
+    tab?: 'APPOINTMENTS' | 'CLINICAL' | 'CONSENTS' | 'DOCUMENTS'
+  ) => void;
   onOpenPrivacyNotice?: () => void;
   onOpenHolderDataQuery?: () => void;
   canCreatePatient?: boolean;
@@ -34,10 +58,12 @@ export const PatientsDirectoryPage: React.FC<PatientsDirectoryPageProps> = ({
     setCurrentPage(1);
   }, [searchQuery, sortBy]);
 
-  // Modal de creación / edición
+  // Modal de creación / edición y hooks de feedback
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [editingPatient, setEditingPatient] = useState<PatientListItem | null>(null);
   const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
+  const { showAlert, AlertModalComponent } = useAlertModal();
+  const { showToast, ToastContainerComponent } = useToast();
 
   // DEF-17 & CPS-HCL-004-02: Ocultar botón de historia clínica para Coordinadora (ROL-COA)
   const isCoordinator = useMemo(() => {
@@ -47,7 +73,9 @@ export const PatientsDirectoryPage: React.FC<PatientsDirectoryPageProps> = ({
       const parsed = JSON.parse(saved);
       const roles: any[] = parsed?.usuario?.roles || [];
       const roleCodes = roles.map((r) => (typeof r === 'string' ? r : r.codigoRol || r.nombreRol));
-      const hasClinicalRole = roleCodes.some((rc) => ['ROL-ODO', 'ROL-ESP', 'ROL-ADM'].includes(rc));
+      const hasClinicalRole = roleCodes.some((rc) =>
+        ['ROL-ODO', 'ROL-ESP', 'ROL-ADM'].includes(rc)
+      );
       return roleCodes.includes('ROL-COA') && !hasClinicalRole;
     } catch {
       return false;
@@ -57,7 +85,10 @@ export const PatientsDirectoryPage: React.FC<PatientsDirectoryPageProps> = ({
   const filteredPatients = useMemo(() => {
     let result = [...patients];
     if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      const q = searchQuery
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
       result = result.filter(
         (p) =>
           p.documentoIdentidad.includes(searchQuery.trim()) ||
@@ -79,7 +110,7 @@ export const PatientsDirectoryPage: React.FC<PatientsDirectoryPageProps> = ({
     return result;
   }, [patients, searchQuery, sortBy]);
 
-  // Cálculos de paginación para 10 elementos por página con scroll independiente
+  // Paginación: el scroll es el nativo de la página, nunca un contenedor interno
   const totalPages = Math.max(1, Math.ceil(filteredPatients.length / ITEMS_PER_PAGE));
   const safeCurrentPage = Math.min(currentPage, totalPages);
 
@@ -87,9 +118,6 @@ export const PatientsDirectoryPage: React.FC<PatientsDirectoryPageProps> = ({
     const startIndex = (safeCurrentPage - 1) * ITEMS_PER_PAGE;
     return filteredPatients.slice(startIndex, startIndex + ITEMS_PER_PAGE);
   }, [filteredPatients, safeCurrentPage]);
-
-  const startIndex = filteredPatients.length === 0 ? 0 : (safeCurrentPage - 1) * ITEMS_PER_PAGE + 1;
-  const endIndex = Math.min(safeCurrentPage * ITEMS_PER_PAGE, filteredPatients.length);
 
   const handleOpenCreate = () => {
     setEditingPatient(null);
@@ -102,197 +130,237 @@ export const PatientsDirectoryPage: React.FC<PatientsDirectoryPageProps> = ({
   };
 
   const handleFormSubmit = async (formData: PatientFormData) => {
-    if (editingPatient) {
-      await updatePatient(editingPatient.idPaciente, formData);
-    } else {
-      await createPatient(formData);
+    // RF-HCL-001 / RF-HCL-002: Validación previa de documento duplicado
+    const existingDocPatient = patients.find(
+      (p) =>
+        p.documentoIdentidad.trim() === formData.documentoIdentidad.trim() &&
+        (!editingPatient || p.idPaciente !== editingPatient.idPaciente)
+    );
+
+    if (existingDocPatient) {
+      showAlert({
+        title: 'Documento de Identidad Duplicado',
+        type: 'error',
+        children: (
+          <div className="space-y-3 text-xs sm:text-sm text-[#4B5563]">
+            <p>
+              Ya existe un paciente registrado con el número de documento <strong>{formData.documentoIdentidad}</strong>:
+            </p>
+            <div className="rounded-xl border border-[#B91C1C]/25 bg-[#FEE2E2]/60 p-3 space-y-1 text-xs">
+              <p className="font-bold text-[#1F2937]">Titular Registrado:</p>
+              <p className="font-semibold text-[#1F2937] text-sm">{existingDocPatient.nombreCompleto}</p>
+              <p className="text-[#64748B]">Documento: C.C. {existingDocPatient.documentoIdentidad}</p>
+              {existingDocPatient.telefono && (
+                <p className="text-[#64748B]">Teléfono: +57 {existingDocPatient.telefono}</p>
+              )}
+            </div>
+            <p className="text-xs text-[#64748B]">
+              Verifique el número ingresado o busque al paciente directamente desde el directorio para actualizar sus datos.
+            </p>
+          </div>
+        ),
+      });
+      return;
     }
-    setIsFormModalOpen(false);
+
+    try {
+      if (editingPatient) {
+        await updatePatient(editingPatient.idPaciente, formData);
+        showToast({
+          type: 'success',
+          title: 'Ficha Actualizada',
+          message: `Los datos del paciente ${formData.nombreCompleto} se han actualizado exitosamente.`,
+        });
+      } else {
+        await createPatient(formData);
+        showToast({
+          type: 'success',
+          title: 'Paciente Registrado',
+          message: `El paciente ${formData.nombreCompleto} fue registrado en el sistema exitosamente.`,
+        });
+      }
+      setIsFormModalOpen(false);
+    } catch (err: any) {
+      showAlert({
+        title: 'No se pudo guardar el paciente',
+        message: err?.message || 'Ocurrió un error al procesar el registro del paciente en el servidor.',
+        type: 'error',
+      });
+    }
   };
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
-      {/* Breadcrumb superior de diseño */}
-      <div className="flex items-center justify-between text-xs text-[#8F99A3]">
-        <div className="flex items-center gap-2">
-          <span className="font-extrabold text-[#D4AF37] uppercase tracking-wider">
-            ● Directorio OdontoLeal
+    <PageLayout>
+      <PageHeader
+        eyebrow="Directorio OdontoLeal"
+        eyebrowDetail="Base de Pacientes Registrados"
+        title="Pacientes"
+        subtitle="Gestión y consulta de pacientes, historias clínicas e información de contacto."
+        actions={
+          <>
+            {onOpenHolderDataQuery && canAccessHabeasData && (
+              <PageHeaderAction variant="outline" onClick={onOpenHolderDataQuery}>
+                Datos del Titular
+              </PageHeaderAction>
+            )}
+            {canCreatePatient && (
+              <PageHeaderAction
+                variant="primary"
+                onClick={handleOpenCreate}
+                leftIcon={<PlusIcon />}
+              >
+                Nuevo paciente
+              </PageHeaderAction>
+            )}
+          </>
+        }
+      />
+
+      <PageToolbar aria-label="Filtros del directorio de pacientes">
+        <ToolbarSearch
+          placeholder="Buscar paciente por nombre o documento..."
+          aria-label="Buscar paciente por nombre o documento"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
+
+        <div className="flex w-full flex-wrap items-center gap-x-4 gap-y-2 md:w-auto">
+          <span className="whitespace-nowrap text-[13px] text-[#64748B]">
+            <strong className="text-[#1E242B]">{filteredPatients.length}</strong>{' '}
+            {filteredPatients.length === 1 ? 'registrado' : 'registrados'}
           </span>
-          <span>• Base de Pacientes Registrados</span>
-        </div>
-        <button
-          type="button"
-          onClick={() => setIsPrivacyModalOpen(true)}
-          className="text-[#687380] hover:text-[#D4AF37] underline transition-colors"
-        >
-          Aviso de Privacidad (Habeas Data)
-        </button>
-      </div>
-
-      {/* Header con Título y Botón Nuevo Paciente */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-[#1E242B]">
-            Pacientes
-          </h1>
-          <p className="mt-1 text-xs sm:text-sm text-[#687380]">
-            Gestión y consulta centralizada de pacientes, historias clínicas e información de contacto médico-odontológico.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {onOpenHolderDataQuery && canAccessHabeasData && (
-            <Button
-              variant="outline"
-              onClick={onOpenHolderDataQuery}
-            >
-              Datos del Titular (Habeas Data)
-            </Button>
-          )}
-          {canCreatePatient && (
-            <Button
-              variant="primary"
-              onClick={handleOpenCreate}
-              leftIcon={
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-              }
-            >
-              Nuevo paciente
-            </Button>
-          )}
-        </div>
-      </div>
-
-      {/* Barra de Filtros y Búsqueda */}
-      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 rounded-2xl bg-white border border-[#E2E6EA] p-4 shadow-xs">
-        {/* Totalizador */}
-        <div className="flex items-center gap-2 text-sm text-[#1E242B]">
-          <span className="text-[#D4AF37]">👥</span>
-          <span className="font-bold">Total de Pacientes:</span>
-          <span className="text-[#687380]">{filteredPatients.length} registrados</span>
-        </div>
-
-        {/* Input Buscador */}
-        <div className="flex-1 max-w-md relative">
-          <svg
-            className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#8F99A3]"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-          <input
-            type="text"
-            placeholder="Buscar paciente por nombre o documento..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full min-h-[40px] pl-10 pr-4 rounded-xl border border-[#E2E6EA] text-sm text-[#1E242B] placeholder-[#8F99A3] focus:border-[#D4AF37] focus:outline-none focus:ring-1 focus:ring-[#D4AF37]"
-          />
-        </div>
-
-        {/* Selector de Orden */}
-        <div className="flex items-center gap-2 text-xs">
-          <span className="text-[#687380] font-bold">Ordenar por:</span>
-          <select
+          <ToolbarLabel>Ordenar por:</ToolbarLabel>
+          <ToolbarSelect
             value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as any)}
-            className="rounded-xl border border-[#E2E6EA] bg-white px-3 py-2 text-xs font-semibold text-[#1E242B] focus:border-[#D4AF37] focus:outline-none"
+            onChange={(e) => setSortBy(e.target.value as 'name' | 'document' | 'date')}
+            aria-label="Ordenar pacientes"
+            className="flex-1 md:flex-none"
           >
             <option value="name">Nombre (A - Z)</option>
             <option value="document">Documento de Identidad</option>
             <option value="date">Más recientes</option>
-          </select>
+          </ToolbarSelect>
         </div>
-      </div>
+      </PageToolbar>
 
-      {/* Lista de Tarjetas de Pacientes con Scroll Independiente de Sección */}
-      <div className="max-h-[calc(100vh-320px)] min-h-[460px] overflow-y-auto pr-2 space-y-3">
+      <PageList aria-label="Listado de pacientes">
         {isLoading ? (
-          <div className="rounded-2xl border border-[#E2E6EA] bg-white p-12 text-center space-y-4 shadow-2xs">
-            <div className="h-12 w-12 mx-auto rounded-2xl bg-[#FFFBEB] text-[#D4AF37] flex items-center justify-center border border-[#FDE68A]">
-              <div className="w-5 h-5 border-2 border-[#D4AF37] border-t-transparent rounded-full animate-spin" />
+          <ListState>
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl border border-[#D4AF37]/30 bg-[#FBF3D5] text-[#D4AF37]">
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-[#D4AF37] border-t-transparent" />
             </div>
             <p className="text-sm font-bold text-[#1E242B]">Cargando directorio de pacientes...</p>
-            <p className="text-xs text-[#687380]">Obteniendo registros desde la base de datos...</p>
-            <div className="space-y-3 max-w-2xl mx-auto pt-2">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="h-20 bg-gray-50 border border-gray-100 rounded-2xl animate-pulse" />
-              ))}
-            </div>
-          </div>
+            <p className="text-xs text-[#64748B]">Obteniendo registros desde la base de datos...</p>
+          </ListState>
         ) : filteredPatients.length === 0 ? (
-          <div className="text-center py-12 rounded-2xl bg-white border border-[#E2E6EA] p-8 space-y-2">
+          <ListState role="status">
             <p className="text-base font-bold text-[#1E242B]">No se encontraron pacientes</p>
-            <p className="text-xs text-[#8F99A3]">
-              Intente con otro término de búsqueda o registre un nuevo paciente con el botón superior.
+            <p className="text-[13px] text-[#64748B]">
+              Intente con otro término de búsqueda o registre un nuevo paciente con el botón
+              superior.
             </p>
-          </div>
+          </ListState>
         ) : (
           paginatedPatients.map((patient) => (
-            <div
-              key={patient.idPaciente}
-              className="rounded-2xl border border-[#E2E6EA] bg-white p-5 shadow-xs hover:border-[#D4AF37]/60 hover:shadow-sm transition-all flex flex-col md:flex-row items-start md:items-center justify-between gap-4"
-            >
-              {/* Información Principal del Paciente */}
-              <div className="space-y-2 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h3
-                    onClick={() => onSelectPatient(patient)}
-                    className="text-base font-extrabold text-[#1E242B] hover:text-[#D4AF37] cursor-pointer transition-colors"
-                  >
-                    {patient.nombreCompleto}
-                  </h3>
-                  <Badge
-                    label={`CC ${patient.documentoIdentidad}`}
-                    variant="neutral"
-                    size="sm"
-                  />
-                  {patient.edad !== undefined && (
-                    <Badge
-                      label={`${patient.edad} años`}
-                      variant="gold"
-                      size="sm"
-                    />
-                  )}
-                  {patient.datosIncompletos && (
-                    <Badge
-                      label="Datos incompletos"
-                      variant="warning"
-                      size="sm"
-                      icon={<span>⚠️</span>}
-                    />
-                  )}
-                </div>
+            <ListCard key={patient.idPaciente}>
+              {/* Avatar + información principal (min-w-0 para permitir truncado) */}
+              <div className="flex min-w-0 flex-1 items-center gap-4">
+                <InitialsAvatar name={patient.nombreCompleto} />
 
-                {/* Datos de Contacto */}
-                <div className="flex flex-wrap items-center gap-4 text-xs text-[#687380]">
-                  <span className="inline-flex items-center gap-1.5">
-                    <svg className="h-3.5 w-3.5 text-[#D4AF37]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                    </svg>
-                    +57 {patient.telefono}
-                  </span>
-                  <span className="inline-flex items-center gap-1.5">
-                    <svg className="h-3.5 w-3.5 text-[#D4AF37]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                    </svg>
-                    {patient.correo}
-                  </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex min-w-0 flex-wrap items-center gap-2">
+                    <h2
+                      onClick={() => onSelectPatient(patient)}
+                      title={patient.nombreCompleto}
+                      className="text-break cursor-pointer text-[15px] font-bold leading-snug text-[#1E242B] transition-colors hover:text-[#B8942A]"
+                    >
+                      {patient.nombreCompleto}
+                    </h2>
+                    <Badge
+                      label={`CC ${patient.documentoIdentidad}`}
+                      variant="neutral"
+                      size="sm"
+                      className="shrink-0 whitespace-nowrap"
+                    />
+                    {patient.edad !== undefined && (
+                      <Badge
+                        label={`${patient.edad} años`}
+                        variant="gold"
+                        size="sm"
+                        className="shrink-0 whitespace-nowrap"
+                      />
+                    )}
+                    {patient.datosIncompletos && (
+                      <Badge
+                        label="Datos incompletos"
+                        variant="warning"
+                        size="sm"
+                        icon={<span>⚠️</span>}
+                        className="shrink-0 whitespace-nowrap"
+                      />
+                    )}
+                  </div>
+
+                  {/* Datos de contacto */}
+                  <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 text-[13px] text-[#64748B]">
+                    <span className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap">
+                      <svg
+                        className="h-3.5 w-3.5 text-[#D4AF37]"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
+                        />
+                      </svg>
+                      +57 {patient.telefono}
+                    </span>
+                    <span className="inline-flex min-w-0 max-w-full items-center gap-1.5">
+                      <svg
+                        className="h-3.5 w-3.5 shrink-0 text-[#D4AF37]"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                        />
+                      </svg>
+                      <span className="text-break" title={patient.correo}>
+                        {patient.correo}
+                      </span>
+                    </span>
+                  </div>
                 </div>
               </div>
 
-              {/* Acciones de la Tarjeta */}
-              <div className="flex items-center gap-2 self-end md:self-center flex-shrink-0">
+              {/* Acciones de la tarjeta */}
+              <div className="flex w-full flex-wrap items-center gap-2 md:w-auto md:shrink-0 md:justify-end [&>*]:flex-[1_1_auto] md:[&>*]:flex-none">
                 {!isCoordinator && (
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={() => onSelectPatient(patient, 'CLINICAL')}
                     leftIcon={
-                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      <svg
+                        className="h-3.5 w-3.5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                        />
                       </svg>
                     }
                   >
@@ -304,8 +372,18 @@ export const PatientsDirectoryPage: React.FC<PatientsDirectoryPageProps> = ({
                   variant="outline"
                   onClick={() => onSelectPatient(patient, 'APPOINTMENTS')}
                   leftIcon={
-                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    <svg
+                      className="h-3.5 w-3.5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                      />
                     </svg>
                   }
                 >
@@ -316,84 +394,68 @@ export const PatientsDirectoryPage: React.FC<PatientsDirectoryPageProps> = ({
                   variant="ghost"
                   onClick={() => handleOpenEdit(patient)}
                   leftIcon={
-                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    <svg
+                      className="h-3.5 w-3.5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                      />
                     </svg>
                   }
                 >
                   Editar
                 </Button>
               </div>
-            </div>
+            </ListCard>
           ))
         )}
-      </div>
+      </PageList>
 
-      {/* Barra de Controles de Paginación (10 elementos por página idéntica a Doctores) */}
-      {!isLoading && filteredPatients.length > 0 && (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 rounded-2xl border border-[#E2E6EA] bg-white px-5 py-3.5 shadow-2xs mt-4">
-          <div className="text-[13px] text-[#687380]">
-            Mostrando <strong className="text-[#1E242B]">{startIndex}–{endIndex}</strong> de{' '}
-            <strong className="text-[#1E242B]">{filteredPatients.length}</strong>{' '}
-            {filteredPatients.length === 1 ? 'paciente registrado' : 'pacientes registrados'}
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              disabled={safeCurrentPage === 1}
-              aria-label="Página anterior"
-              className="min-h-[36px] inline-flex items-center gap-1.5 rounded-xl border border-[#E2E6EA] bg-white px-3.5 py-1.5 text-[13px] font-bold text-[#1E242B] hover:border-[#D4AF37] hover:bg-[#FBF6E6]/40 disabled:opacity-35 disabled:cursor-not-allowed transition-colors"
-            >
-              <span aria-hidden="true">←</span>
-              <span>Anterior</span>
-            </button>
-
-            <div className="flex items-center gap-1">
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => {
-                const isPageActive = pageNum === safeCurrentPage;
-                return (
-                  <button
-                    key={pageNum}
-                    type="button"
-                    onClick={() => setCurrentPage(pageNum)}
-                    aria-label={`Ir a la página ${pageNum}`}
-                    aria-current={isPageActive ? 'page' : undefined}
-                    className={`min-h-[34px] min-w-[34px] rounded-xl px-2.5 py-1 text-[13px] font-bold transition-all ${
-                      isPageActive
-                        ? 'bg-[#111111] text-white shadow-xs'
-                        : 'border border-[#E2E6EA] bg-white text-[#1E242B] hover:border-[#D4AF37] hover:bg-[#FBF6E6]/40'
-                    }`}
-                  >
-                    {pageNum}
-                  </button>
-                );
-              })}
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              disabled={safeCurrentPage === totalPages}
-              aria-label="Página siguiente"
-              className="min-h-[36px] inline-flex items-center gap-1.5 rounded-xl border border-[#E2E6EA] bg-white px-3.5 py-1.5 text-[13px] font-bold text-[#1E242B] hover:border-[#D4AF37] hover:bg-[#FBF6E6]/40 disabled:opacity-35 disabled:cursor-not-allowed transition-colors"
-            >
-              <span>Siguiente</span>
-              <span aria-hidden="true">→</span>
-            </button>
-          </div>
-        </div>
+      {!isLoading && (
+        <Pagination
+          currentPage={safeCurrentPage}
+          pageSize={ITEMS_PER_PAGE}
+          totalItems={filteredPatients.length}
+          singularLabel="paciente registrado"
+          pluralLabel="pacientes registrados"
+          onPageChange={setCurrentPage}
+        />
       )}
 
       {/* Footer Ley 1581 Habeas Data */}
-      <div className="flex items-center justify-between pt-4 border-t border-[#E2E6EA] text-[11px] text-[#8F99A3]">
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-2 border-t border-[#E2E8F0] pt-4 text-[13px] text-[#64748B]">
         <div className="flex items-center gap-2">
-          <svg className="h-4 w-4 text-[#137333]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+          <svg
+            className="h-4 w-4 text-[#137333]"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+            />
           </svg>
-          <span>Historias clínicas encriptadas conforme a la Ley de Protección de Datos Médicos (Habeas Data).</span>
+          <span>
+            Historias clínicas encriptadas conforme a la Ley de Protección de Datos Médicos (Habeas
+            Data).
+          </span>
         </div>
+        <button
+          type="button"
+          onClick={() => setIsPrivacyModalOpen(true)}
+          className="underline transition-colors hover:text-[#B8942A]"
+        >
+          Aviso de Privacidad (Habeas Data)
+        </button>
       </div>
 
       {/* Modal de Formulario Paciente */}
@@ -417,10 +479,9 @@ export const PatientsDirectoryPage: React.FC<PatientsDirectoryPageProps> = ({
                   nombreCompleto: editingPatient.nombreCompleto,
                   documentoIdentidad: editingPatient.documentoIdentidad,
                   fechaNacimiento: editingPatient.fechaNacimiento,
-                  sexo: editingPatient.sexo,
+                  sexo: editingPatient.sexo ?? undefined,
                   correo: editingPatient.correo,
                   telefono: editingPatient.telefono,
-                  acudiente: editingPatient.acudiente,
                 }
               : undefined
           }
@@ -434,6 +495,10 @@ export const PatientsDirectoryPage: React.FC<PatientsDirectoryPageProps> = ({
         isOpen={isPrivacyModalOpen}
         onClose={() => setIsPrivacyModalOpen(false)}
       />
-    </div>
+
+      {/* Diálogos Modales y Notificaciones Toast */}
+      <AlertModalComponent />
+      <ToastContainerComponent />
+    </PageLayout>
   );
 };

@@ -96,19 +96,8 @@ export class SickLeaveEntity {
       );
     }
 
-    if (edad < 18) {
-      const acudienteValido =
-        props.acudiente &&
-        props.acudiente.nombreCompleto?.trim() &&
-        props.acudiente.documentoIdentidad?.trim() &&
-        props.acudiente.parentesco?.trim();
-
-      if (!acudienteValido) {
-        throw new Error(
-          'No se puede generar el documento clínico: el paciente es menor de 18 años y tiene "Datos incompletos" (falta registrar los datos del acudiente).'
-        );
-      }
-    }
+    // RF-DOC-002 v1.3: para un menor el PDF lleva campos en blanco para el acudiente;
+    // no se exige que el acudiente esté registrado en la ficha.
 
     const { fechaInicio, fechaFin } = SickLeaveEntity.calcularRangoFechasIncapacidad(
       fechaExpedicion,

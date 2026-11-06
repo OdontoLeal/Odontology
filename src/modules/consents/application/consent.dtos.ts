@@ -1,18 +1,17 @@
 // src/modules/consents/application/consent.dtos.ts
+import { ConsentTemplateType } from '../domain/consent.entity';
 
 export interface CreateConsentTemplateDTO {
   nombre: string;
   textoPlantilla?: string;
-  plantillaUrl?: string;
   version?: number;
-  tipoConsentimiento?: boolean;
+  tipo?: ConsentTemplateType;
   idUsuarioModificador?: number | null;
 }
 
 export interface UpdateConsentTemplateDTO {
   nombre?: string;
   textoPlantilla?: string;
-  plantillaUrl?: string;
   idUsuarioModificador?: number | null;
 }
 
@@ -25,10 +24,13 @@ export interface SignConsentDTO {
   idPaciente: number;
   textoFirmado?: string;
   firmaBase64?: string;
+  /** RF-CON-002: casilla de aceptación marcada por el firmante. */
+  aceptado?: boolean;
   firmaPorAcudiente?: boolean;
   nombreDocumentoAcudiente?: string | null;
+  /** Usuario de la sesión que toma el consentimiento ("Diligenciado por"). */
   idUsuarioDiligencio?: number | null;
-  // Campos de compatibilidad opcionales:
-  idCita?: number;
-  archivoUrl?: string;
+  actorCorreo?: string;
+  /** Versión vigente de la plantilla que se firma (la asigna el servicio). */
+  versionPlantilla?: number;
 }

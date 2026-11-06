@@ -76,14 +76,14 @@ export const ManagementPlanTab: React.FC<ManagementPlanTabProps> = ({
   return (
     <div className="space-y-6">
       {/* CARD 1: PRESCRIPCIÓN FARMACOLÓGICA / MEDICAMENTOS */}
-      <div className="rounded-3xl border border-[#E7E7E3] bg-white p-6 shadow-xs space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#E7E7E3]">
+      <div className="rounded-xl border border-[#E2E8F0] bg-white px-4 py-5 sm:px-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)] space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#F3F4F6]">
           <div className="flex items-start gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#111111] flex items-center justify-center shrink-0">
+            <div className="h-9 w-9 shrink-0 rounded-lg bg-[#111111] flex items-center justify-center [&_svg]:h-[18px] [&_svg]:w-[18px]">
               <PillIcon size={20} color="#D4AF37" />
             </div>
             <div>
-              <h3 className="text-sm font-black text-[#111111]">
+              <h3 className="text-[16px] font-bold leading-6 text-[#1E242B]">
                 Prescripción Farmacológica / Medicamentos
               </h3>
               <p className="text-xs text-[#687380] mt-0.5">
@@ -118,7 +118,7 @@ export const ManagementPlanTab: React.FC<ManagementPlanTabProps> = ({
         {/* Presets Rápidos */}
         {!readOnly && (
           <div className="flex flex-wrap items-center gap-2 pt-1">
-            <span className="text-[11px] font-bold text-[#687380]">Sugerencias frecuentes:</span>
+            <span className="text-[13px] font-bold text-[#687380]">Sugerencias frecuentes:</span>
             <button
               type="button"
               onClick={() =>
@@ -129,7 +129,7 @@ export const ManagementPlanTab: React.FC<ManagementPlanTabProps> = ({
                   duracion_tratamiento: '7 días consecutivos',
                 })
               }
-              className="px-2 py-0.5 rounded-lg bg-[#F6F6F4] hover:bg-[#E7E7E3] text-[11px] font-semibold text-[#111111] transition-all cursor-pointer"
+              className="px-2 py-0.5 rounded-lg bg-[#F6F6F4] hover:bg-[#E7E7E3] text-[13px] font-semibold text-[#111111] transition-all cursor-pointer"
             >
               + Amoxicilina 875/125
             </button>
@@ -143,7 +143,7 @@ export const ManagementPlanTab: React.FC<ManagementPlanTabProps> = ({
                   duracion_tratamiento: '3 a 5 días según dolor',
                 })
               }
-              className="px-2 py-0.5 rounded-lg bg-[#F6F6F4] hover:bg-[#E7E7E3] text-[11px] font-semibold text-[#111111] transition-all cursor-pointer"
+              className="px-2 py-0.5 rounded-lg bg-[#F6F6F4] hover:bg-[#E7E7E3] text-[13px] font-semibold text-[#111111] transition-all cursor-pointer"
             >
               + Ibuprofeno 600mg
             </button>
@@ -157,7 +157,7 @@ export const ManagementPlanTab: React.FC<ManagementPlanTabProps> = ({
                   duracion_tratamiento: '3 días',
                 })
               }
-              className="px-2 py-0.5 rounded-lg bg-[#F6F6F4] hover:bg-[#E7E7E3] text-[11px] font-semibold text-[#111111] transition-all cursor-pointer"
+              className="px-2 py-0.5 rounded-lg bg-[#F6F6F4] hover:bg-[#E7E7E3] text-[13px] font-semibold text-[#111111] transition-all cursor-pointer"
             >
               + Acetaminofén / Codeína
             </button>
@@ -168,7 +168,7 @@ export const ManagementPlanTab: React.FC<ManagementPlanTabProps> = ({
         {(planManejo.prescripcion_farmacologica || []).length > 0 ? (
           <div className="overflow-x-auto rounded-2xl border border-[#E7E7E3]">
             <table className="w-full text-left text-xs">
-              <thead className="bg-[#F6F6F4] text-[10px] font-black uppercase text-[#687380] border-b border-[#E7E7E3]">
+              <thead className="bg-[#F6F6F4] text-[13px] font-black uppercase text-[#687380] border-b border-[#E7E7E3]">
                 <tr>
                   <th className="p-3">MEDICAMENTO / PRINCIPIO ACTIVO</th>
                   <th className="p-3">CONCENTRACIÓN / DOSIS</th>
@@ -265,14 +265,14 @@ export const ManagementPlanTab: React.FC<ManagementPlanTabProps> = ({
       </div>
 
       {/* CARD 2: INCAPACIDAD MÉDICA / EXCUSA LABORAL */}
-      <div className="rounded-3xl border border-[#E7E7E3] bg-white p-6 shadow-xs space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#E7E7E3]">
+      <div className="rounded-xl border border-[#E2E8F0] bg-white px-4 py-5 sm:px-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)] space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#F3F4F6]">
           <div className="flex items-start gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#111111] flex items-center justify-center shrink-0">
+            <div className="h-9 w-9 shrink-0 rounded-lg bg-[#111111] flex items-center justify-center [&_svg]:h-[18px] [&_svg]:w-[18px]">
               <BedIcon size={20} color="#D4AF37" />
             </div>
             <div>
-              <h3 className="text-sm font-black text-[#111111]">
+              <h3 className="text-[16px] font-bold leading-6 text-[#1E242B]">
                 Incapacidad Médica / Excusa Laboral
               </h3>
               <p className="text-xs text-[#687380] mt-0.5">
@@ -410,14 +410,14 @@ export const ManagementPlanTab: React.FC<ManagementPlanTabProps> = ({
       </div>
 
       {/* CARD 3: REMISIÓN MÉDICA / INTERCONSULTA ESPECIALIZADA */}
-      <div className="rounded-3xl border border-[#E7E7E3] bg-white p-6 shadow-xs space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#E7E7E3]">
+      <div className="rounded-xl border border-[#E2E8F0] bg-white px-4 py-5 sm:px-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)] space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#F3F4F6]">
           <div className="flex items-start gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#111111] flex items-center justify-center shrink-0">
+            <div className="h-9 w-9 shrink-0 rounded-lg bg-[#111111] flex items-center justify-center [&_svg]:h-[18px] [&_svg]:w-[18px]">
               <StethoscopeIcon size={20} color="#D4AF37" />
             </div>
             <div>
-              <h3 className="text-sm font-black text-[#111111]">
+              <h3 className="text-[16px] font-bold leading-6 text-[#1E242B]">
                 Remisión Médica / Interconsulta Especializada
               </h3>
               <p className="text-xs text-[#687380] mt-0.5">
@@ -592,7 +592,7 @@ export const ManagementPlanTab: React.FC<ManagementPlanTabProps> = ({
       </div>
 
       {/* CARD 4: CONDUCTA Y RECOMENDACIONES TERAPÉUTICAS */}
-      <div className="rounded-3xl border border-[#E7E7E3] bg-white p-6 shadow-xs space-y-2">
+      <div className="rounded-xl border border-[#E2E8F0] bg-white px-4 py-5 sm:px-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)] space-y-2">
         <label className="text-xs font-black uppercase tracking-wider text-[#111111] block">
           Conducta, Recomendaciones Dietarias y Posología Adicional
         </label>

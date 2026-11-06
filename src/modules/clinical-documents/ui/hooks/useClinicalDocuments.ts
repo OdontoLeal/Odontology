@@ -1,102 +1,48 @@
 // src/modules/clinical-documents/ui/hooks/useClinicalDocuments.ts
-import { useState, useCallback, useEffect } from 'react';
 
-export interface ClinicalDocumentItem {
-  idDocumento: number;
-  tipoDocumento: 'FORMULA' | 'INCAPACIDAD' | 'REMISION';
-  titulo: string;
-  fechaEmision: string;
-  profesionalNombre: string;
+export type TipoDocumentoClinicoUI = 'ORDEN_MEDICAMENTOS' | 'INCAPACIDAD' | 'REMISION';
+
+/**
+ * RF-DOC-001 a RF-DOC-004 (ERS v1.2/v1.3): pide al servidor el PDF generado en memoria
+ * (con la firma del profesional fusionada) y lo abre para imprimir o descargar.
+ * No queda ninguna copia en el servidor. Devuelve el aviso de firma, si lo hay.
+ */
+export async function downloadClinicalDocument(params: {
   idPaciente: number;
-  detalle: any;
-  firmadoDigitalmente: boolean;
-}
+  idCita: number;
+  tipoDocumento: TipoDocumentoClinicoUI;
+  detalles: Record<string, unknown>;
+  modoFirma?: 'CON_FIRMA_REGISTRADA' | 'FIRMA_MANUSCRITA';
+  apiBaseUrl?: string;
+}): Promise<string | undefined> {
+  const res = await fetch(`${params.apiBaseUrl ?? '/api/v1'}/clinical-documents`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      idPaciente: params.idPaciente,
+      idCita: params.idCita,
+      tipoDocumento: params.tipoDocumento,
+      modoFirma: params.modoFirma ?? 'CON_FIRMA_REGISTRADA',
+      detalles: params.detalles,
+    }),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(json.message || 'No se pudo generar el documento clínico.');
+  }
 
-export function useClinicalDocuments(idPaciente: number, apiBaseUrl = '/api/v1') {
-  const [documents, setDocuments] = useState<ClinicalDocumentItem[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchDocuments = useCallback(async () => {
-    if (!idPaciente) return;
-    setIsLoading(true);
-    setError(null);
-    try {
-      const res = await fetch(`${apiBaseUrl}/clinical-documents/patient/${idPaciente}`);
-      if (res.ok) {
-        const json = await res.json();
-        const rawList = Array.isArray(json) ? json : json.data || [];
-        setDocuments(
-          rawList.map((item: any) => ({
-            idDocumento: Number(item.idDocumento ?? item.id_evolucion ?? Date.now()),
-            tipoDocumento: item.tipoDocumento || 'FORMULA',
-            titulo:
-              item.tipoDocumento === 'INCAPACIDAD'
-                ? 'Incapacidad Médica Laboral'
-                : item.tipoDocumento === 'REMISION'
-                ? 'Remisión a Especialidad'
-                : 'Fórmula Médica Odontológica',
-            fechaEmision: String(item.fecha ?? new Date().toISOString()).replace('T', ' ').slice(0, 16),
-            profesionalNombre: item.diligenciadoPor?.nombreCompleto || 'Dr. Eduar Leal Álvarez',
-            idPaciente,
-            detalle: item.detalles || item.detalle,
-            firmadoDigitalmente: item.modoFirma === 'INCRUSTAR_PNG',
-          }))
-        );
-      }
-    } catch (err: any) {
-      console.error('Error fetching clinical documents:', err.message);
-      setError(err.message);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [apiBaseUrl, idPaciente]);
-
-  useEffect(() => {
-    fetchDocuments();
-  }, [fetchDocuments]);
-
-  const addDocument = useCallback(
-    async (doc: Omit<ClinicalDocumentItem, 'idDocumento'>) => {
-      try {
-        const res = await fetch(`${apiBaseUrl}/clinical-documents`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            idPaciente: doc.idPaciente,
-            idCita: 1, // o cita activa
-            tipoDocumento: doc.tipoDocumento,
-            archivoPdfUrl: `https://odontoleal.com/docs/${Date.now()}.pdf`,
-            modoFirma: doc.firmadoDigitalmente ? 'INCRUSTAR_PNG' : 'ESPACIO_EN_BLANCO',
-            detalles: doc.detalle,
-            diligenciadoPor: {
-              idUsuario: 1,
-              nombreCompleto: doc.profesionalNombre,
-              rol: 'Odontólogo General',
-            },
-          }),
-        });
-
-        if (res.ok) {
-          const json = await res.json();
-          const createdItem: ClinicalDocumentItem = {
-            ...doc,
-            idDocumento: Number(json.data?.idDocumento || Date.now()),
-          };
-          setDocuments((prev) => [createdItem, ...prev]);
-        }
-      } catch (err: any) {
-        console.error('Error creating clinical document:', err.message);
-      }
-    },
-    [apiBaseUrl]
-  );
-
-  return {
-    documents,
-    isLoading,
-    error,
-    fetchDocuments,
-    addDocument,
-  };
+  const { pdfBase64, nombreArchivo } = json.data ?? {};
+  const bytes = Uint8Array.from(atob(pdfBase64), (c) => c.charCodeAt(0));
+  const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+  const opened = window.open(url, '_blank');
+  if (!opened) {
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = nombreArchivo || 'documento-clinico.pdf';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  return json.warning;
 }

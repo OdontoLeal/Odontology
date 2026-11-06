@@ -279,6 +279,21 @@ alter table evolucion
 create index idx_evolucion_historia_fecha
     on evolucion (id_historia asc, fecha desc);
 
+create table token_recuperacion
+(
+    token      varchar(255)          not null
+        primary key,
+    id_usuario integer               not null,
+    correo     varchar(150)          not null,
+    creado_en  timestamp             not null,
+    expira_en  timestamp             not null,
+    usado      boolean default false not null,
+    invalidado boolean default false not null
+);
+
+alter table token_recuperacion
+    owner to u5elb7df0e6nbj;
+
 create view pg_stat_statements_info(dealloc, stats_reset) as
 SELECT dealloc,
        stats_reset

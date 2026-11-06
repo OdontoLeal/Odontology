@@ -1,4 +1,12 @@
+// src/modules/clinical-documents/infrastructure/clinical-documents.controller.ts
 import { Request, Response } from 'express';
+import { handleRequestError } from '../../../shared/infrastructure/http/http-error.handler';
+import {
+  ACCESS_DENIED_MESSAGE,
+  ForbiddenError,
+  getSessionUser,
+  hasPermission,
+} from '../../../shared/infrastructure/security/access-control';
 import { IClinicalDocumentRepository } from '../domain/clinical-document.repository.interface';
 import {
   AuthenticatedProfessionalActor,
@@ -7,179 +15,92 @@ import {
 import { GeneratePrescriptionUseCase } from '../application/generate-prescription.use-case';
 import { GenerateSickLeaveUseCase } from '../application/generate-sick-leave.use-case';
 import { GenerateReferralUseCase } from '../application/generate-referral.use-case';
-import { GetClinicalDocumentsUseCase } from '../application/get-clinical-documents.use-case';
 
+const PERMISO_POR_TIPO: Record<string, string> = {
+  ORDEN_MEDICAMENTOS: 'RF-DOC-001',
+  INCAPACIDAD: 'RF-DOC-002',
+  REMISION: 'RF-DOC-003',
+};
+
+/** Errores de negocio de los casos de uso (mensajes en español) → 400/403. */
+function toHttpError(error: any): any {
+  if (error?.message === ACCESS_DENIED_MESSAGE) return new ForbiddenError();
+  if (error && typeof error.statusCode !== 'number') {
+    return Object.assign(new Error(error.message), { statusCode: 400 });
+  }
+  return error;
+}
+
+/**
+ * Módulo E (RF-DOC-001 a RF-DOC-004): el PDF se genera en memoria y se
+ * devuelve en la respuesta (base64) para descargarlo o imprimirlo al momento.
+ * El servidor no conserva el archivo ni lo expone por una dirección (D-23, D-27).
+ * RF-DOC-005 (consultar documentos) se eliminó en la ERS v1.2.
+ */
 export class ClinicalDocumentsController {
   private readonly generatePrescriptionUseCase: GeneratePrescriptionUseCase;
   private readonly generateSickLeaveUseCase: GenerateSickLeaveUseCase;
   private readonly generateReferralUseCase: GenerateReferralUseCase;
-  private readonly getClinicalDocumentsUseCase: GetClinicalDocumentsUseCase;
 
   constructor(
     private readonly docRepo: IClinicalDocumentRepository,
     signatureService: EmbedProfessionalSignatureService = new EmbedProfessionalSignatureService()
   ) {
-    this.generatePrescriptionUseCase = new GeneratePrescriptionUseCase(
-      this.docRepo,
-      signatureService
-    );
-    this.generateSickLeaveUseCase = new GenerateSickLeaveUseCase(
-      this.docRepo,
-      signatureService
-    );
-    this.generateReferralUseCase = new GenerateReferralUseCase(
-      this.docRepo,
-      signatureService
-    );
-    this.getClinicalDocumentsUseCase = new GetClinicalDocumentsUseCase(this.docRepo);
+    this.generatePrescriptionUseCase = new GeneratePrescriptionUseCase(this.docRepo, signatureService);
+    this.generateSickLeaveUseCase = new GenerateSickLeaveUseCase(this.docRepo, signatureService);
+    this.generateReferralUseCase = new GenerateReferralUseCase(this.docRepo, signatureService);
   }
 
   generateDocument = async (req: Request, res: Response): Promise<void> => {
     try {
-      const {
-        idPaciente,
-        idCita,
-        tipoDocumento,
-        archivoPdfUrl,
-        modoFirma,
-        detalles,
-        diligenciadoPor,
-      } = req.body;
+      const user = getSessionUser(req)!;
+      const { idPaciente, idCita, tipoDocumento, modoFirma, detalles } = req.body ?? {};
 
-      const sessionUser = (req as any).user;
+      const permiso = PERMISO_POR_TIPO[tipoDocumento];
+      if (!permiso) {
+        throw Object.assign(
+          new Error('Tipo de documento clínico no válido. Valores permitidos: ORDEN_MEDICAMENTOS, INCAPACIDAD, REMISION.'),
+          { statusCode: 400 }
+        );
+      }
+      if (!hasPermission(user, permiso)) throw new ForbiddenError();
+
+      // El actor y su firma salen de la sesión: nadie inserta la firma de otro usuario (RF-DOC-004)
       const actor: AuthenticatedProfessionalActor = {
-        idUsuario: sessionUser?.idUsuario ?? diligenciadoPor?.idUsuario,
-        nombreCompleto:
-          sessionUser?.nombreCompleto ?? diligenciadoPor?.nombreProfesional ?? '',
-        roles: sessionUser?.roles ?? ['ROL-ODO'],
-        firmaImagenUrl: sessionUser?.firmaImagenUrl ?? null,
+        idUsuario: user.idUsuario,
+        nombreCompleto: user.nombreCompleto,
+        roles: user.roles,
+        firmaImagenUrl: null,
       };
 
-      if (tipoDocumento === 'ORDEN_MEDICAMENTOS') {
-        const result = await this.generatePrescriptionUseCase.execute({
-          idPaciente: Number(idPaciente),
-          idCita: Number(idCita),
-          medicamentos: detalles?.medicamentos ?? [],
-          indicacionesAdicionales: detalles?.indicacionesAdicionales,
-          modoFirma,
-          archivoPdfUrl,
-          actor,
-        });
+      const common = { idPaciente: Number(idPaciente), idCita: Number(idCita), modoFirma, actor };
+      const result =
+        tipoDocumento === 'ORDEN_MEDICAMENTOS'
+          ? await this.generatePrescriptionUseCase.execute({
+              ...common,
+              medicamentos: detalles?.medicamentos ?? [],
+              indicacionesAdicionales: detalles?.indicacionesAdicionales,
+            })
+          : tipoDocumento === 'INCAPACIDAD'
+            ? await this.generateSickLeaveUseCase.execute({
+                ...common,
+                diasIncapacidad: Number(detalles?.diasIncapacidad),
+                motivoIncapacidad: detalles?.motivoIncapacidad ?? '',
+              })
+            : await this.generateReferralUseCase.execute({
+                ...common,
+                especialidadDestino: detalles?.especialidadDestino ?? '',
+                otraEspecialidad: detalles?.otraEspecialidad,
+                motivoRemision: detalles?.motivoRemision ?? '',
+              });
 
-        res.status(201).json({
-          message: `Documento (${tipoDocumento}) generado exitosamente.`,
-          warning: result.avisoFirma,
-          data: result.documento,
-        });
-        return;
-      }
-
-      if (tipoDocumento === 'INCAPACIDAD') {
-        const result = await this.generateSickLeaveUseCase.execute({
-          idPaciente: Number(idPaciente),
-          idCita: Number(idCita),
-          diasIncapacidad: Number(detalles?.diasIncapacidad),
-          motivoIncapacidad: detalles?.motivoIncapacidad ?? '',
-          modoFirma,
-          archivoPdfUrl,
-          actor,
-        });
-
-        res.status(201).json({
-          message: `Documento (${tipoDocumento}) generado exitosamente.`,
-          warning: result.avisoFirma,
-          data: result.documento,
-        });
-        return;
-      }
-
-      if (tipoDocumento === 'REMISION') {
-        const result = await this.generateReferralUseCase.execute({
-          idPaciente: Number(idPaciente),
-          idCita: Number(idCita),
-          especialidadDestino: detalles?.especialidadDestino ?? '',
-          otraEspecialidad: detalles?.otraEspecialidad,
-          motivoRemision: detalles?.motivoRemision ?? '',
-          modoFirma,
-          archivoPdfUrl,
-          actor,
-        });
-
-        res.status(201).json({
-          message: `Documento (${tipoDocumento}) generado exitosamente.`,
-          warning: result.avisoFirma,
-          data: result.documento,
-        });
-        return;
-      }
-
-      res.status(400).json({
-        message:
-          'Campo [tipoDocumento]: Tipo de documento clínico no válido. Valores permitidos: ORDEN_MEDICAMENTOS, INCAPACIDAD, REMISION.',
+      res.status(200).json({
+        message: `Documento (${tipoDocumento}) generado. El servidor no conserva el archivo.`,
+        warning: result.avisoFirma,
+        data: result.documento,
       });
-    } catch (error: any) {
-      const status =
-        error.message === 'No tiene permiso para realizar esta acción' ? 403 : 400;
-      res.status(status).json({ message: error.message });
-    }
-  };
-
-  // DEF-01 & CPS-DOC-005-02: Exigir sesión y segregar acceso por rol
-  getPatientDocuments = async (req: Request, res: Response): Promise<void> => {
-    try {
-      const sessionUser = (req as any).user;
-      const headerRole = (req.headers['x-user-roles'] || req.headers['x-user-role']) as string;
-      const hasAuth = Boolean(sessionUser || headerRole || req.headers['authorization']);
-
-      if (!hasAuth) {
-        res.status(401).json({
-          message: 'Se requiere autenticación para consultar documentos clínicos.',
-        });
-        return;
-      }
-
-      const roles: string[] = Array.isArray(sessionUser?.roles)
-        ? sessionUser.roles.map((r: any) => (typeof r === 'string' ? r : r.codigoRol || r.nombreRol))
-        : headerRole
-        ? headerRole.split(',').map((r) => r.trim())
-        : [];
-
-      const isAllowed =
-        roles.includes('ROL-ODO') ||
-        roles.includes('ROL-ESP') ||
-        roles.includes('ROL-ADM');
-
-      if (!isAllowed) {
-        res.status(403).json({
-          message: 'No tiene permiso para consultar documentos clínicos.',
-        });
-        return;
-      }
-
-      const idPaciente = Number(req.params.idPaciente);
-      const result = await this.getClinicalDocumentsUseCase.execute({
-        idPaciente,
-        actor: {
-          idUsuario: Number(sessionUser?.idUsuario ?? 0),
-          roles,
-        },
-      });
-
-      if (result.data.length === 0) {
-        res.status(404).json({
-          message: result.message,
-          data: [],
-        });
-        return;
-      }
-
-      res.json({ data: result.data });
-    } catch (error: any) {
-      if (error.message === 'No tiene permiso para realizar esta acción') {
-        res.status(403).json({ message: error.message });
-        return;
-      }
-      res.status(500).json({ message: error.message });
+    } catch (error) {
+      await handleRequestError(req, res, toHttpError(error), 400);
     }
   };
 }
