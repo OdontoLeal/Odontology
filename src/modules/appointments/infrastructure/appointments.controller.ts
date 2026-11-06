@@ -42,8 +42,11 @@ export class AppointmentsController {
       const fecha = String(req.body?.fecha || req.query.fecha || '');
       if (!fecha) throw new AppointmentRuleError('El parámetro fecha es obligatorio en formato YYYY-MM-DD.');
       const result = await this.appointmentRepo.generateDaySlots(fecha);
+      const message = result.yaExistian
+        ? `Los bloques de horario para ${result.fecha} ya se encuentran generados en la base de datos.`
+        : `Se habilitaron ${result.totalGenerados} bloques de horario para ${result.fecha}.`;
       res.status(201).json({
-        message: `Se habilitaron ${result.totalGenerados} bloques de horario para ${result.fecha}.`,
+        message,
         data: result,
       });
     } catch (error) {
@@ -91,10 +94,20 @@ export class AppointmentsController {
 
   getMonthlySummary = async (req: Request, res: Response): Promise<void> => {
     try {
+      const user = getSessionUser(req);
+      const seesAll = user ? hasRole(user, 'ROL-ADM', 'ROL-COA', 'ROL-AUX') : true;
+      const idProfesional = seesAll
+        ? req.query.idProfesional
+          ? Number(req.query.idProfesional)
+          : undefined
+        : user?.idUsuario;
+
       const now = new Date();
       const year = req.query.year ? Number(req.query.year) : now.getFullYear();
       const month = req.query.month ? Number(req.query.month) : now.getMonth() + 1;
-      res.json({ data: await this.appointmentRepo.getMonthlySummary(year, month) });
+      res.json({
+        data: await this.appointmentRepo.getMonthlySummary(year, month, idProfesional, seesAll),
+      });
     } catch (error) {
       await handleRequestError(req, res, error, 500);
     }

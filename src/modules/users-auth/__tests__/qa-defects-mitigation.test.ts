@@ -574,4 +574,59 @@ describe('VERIFICACIÓN Y MITIGACIÓN DE DEFECTOS QA (D-01 a D-14)', () => {
     assert.strictEqual(res.body.data[0].codigoRol, 'ROL-ODO');
     assert.strictEqual(res.body.data[1].codigoRol, 'ROL-ESP');
   });
+
+  it('DEF-AGENDA-01: AppointmentsController.getMonthlySummary aplica RBAC: odontólogos ven solo sus citas sin solicitudes, y personal de agenda ve solicitudes', async () => {
+    let capturedParams: any = null;
+    const fakeApptRepo: any = {
+      getMonthlySummary: async (year: number, month: number, idProfesional?: number, includeSolicitudes = true) => {
+        capturedParams = { year, month, idProfesional, includeSolicitudes };
+        return [
+          { fecha: '2026-11-10', dia: 10, totalCitas: 1, totalSolicitadas: includeSolicitudes ? 2 : 0, totalBloques: 28, sinBloques: false },
+        ];
+      },
+    };
+    const ctrl = new AppointmentsController(fakeApptRepo);
+
+    // Caso A: Odontólogo Héctor Ramírez (idUsuario: 2) -> seesAll = false, idProfesional forzado a 2, sin solicitudes
+    const reqOdo: any = {
+      user: { idUsuario: 2, roles: ['ROL-ODO'], permisos: ['RF-AGE-008'] },
+      query: { year: '2026', month: '11' },
+    };
+    const resOdo = createMockResponse();
+    await ctrl.getMonthlySummary(reqOdo, resOdo);
+    assert.strictEqual(resOdo.statusCode, 200);
+    assert.strictEqual(capturedParams.idProfesional, 2);
+    assert.strictEqual(capturedParams.includeSolicitudes, false);
+    assert.strictEqual(resOdo.body.data[0].totalSolicitadas, 0);
+
+    // Caso B: Coordinadora de agendamiento -> seesAll = true, incluye solicitudes
+    const reqCoa: any = {
+      user: { idUsuario: 3, roles: ['ROL-COA'], permisos: ['RF-AGE-008'] },
+      query: { year: '2026', month: '11' },
+    };
+    const resCoa = createMockResponse();
+    await ctrl.getMonthlySummary(reqCoa, resCoa);
+    assert.strictEqual(resCoa.statusCode, 200);
+    assert.strictEqual(capturedParams.idProfesional, undefined);
+    assert.strictEqual(capturedParams.includeSolicitudes, true);
+    assert.strictEqual(resCoa.body.data[0].totalSolicitadas, 2);
+  });
+
+  it('DEF-AGENDA-02: AppointmentsController.generateDaySlots reporta yaExistian cuando no se generaron bloques nuevos', async () => {
+    const fakeApptRepo: any = {
+      generateDaySlots: async (fecha: string) => ({
+        totalGenerados: 0,
+        yaExistian: true,
+        totalExistentes: 28,
+        fecha,
+      }),
+    };
+    const ctrl = new AppointmentsController(fakeApptRepo);
+    const req: any = { body: { fecha: '2026-11-10' } };
+    const res = createMockResponse();
+    await ctrl.generateDaySlots(req, res);
+    assert.strictEqual(res.statusCode, 201);
+    assert.strictEqual(res.body.data.yaExistian, true);
+    assert.ok(res.body.message.includes('ya se encuentran generados'));
+  });
 });

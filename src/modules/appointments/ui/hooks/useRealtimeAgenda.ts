@@ -7,6 +7,7 @@ export interface MonthlyDaySummaryItem {
   fecha: string;
   dia: number;
   totalCitas: number;
+  totalSolicitadas?: number;
   totalBloques: number;
   sinBloques: boolean;
 }
@@ -355,7 +356,9 @@ export function useRealtimeAgenda(apiBaseUrl = '/api/v1') {
           const errJson = await res.json().catch(() => ({}));
           throw new Error(errJson.message || 'No fue posible cambiar el estado del bloque.');
         }
+        const json = await res.json().catch(() => ({}));
         await fetchAgenda();
+        return json?.data || json;
       } catch (err: any) {
         console.error('Error toggling slot:', err.message);
         setError(err.message);
@@ -379,7 +382,9 @@ export function useRealtimeAgenda(apiBaseUrl = '/api/v1') {
           const err = await res.json().catch(() => ({}));
           throw new Error(err.message || 'Error al generar los bloques.');
         }
+        const json = await res.json().catch(() => ({}));
         await fetchAgenda();
+        return json?.data || json;
       } catch (err: any) {
         console.error('Error generating slots:', err.message);
         setError(err.message);

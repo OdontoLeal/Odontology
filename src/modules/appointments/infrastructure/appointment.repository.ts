@@ -82,7 +82,12 @@ export class AppointmentRepository {
   }
 
   // Bloques estándar de 30 min de 6:00 a. m. a 8:00 p. m. (RF-AGE-001)
-  async generateDaySlots(fecha: string): Promise<{ totalGenerados: number; fecha: string }> {
+  async generateDaySlots(fecha: string): Promise<{
+    totalGenerados: number;
+    yaExistian: boolean;
+    totalExistentes: number;
+    fecha: string;
+  }> {
     const cleanFecha = fecha.trim().split('T')[0].split(' ')[0];
     if (!/^\d{4}-\d{2}-\d{2}$/.test(cleanFecha)) {
       throw new AppointmentRuleError('La fecha debe tener formato YYYY-MM-DD.');
@@ -93,15 +98,31 @@ export class AppointmentRepository {
 
     const nowStr = getNowColombiaTimestamp();
     const slots = generateStandardDayIntervals(cleanFecha).filter((s) => s.inicio > nowStr);
+    let insertedCount = 0;
     for (const s of slots) {
-      await db.query(
+      const res = await db.query(
         `INSERT INTO public.bloques_horario (inicio, final, estado, ocupacion)
          VALUES ($1, $2, TRUE, FALSE)
-         ON CONFLICT (inicio) DO NOTHING;`,
+         ON CONFLICT (inicio) DO NOTHING
+         RETURNING inicio;`,
         [s.inicio, s.final]
       );
+      if (res.rowCount && res.rowCount > 0) {
+        insertedCount += res.rowCount;
+      }
     }
-    return { totalGenerados: slots.length, fecha: cleanFecha };
+    const countRes = await db.query<{ count: string }>(
+      `SELECT COUNT(*)::text as count FROM public.bloques_horario WHERE inicio::date = $1::date;`,
+      [cleanFecha]
+    );
+    const totalExistentes = Number(countRes.rows[0]?.count || 0);
+
+    return {
+      totalGenerados: insertedCount,
+      yaExistian: insertedCount === 0 && totalExistentes > 0,
+      totalExistentes,
+      fecha: cleanFecha,
+    };
   }
 
   // Calendario público: solo fecha, hora y disponibilidad (RQNF-SEG-008)
@@ -919,13 +940,19 @@ export class AppointmentRepository {
     return rows;
   }
 
-  async getMonthlySummary(year: number, month: number): Promise<MonthlyDaySummary[]> {
+  async getMonthlySummary(
+    year: number,
+    month: number,
+    idProfesional?: number,
+    includeSolicitudes = true
+  ): Promise<MonthlyDaySummary[]> {
     const startDate = `${year}-${month.toString().padStart(2, '0')}-01`;
     const { rows } = await db.query<MonthlyDaySummary>(
       `SELECT
          to_char(d.day, 'YYYY-MM-DD') AS fecha,
          EXTRACT(DAY FROM d.day)::int AS dia,
          COALESCE(citas.total_citas, 0)::int AS "totalCitas",
+         COALESCE(solicitudes.total_solicitadas, 0)::int AS "totalSolicitadas",
          COALESCE(bloques.total_bloques, 0)::int AS "totalBloques",
          (COALESCE(bloques.total_bloques, 0) = 0) AS "sinBloques"
        FROM generate_series($1::date, ($1::date + interval '1 month' - interval '1 day')::date, interval '1 day') AS d(day)
@@ -934,8 +961,15 @@ export class AppointmentRepository {
            FROM public.cita c
            JOIN public.bloques_citas bc ON c.id_cita = bc.id_cita
           WHERE c.estado NOT IN ('Cancelada', 'Rechazada')
+            AND ($2::int IS NULL OR c.id_usuario = $2::int)
           GROUP BY bc.id_bloque::date
        ) citas ON citas.dia = d.day::date
+       LEFT JOIN (
+         SELECT sc.bloque_solicitado::date AS dia, COUNT(*) AS total_solicitadas
+           FROM public.solicitud_cita sc
+          WHERE sc.estado = true AND $3::boolean = true
+          GROUP BY sc.bloque_solicitado::date
+       ) solicitudes ON solicitudes.dia = d.day::date
        LEFT JOIN (
          SELECT inicio::date AS dia, COUNT(*) AS total_bloques
            FROM public.bloques_horario
@@ -943,7 +977,7 @@ export class AppointmentRepository {
           GROUP BY inicio::date
        ) bloques ON bloques.dia = d.day::date
        ORDER BY d.day ASC;`,
-      [startDate]
+      [startDate, idProfesional ?? null, includeSolicitudes]
     );
     return rows;
   }

@@ -546,7 +546,7 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
 
             {/* Botón secundario Crear Bloques (ERS RF-AGE-001). Mientras el día no tenga
                 bloques, el flujo de creación vive únicamente en el estado vacío. */}
-            {canManageSlots && slots.length > 0 && (
+            {canManageSlots && slots.length === 0 && (
               <button
                 type="button"
                 disabled={isPastDate || isLoading}
@@ -682,13 +682,14 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
                     // Datos de resumen mensual calculados en DB
                     const daySummary = monthlySummary.find((s) => s.dia === day);
                     const totalCitas = daySummary?.totalCitas ?? 0;
+                    const totalSolicitadas = daySummary?.totalSolicitadas ?? 0;
                     const sinBloques = daySummary ? daySummary.sinBloques : true;
 
-                    const statusLabel = sinBloques
-                      ? 'sin bloques'
-                      : totalCitas > 0
-                        ? `${totalCitas} ${totalCitas === 1 ? 'cita' : 'citas'}`
-                        : 'con bloques disponibles';
+                    const statusParts: string[] = [];
+                    if (totalCitas > 0) statusParts.push(`${totalCitas} ${totalCitas === 1 ? 'cita' : 'citas'}`);
+                    if (totalSolicitadas > 0) statusParts.push(`${totalSolicitadas} ${totalSolicitadas === 1 ? 'solicitud' : 'solicitudes'}`);
+                    if (statusParts.length === 0) statusParts.push(sinBloques ? 'sin bloques' : 'con bloques disponibles');
+                    const statusLabel = statusParts.join(', ');
 
                     return (
                       <button
@@ -714,23 +715,46 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
                           {day}
                         </span>
 
-                        {/* Indicador: número de citas, punto de bloques libres o punto hueco sin bloques */}
-                        {totalCitas > 0 ? (
-                          <span
-                            aria-hidden="true"
-                            className={`flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[13px] font-bold leading-none ${
-                              isSelected ? 'bg-[#D4AF37] text-black' : 'bg-[#FEF3C7] text-[#92400E]'
-                            }`}
-                          >
-                            {totalCitas}
-                          </span>
+                        {/* Indicadores: citas confirmadas (ámbar), solicitudes pendientes (azul), bloques libres o sin bloques */}
+                        {totalCitas > 0 || totalSolicitadas > 0 ? (
+                          <div className="flex flex-wrap items-center justify-center gap-1">
+                            {totalCitas > 0 && (
+                              <span
+                                aria-hidden="true"
+                                title={`${totalCitas} ${totalCitas === 1 ? 'cita agendada' : 'citas agendadas'}`}
+                                className={`flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-extrabold leading-none ${
+                                  isSelected ? 'bg-[#D4AF37] text-black' : 'bg-[#FEF3C7] text-[#92400E]'
+                                }`}
+                              >
+                                {totalCitas}
+                              </span>
+                            )}
+                            {totalSolicitadas > 0 && (
+                              <span
+                                aria-hidden="true"
+                                title={`${totalSolicitadas} ${totalSolicitadas === 1 ? 'solicitud pendiente' : 'solicitudes pendientes'}`}
+                                className={`flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-extrabold leading-none ${
+                                  isSelected
+                                    ? 'bg-[#38BDF8] text-black'
+                                    : 'bg-[#E0F2FE] text-[#0369A1] border border-[#BAE6FD]'
+                                }`}
+                              >
+                                {totalSolicitadas}
+                              </span>
+                            )}
+                          </div>
                         ) : sinBloques ? (
                           <span
                             aria-hidden="true"
                             className="h-2 w-2 rounded-full border border-[#8F99A3]"
+                            title="Sin bloques de horario"
                           />
                         ) : (
-                          <span aria-hidden="true" className="h-2 w-2 rounded-full bg-[#16A34A]" />
+                          <span
+                            aria-hidden="true"
+                            className="h-2 w-2 rounded-full bg-[#16A34A]"
+                            title="Bloques de horario disponibles"
+                          />
                         )}
                       </button>
                     );
@@ -750,11 +774,19 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
                 {/* Leyenda accesible de los indicadores */}
                 <ul className="flex flex-wrap gap-x-4 gap-y-1.5 border-t border-[#E2E8F0] pt-3 text-[13px] leading-5 text-[#687380]">
                   <li className="inline-flex items-center gap-1.5">
-                    <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#FEF3C7] px-1 text-[13px] font-bold text-[#92400E]">
+                    <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-[#FEF3C7] px-1 text-[10px] font-bold text-[#92400E]">
                       n
                     </span>
                     Citas del día
                   </li>
+                  {canManageSlots && (
+                    <li className="inline-flex items-center gap-1.5">
+                      <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-[#E0F2FE] px-1 text-[10px] font-bold text-[#0369A1] border border-[#BAE6FD]">
+                        n
+                      </span>
+                      Solicitudes
+                    </li>
+                  )}
                   <li className="inline-flex items-center gap-1.5">
                     <span className="h-2 w-2 rounded-full bg-[#16A34A]" aria-hidden="true" />
                     Bloques libres

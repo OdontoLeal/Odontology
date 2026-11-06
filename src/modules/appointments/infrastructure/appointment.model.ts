@@ -15,6 +15,7 @@ export interface MonthlyDaySummary {
   fecha: string;
   dia: number;
   totalCitas: number;
+  totalSolicitadas?: number;
   totalBloques: number;
   sinBloques: boolean;
 }
