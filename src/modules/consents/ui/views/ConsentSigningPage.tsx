@@ -152,7 +152,7 @@ export const ConsentSigningPage: React.FC<ConsentSigningPageProps> = ({
             ¡Consentimiento Firmado con Éxito!
           </h2>
           <p className="text-xs text-[#687380] leading-relaxed">
-            El consentimiento se ha registrado en la historia clínica del paciente con firma digitalizada (RF-CON-002).
+            El consentimiento se ha registrado en la historia clínica del paciente con firma digitalizada.
           </p>
           <div className="pt-4">
             <Button variant="primary" className="w-full min-h-[48px]" onClick={onExit}>
@@ -178,7 +178,7 @@ export const ConsentSigningPage: React.FC<ConsentSigningPageProps> = ({
               {activeIsMinor && <StatusBadge tone="warning">Acudiente obligatorio</StatusBadge>}
             </>
           }
-          subtitle="Terminal táctil de lectura y firma · Consultorio OdontoLeal (RF-CON-001, RF-CON-002, RF-CON-005)."
+          subtitle="Terminal táctil de lectura y firma · Consultorio OdontoLeal."
         />
 
         {/* Ficha del titular */}
@@ -249,7 +249,7 @@ export const ConsentSigningPage: React.FC<ConsentSigningPageProps> = ({
               className="touch-checkbox"
             />
             <span className="min-w-0 text-left text-sm font-semibold text-[#1E242B]">
-              He leído y comprendido plenamente la totalidad del documento, se me han explicado los riesgos y alternativas, y otorgo mi consentimiento informado (RF-CON-002).
+              He leído y comprendido plenamente la totalidad del documento, se me han explicado los riesgos y alternativas, y otorgo mi consentimiento informado.
             </span>
           </label>
         </div>
@@ -268,7 +268,7 @@ export const ConsentSigningPage: React.FC<ConsentSigningPageProps> = ({
                   <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                 </svg>
               }
-              description="Realice su trazo manuscrito en el recuadro con el dedo, lápiz óptico o mouse (RF-CON-002 / RF-CON-005)."
+              description="Realice su trazo manuscrito en el recuadro con el dedo, lápiz óptico o mouse."
               action={signatureData ? <StatusBadge tone="success">Firma capturada</StatusBadge> : undefined}
             />
 

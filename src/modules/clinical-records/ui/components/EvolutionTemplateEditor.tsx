@@ -73,7 +73,7 @@ export interface EvolutionTemplateEditorProps {
   readOnly?: boolean;
   odontogram?: OdontogramDataDTO;
   onOdontogramChange?: (data: OdontogramDataDTO) => void;
-  onSaveDraft?: (data: EvolutionFormData) => void;
+  onSaveDraft?: (data: EvolutionFormData) => Promise<void> | void;
   onSubmitOfficial?: (data: EvolutionFormData) => void;
   onOpenExpandedOdontogram?: () => void;
   onBackToDetail?: () => void;
@@ -121,6 +121,7 @@ export const EvolutionTemplateEditor: React.FC<EvolutionTemplateEditorProps> = (
   readOnly = false,
   odontogram: propOdontogram,
   onOdontogramChange,
+  onSaveDraft,
   onSubmitOfficial,
   onOpenExpandedOdontogram,
   onBackToDetail,
@@ -286,6 +287,16 @@ export const EvolutionTemplateEditor: React.FC<EvolutionTemplateEditorProps> = (
       return;
     }
 
+    if (!motivoConsulta.trim()) {
+      showAlert({
+        title: 'Motivo de consulta requerido',
+        message: 'Para generar una prescripción médica, incapacidad o remisión oficial, es obligatorio registrar el Motivo de Consulta en la pestaña de Anamnesis.',
+        type: 'warning',
+      });
+      setActiveTab('ENTRADA');
+      return;
+    }
+
     let tipoDocumento: 'ORDEN_MEDICAMENTOS' | 'INCAPACIDAD' | 'REMISION';
     let detalles: Record<string, unknown>;
 
@@ -348,6 +359,10 @@ export const EvolutionTemplateEditor: React.FC<EvolutionTemplateEditorProps> = (
     }
 
     try {
+      // Auto-guardar progreso de la consulta en la BD para garantizar la apertura formal (D-24)
+      if (onSaveDraft) {
+        await onSaveDraft(getFullFormData());
+      }
       const warning = await downloadClinicalDocument({ idPaciente, idCita, tipoDocumento, detalles });
       if (warning) {
         showAlert({ title: 'Documento generado', message: warning, type: 'warning' });
