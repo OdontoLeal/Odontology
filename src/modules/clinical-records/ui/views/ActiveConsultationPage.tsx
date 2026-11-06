@@ -331,6 +331,25 @@ export const ActiveConsultationPage: React.FC<ActiveConsultationPageProps> = ({
         initialData={initialFormData}
         odontogram={workingOdontogram}
         onOdontogramChange={setWorkingOdontogram}
+        onSaveDraft={async (formData) => {
+          await saveEvolutionEntry({
+            idCita,
+            motivoConsulta: formData.motivoConsulta,
+            enfermedadActual: formData.enfermedadActual,
+            antecedentesClinicos: formData.antecedentesClinicos,
+            habitosHigiene: formData.habitosHigiene,
+            examenEstomatognatico: formData.examenEstomatognatico,
+            examenFisicoObservaciones: formData.examenFisicoObservaciones,
+            procedimientoRealizado: formData.procedimientoRealizado,
+            diagnostico: formData.diagnostico,
+            diagnosticoGenerado: formData.diagnosticoGenerado || formData.diagnostico,
+            accionesARealizar: formData.accionesARealizar,
+            observaciones: formData.observaciones,
+            hallazgosObservaciones: formData.hallazgosObservaciones || formData.observaciones,
+            odontograma: workingOdontogram || formData.odontograma,
+            planManejo: formData.planManejo,
+          });
+        }}
         onSubmitOfficial={handleOfficialSubmit}
         onOpenExpandedOdontogram={() => setIsExpandedOdontogramOpen(true)}
         onBackToDetail={onBackToAgenda}

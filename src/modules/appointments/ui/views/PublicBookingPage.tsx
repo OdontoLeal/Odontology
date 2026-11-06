@@ -244,9 +244,6 @@ export const PublicBookingPage: React.FC<PublicBookingPageProps> = ({
       {/* Contenedor Principal */}
       <main className="max-w-4xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
         <div className="text-center space-y-2">
-          <span className="inline-flex items-center rounded-full bg-[#FBF6E6] border border-[#EAD89B] px-3.5 py-1 text-xs font-extrabold uppercase tracking-wider text-[#8F721A]">
-            ✨ Atención a Pacientes
-          </span>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-[#1E242B]">
             Solicitud de Cita Odontológica
           </h1>
@@ -584,7 +581,7 @@ export const PublicBookingPage: React.FC<PublicBookingPageProps> = ({
               <h4 className="font-extrabold text-[#1E242B] text-sm">Ubicación Consultorio</h4>
             </div>
             <p className="text-[#64748B] leading-relaxed">
-              Calle 127 # 14-54, Edificio Medical Prestige, Suite 402, Bogotá D.C.
+              Calle 21A # 10-57, Tunja, Boyacá.
             </p>
             <div className="pt-2 border-t border-[#F1F5F9] text-[11px] text-[#475569]">
               <p>Horario de atención: Lunes a Sábado de 07:00 a. m. a 07:00 p. m.</p>

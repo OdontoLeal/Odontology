@@ -1,6 +1,71 @@
 // src/modules/clinical-documents/application/clinical-document-pdf-generator.service.ts
-import { PDFDocument, StandardFonts, rgb, degrees } from 'pdf-lib';
+import { PDFDocument, StandardFonts, rgb, degrees, PDFPage, PDFFont, Color } from 'pdf-lib';
 import { PdfGenerationPayload } from './embed-professional-signature.service';
+
+/**
+ * Dibuja texto dividiéndolo en renglones que respeten el ancho máximo disponible
+ * y los saltos de línea explícitos, evitando desbordamientos fuera del margen.
+ * Retorna la coordenada Y resultante para el siguiente elemento.
+ */
+function drawWrappedText(
+  page: PDFPage,
+  text: string,
+  options: {
+    x: number;
+    y: number;
+    maxWidth: number;
+    size: number;
+    font: PDFFont;
+    color?: Color;
+    lineHeight?: number;
+  }
+): number {
+  if (!text || !text.trim()) return options.y;
+
+  const lineHeight = options.lineHeight ?? options.size * 1.35;
+  const paragraphs = text.trim().split(/\r?\n/);
+  let y = options.y;
+
+  for (const paragraph of paragraphs) {
+    const words = paragraph.trim().split(/\s+/);
+    if (words.length === 0 || (words.length === 1 && words[0] === '')) {
+      y -= lineHeight * 0.5;
+      continue;
+    }
+
+    let currentLine = '';
+    for (const word of words) {
+      const testLine = currentLine ? `${currentLine} ${word}` : word;
+      const testWidth = options.font.widthOfTextAtSize(testLine, options.size);
+      if (testWidth > options.maxWidth && currentLine) {
+        page.drawText(currentLine, {
+          x: options.x,
+          y,
+          size: options.size,
+          font: options.font,
+          color: options.color,
+        });
+        y -= lineHeight;
+        currentLine = word;
+      } else {
+        currentLine = testLine;
+      }
+    }
+
+    if (currentLine) {
+      page.drawText(currentLine, {
+        x: options.x,
+        y,
+        size: options.size,
+        font: options.font,
+        color: options.color,
+      });
+      y -= lineHeight;
+    }
+  }
+
+  return y;
+}
 
 export class ClinicalDocumentPdfGeneratorService {
   /**
@@ -59,7 +124,7 @@ export class ClinicalDocumentPdfGeneratorService {
       color: navyColor,
     });
 
-    page.drawText('ODONTOLEAL • NIT: 91.245.678-9 • REGISTRO DE SALUD SANTANDER', {
+    page.drawText('ODONTOLEAL • NIT: XX.XXXX.XX', {
       x: marginX,
       y: currentY - 18,
       size: 7.5,
@@ -167,41 +232,90 @@ export class ClinicalDocumentPdfGeneratorService {
         currentY -= 20;
       } else {
         medicamentos.forEach((med: any, index: number) => {
-          page.drawText(`${index + 1}. ${med.nombreMedicamento} ${med.presentacionConcentracion}`, {
+          // 1. Nombre y presentación del medicamento
+          const nombre = (
+            med.nombrePresentacion ||
+            med.nombreMedicamento ||
+            med.medicamento_principio_activo ||
+            'Medicamento'
+          ).trim();
+          const extraPresentacion = med.presentacionConcentracion
+            ? ` (${String(med.presentacionConcentracion).trim()})`
+            : '';
+          const tituloMed = `${index + 1}. ${nombre}${extraPresentacion}`;
+
+          currentY = drawWrappedText(page, tituloMed, {
             x: marginX + 10,
             y: currentY,
+            maxWidth: contentWidth - 20,
             size: 9,
             font: fontBold,
             color: darkTextColor,
+            lineHeight: 13,
           });
-          currentY -= 14;
 
-          const detalleDosis = `Cantidad: ${med.cantidad} | Dosis: ${med.dosis} | Vía: ${med.viaAdministracion} | Frecuencia: ${med.frecuencia} | Duración: ${med.duracionDias} días`;
-          page.drawText(detalleDosis, {
-            x: marginX + 20,
-            y: currentY,
-            size: 8,
-            font: fontRegular,
-            color: grayTextColor,
-          });
-          currentY -= 14;
+          // 2. Línea de especificación posológica (sin campos undefined)
+          const partes: string[] = [];
 
-          if (med.indicacionesUso) {
-            page.drawText(`Indicaciones: ${med.indicacionesUso}`, {
+          const cantidadVal = med.cantidad ? String(med.cantidad).trim() : '';
+          if (cantidadVal && cantidadVal !== 'undefined') {
+            partes.push(`Cantidad: ${cantidadVal}`);
+          }
+
+          const dosisVal = (med.dosis ?? med.dosis_concentracion) ? String(med.dosis ?? med.dosis_concentracion).trim() : '';
+          if (dosisVal && dosisVal !== 'undefined') {
+            partes.push(`Dosis: ${dosisVal}`);
+          }
+
+          const viaVal = (med.viaAdministracion ?? med.via) ? String(med.viaAdministracion ?? med.via).trim() : '';
+          if (viaVal && viaVal !== 'undefined') {
+            partes.push(`Vía: ${viaVal}`);
+          }
+
+          const frecVal = (med.frecuencia ?? med.frecuencia_via) ? String(med.frecuencia ?? med.frecuencia_via).trim() : '';
+          if (frecVal && frecVal !== 'undefined') {
+            partes.push(`Frecuencia: ${frecVal}`);
+          }
+
+          const rawDur = med.duracion ?? med.duracion_tratamiento ?? (med.duracionDias ? `${med.duracionDias} días` : '');
+          const durVal = rawDur ? String(rawDur).trim() : '';
+          if (durVal && durVal !== 'undefined') {
+            const durTexto = /d[ií]a/i.test(durVal) ? durVal : `${durVal} días`;
+            partes.push(`Duración: ${durTexto}`);
+          }
+
+          if (partes.length > 0) {
+            currentY = drawWrappedText(page, partes.join(' | '), {
               x: marginX + 20,
               y: currentY,
+              maxWidth: contentWidth - 30,
+              size: 8,
+              font: fontRegular,
+              color: grayTextColor,
+              lineHeight: 12,
+            });
+          }
+
+          // 3. Indicaciones específicas del fármaco
+          const indicacionMed = med.indicacionesUso ?? med.indicaciones_adicionales ?? med.indicaciones;
+          if (indicacionMed && String(indicacionMed).trim() && String(indicacionMed).trim() !== 'undefined') {
+            currentY = drawWrappedText(page, `Indicaciones: ${String(indicacionMed).trim()}`, {
+              x: marginX + 20,
+              y: currentY,
+              maxWidth: contentWidth - 30,
               size: 8,
               font: fontItalic,
               color: darkTextColor,
+              lineHeight: 12,
             });
-            currentY -= 14;
           }
+
           currentY -= 6;
         });
       }
 
       const indicacionesGenerales = (payload.detalles as any)?.indicacionesAdicionales;
-      if (indicacionesGenerales) {
+      if (indicacionesGenerales && String(indicacionesGenerales).trim() && String(indicacionesGenerales).trim() !== 'undefined') {
         page.drawText('Indicaciones Adicionales / Cuidados:', {
           x: marginX,
           y: currentY,
@@ -210,14 +324,16 @@ export class ClinicalDocumentPdfGeneratorService {
           color: navyColor,
         });
         currentY -= 14;
-        page.drawText(String(indicacionesGenerales), {
+        currentY = drawWrappedText(page, String(indicacionesGenerales).trim(), {
           x: marginX + 10,
           y: currentY,
+          maxWidth: contentWidth - 20,
           size: 8.5,
           font: fontRegular,
           color: darkTextColor,
+          lineHeight: 12,
         });
-        currentY -= 25;
+        currentY -= 15;
       }
     } else if (payload.tipoDocumento === 'INCAPACIDAD') {
       const dias = (payload.detalles as any)?.diasIncapacidad || 1;
@@ -230,26 +346,30 @@ export class ClinicalDocumentPdfGeneratorService {
         font: fontBold,
         color: navyColor,
       });
-      currentY -= 20;
+      currentY -= 18;
 
       const certText = `Se certifica que el/la paciente ${payload.paciente.nombreCompleto}, identificado(a) con cédula ${payload.paciente.documentoIdentidad}, requiere un periodo de reposo e incapacidad médica por un término de ${dias} día(s).`;
-      page.drawText(certText, {
+      currentY = drawWrappedText(page, certText, {
         x: marginX + 10,
         y: currentY,
+        maxWidth: contentWidth - 20,
         size: 8.5,
         font: fontRegular,
         color: darkTextColor,
+        lineHeight: 13,
       });
-      currentY -= 20;
+      currentY -= 8;
 
-      page.drawText(`Motivo / Diagnóstico: ${motivo}`, {
+      currentY = drawWrappedText(page, `Motivo / Diagnóstico: ${motivo}`, {
         x: marginX + 10,
         y: currentY,
+        maxWidth: contentWidth - 20,
         size: 8.5,
         font: fontBold,
         color: darkTextColor,
+        lineHeight: 13,
       });
-      currentY -= 18;
+      currentY -= 10;
 
       // RF-DOC-002: fechas de inicio y fin (la incapacidad inicia el día de expedición)
       const inicio = (payload.detalles as any)?.fechaInicioIncapacidad;
@@ -290,25 +410,29 @@ export class ClinicalDocumentPdfGeneratorService {
         font: fontBold,
         color: navyColor,
       });
-      currentY -= 20;
+      currentY -= 18;
 
-      page.drawText(`Especialidad Solicitada: ${esp}`, {
+      currentY = drawWrappedText(page, `Especialidad Solicitada: ${esp}`, {
         x: marginX + 10,
         y: currentY,
+        maxWidth: contentWidth - 20,
         size: 9,
         font: fontBold,
         color: darkTextColor,
+        lineHeight: 13,
       });
-      currentY -= 18;
+      currentY -= 6;
 
-      page.drawText(`Motivo de Remisión: ${mot}`, {
+      currentY = drawWrappedText(page, `Motivo de Remisión: ${mot}`, {
         x: marginX + 10,
         y: currentY,
+        maxWidth: contentWidth - 20,
         size: 8.5,
         font: fontRegular,
         color: darkTextColor,
+        lineHeight: 13,
       });
-      currentY -= 30;
+      currentY -= 20;
     }
 
     // 6. Sección de Firma del Profesional

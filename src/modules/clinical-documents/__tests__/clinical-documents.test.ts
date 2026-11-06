@@ -15,6 +15,8 @@ import {
 import { GeneratePrescriptionUseCase } from '../application/generate-prescription.use-case';
 import { GenerateSickLeaveUseCase } from '../application/generate-sick-leave.use-case';
 import { GenerateReferralUseCase } from '../application/generate-referral.use-case';
+import { ClinicalDocumentPdfGeneratorService } from '../application/clinical-document-pdf-generator.service';
+import { PDFDocument } from 'pdf-lib';
 
 // Repositorio en memoria (ERS v1.2/v1.3): no guarda documentos, solo la constancia de auditoría
 class InMemoryClinicalDocumentRepository implements IClinicalDocumentRepository {
@@ -360,5 +362,151 @@ describe('MÓDULO E: Documentos Clínicos (Órdenes, Incapacidades, Remisiones, 
       /No tiene permiso para realizar esta acción/
     );
     assert.strictEqual(repo.auditados.length, 0);
+  });
+
+  it('DEF-PDF-001: ClinicalDocumentPdfGeneratorService genera orden médica sin undefined y con salto de línea dinámico', async () => {
+    const payload = {
+      idPaciente: 101,
+      idCita: 501,
+      tipoDocumento: 'ORDEN_MEDICAMENTOS' as const,
+      encabezadoConsultorio: {
+        nombreConsultorio: 'Consultorio Dr. Eduar Leal Álvarez',
+        nit: '91.245.678-9',
+        registroSalud: 'REGISTRO DE SALUD SANTANDER',
+        direccionTelefono: 'Calle 10 # 20-30',
+        logotipoAsset: '',
+        marcaDeAguaTexto: 'ODONTOLEAL',
+      },
+      paciente: {
+        nombreCompleto: 'James David Rodríguez Rubio',
+        documentoIdentidad: '1050603040',
+        edad: 32,
+        sexo: 'M',
+      },
+      fechaExpedicionColombia: '05/11/2026',
+      horaExpedicionColombia: '10:00 AM',
+      detalles: {
+        medicamentos: [
+          {
+            nombrePresentacion: 'Amoxicilina 500mg cápsulas',
+            dosis: '500mg',
+            frecuencia: 'Cada 8 horas',
+            duracion: '7 días',
+          },
+          {
+            nombrePresentacion: 'Ibuprofeno 600mg tabletas',
+            dosis: '600mg',
+            frecuencia: 'Cada 8 horas',
+            duracion: '3',
+            viaAdministracion: 'Oral',
+            cantidad: '10',
+            indicacionesUso: 'Tomar después de las comidas principales',
+          } as any,
+        ],
+        indicacionesAdicionales: 'Mantener hidratación adecuada y no suspender el tratamiento antes del tiempo estipulado por el profesional tratante.',
+      },
+      firmaProfesional: {
+        modoFirma: 'CON_FIRMA_REGISTRADA' as const,
+        nombreProfesional: 'Dr. Eduar Leal Álvarez',
+        imagenFirmaUrl: null,
+        aplicarFlatten: true,
+        mostrarCampoEnBlanco: false,
+      },
+    };
+
+    const res = await ClinicalDocumentPdfGeneratorService.generate(payload);
+    assert.ok(res.pdfBytes.length > 0);
+    assert.strictEqual(res.nombreArchivo, 'cita-501-orden-medicamentos.pdf');
+
+    // Verificar que el PDF generado es estructuralmente válido
+    const loadedPdf = await PDFDocument.load(res.pdfBytes);
+    assert.strictEqual(loadedPdf.getPageCount(), 1);
+  });
+
+  it('DEF-PDF-002: ClinicalDocumentPdfGeneratorService envuelve el texto de certificación e incapacidad sin desbordamiento horizontal', async () => {
+    const payload = {
+      idPaciente: 101,
+      idCita: 501,
+      tipoDocumento: 'INCAPACIDAD' as const,
+      encabezadoConsultorio: {
+        nombreConsultorio: 'Consultorio Dr. Eduar Leal Álvarez',
+        nit: '91.245.678-9',
+        registroSalud: 'REGISTRO DE SALUD SANTANDER',
+        direccionTelefono: 'Calle 10 # 20-30',
+        logotipoAsset: '',
+        marcaDeAguaTexto: 'ODONTOLEAL',
+      },
+      paciente: {
+        nombreCompleto: 'James David Rodríguez Rubio de la Santísima Trinidad',
+        documentoIdentidad: '1050603040',
+        edad: 32,
+        sexo: 'M',
+      },
+      fechaExpedicionColombia: '05/11/2026',
+      horaExpedicionColombia: '10:00 AM',
+      detalles: {
+        diasIncapacidad: 5,
+        motivoIncapacidad: 'Exodoncia quirúrgica de terceros molares incluidos con osteotomía y odontosección múltiple bajo anestesia local',
+        fechaInicioIncapacidad: '05/11/2026',
+        fechaFinIncapacidad: '10/11/2026',
+        requiereFirmaAcudiente: false,
+      },
+      firmaProfesional: {
+        modoFirma: 'CON_FIRMA_REGISTRADA' as const,
+        nombreProfesional: 'Dr. Eduar Leal Álvarez',
+        imagenFirmaUrl: null,
+        aplicarFlatten: true,
+        mostrarCampoEnBlanco: false,
+      },
+    };
+
+    const res = await ClinicalDocumentPdfGeneratorService.generate(payload);
+    assert.ok(res.pdfBytes.length > 0);
+    assert.strictEqual(res.nombreArchivo, 'cita-501-incapacidad.pdf');
+
+    const loadedPdf = await PDFDocument.load(res.pdfBytes);
+    assert.strictEqual(loadedPdf.getPageCount(), 1);
+  });
+
+  it('DEF-PDF-003: ClinicalDocumentPdfGeneratorService envuelve motivo de remisión interconsulta extenso', async () => {
+    const payload = {
+      idPaciente: 101,
+      idCita: 501,
+      tipoDocumento: 'REMISION' as const,
+      encabezadoConsultorio: {
+        nombreConsultorio: 'Consultorio Dr. Eduar Leal Álvarez',
+        nit: '91.245.678-9',
+        registroSalud: 'REGISTRO DE SALUD SANTANDER',
+        direccionTelefono: 'Calle 10 # 20-30',
+        logotipoAsset: '',
+        marcaDeAguaTexto: 'ODONTOLEAL',
+      },
+      paciente: {
+        nombreCompleto: 'James Rodríguez',
+        documentoIdentidad: '1050603040',
+        edad: 32,
+        sexo: 'M',
+      },
+      fechaExpedicionColombia: '05/11/2026',
+      horaExpedicionColombia: '10:00 AM',
+      detalles: {
+        especialidadDestino: 'Cirugía Maxilofacial',
+        motivoRemision: 'Paciente presenta inclusión ósea total de órganos dentarios 38 y 48 en íntima relación anatómica con el conducto del nervio dentario inferior evidenciado en tomografía cone beam. Se solicita valoración y manejo quirúrgico especializado.',
+      },
+      firmaProfesional: {
+        modoFirma: 'CON_FIRMA_REGISTRADA' as const,
+        nombreProfesional: 'Dr. Eduar Leal Álvarez',
+        imagenFirmaUrl: null,
+        aplicarFlatten: true,
+        mostrarCampoEnBlanco: false,
+      },
+    };
+
+    const res = await ClinicalDocumentPdfGeneratorService.generate(payload);
+    assert.ok(res.pdfBytes.length > 0);
+    assert.strictEqual(res.nombreArchivo, 'cita-501-remision.pdf');
+
+    const loadedPdf = await PDFDocument.load(res.pdfBytes);
+    assert.strictEqual(loadedPdf.getPageCount(), 1);
   });
 });

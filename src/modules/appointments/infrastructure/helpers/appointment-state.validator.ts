@@ -128,9 +128,15 @@ export function validateStateChangeRules(ctx: StateChangeContext): void {
       if (citaActual.estado !== 'Confirmada') {
         throw new AppointmentRuleError('Solo se puede iniciar la atención de una cita Confirmada.', 409);
       }
+      // =========================================================================
+      // [DESHABILITADO TEMPORALMENTE]: Restricción de atender solo citas del mismo día.
+      // Detalle y reversión documentados en: /TEMPORAL_ATENDER_CITA_CUALQUIER_DIA.md
+      // =========================================================================
+      /*
       if (inicioDia !== today && !isAdmin) {
         throw new AppointmentRuleError('Solo se puede iniciar la atención de una cita del día.', 409);
       }
+      */
       return;
     }
     case 'Atendida': {

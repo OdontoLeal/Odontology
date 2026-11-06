@@ -10,7 +10,6 @@ import {
   BedIcon,
   StethoscopeIcon,
   PrinterIcon,
-  SaveIcon,
 } from '../../../../../shared/ui/components/Icons';
 
 export interface ManagementPlanTabProps {
@@ -22,7 +21,7 @@ export interface ManagementPlanTabProps {
   onPrintDocument: (tipo: 'RECETA' | 'INCAPACIDAD' | 'REMISION') => void;
   onDiscardChanges: () => void;
   onPrevTab: () => void;
-  onSubmit: () => void;
+  onSubmit?: () => void;
 }
 
 export const ManagementPlanTab: React.FC<ManagementPlanTabProps> = ({
@@ -627,16 +626,6 @@ export const ManagementPlanTab: React.FC<ManagementPlanTabProps> = ({
           >
             ← Volver a Hallazgos
           </button>
-          {!readOnly && (
-            <button
-              type="button"
-              onClick={onSubmit}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#D4AF37] hover:bg-[#C59B27] text-black font-black text-xs shadow-sm hover:shadow transition-all cursor-pointer"
-            >
-              <SaveIcon size={16} color="#000000" />
-              Guardar y finalizar cita
-            </button>
-          )}
         </div>
       </div>
     </div>

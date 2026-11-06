@@ -433,11 +433,17 @@ export class AppointmentEntity {
       throw new Error('Ya tiene una cita En consulta en curso. Debe finalizarla antes de iniciar otra atención (RF-AGE-009).');
     }
 
+    // =========================================================================
+    // [DESHABILITADO TEMPORALMENTE]: Restricción de atender solo citas del mismo día.
+    // Detalle y reversión documentados en: /TEMPORAL_ATENDER_CITA_CUALQUIER_DIA.md
+    // =========================================================================
+    /*
     const citaDay = AppointmentEntity.toColombiaDateString(this.horaInicio);
     const todayDay = AppointmentEntity.toColombiaDateString(now);
     if (citaDay !== todayDay) {
       throw new Error('Solo se puede iniciar la atención de citas correspondientes al día de hoy (RF-AGE-009).');
     }
+    */
 
     this._estado = 'En consulta';
 

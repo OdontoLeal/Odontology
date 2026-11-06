@@ -53,7 +53,7 @@ export class ConsentPdfGeneratorService {
           color: navyColor,
         });
 
-        currentPage.drawText('ODONTOLEAL • NIT: 91.245.678-9 • REGISTRO SECCIONAL DE SALUD SANTANDER', {
+        currentPage.drawText('ODONTOLEAL • NIT: XX.XXX.XXX', {
           x: marginX,
           y: currentY - 18,
           size: 7.5,

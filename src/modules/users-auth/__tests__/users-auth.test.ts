@@ -31,6 +31,7 @@ import { UpdateRoleUseCase } from '../application/update-role.use-case';
 import { DeleteRoleUseCase } from '../application/delete-role.use-case';
 import { RecoverPasswordUseCase } from '../application/recover-password.use-case';
 import { CloseSessionUseCase } from '../application/close-session.use-case';
+import { clearRecoveryTokenFromUrl } from '../ui/views/PasswordRecoveryPage';
 
 // Repositorio en memoria para el módulo de Usuarios y Autenticación
 class InMemoryUserRepository implements IUserRepository {
@@ -730,5 +731,28 @@ describe('MÓDULO A: Gestión de Usuarios y Roles (RF-USR-001 a RF-USR-011)', ()
 
     const delRes = await deleteRole.execute({ idRol: unassignedRole.data.id_rol });
     assert.strictEqual(delRes.eliminado, true);
+  });
+
+  it('DEF-RECOVERY-001: clearRecoveryTokenFromUrl remueve el token de la URL sin recargar la página', () => {
+    let replacedUrl = '';
+    const originalWindow = (global as any).window;
+    (global as any).window = {
+      location: {
+        href: 'http://localhost:5173/?token=cc96829e99fc7b8c9e19bd0da464b9a02b6df4a208bbac39a7156a49ff5da1da',
+        search: '?token=cc96829e99fc7b8c9e19bd0da464b9a02b6df4a208bbac39a7156a49ff5da1da',
+        pathname: '/',
+        hash: '',
+      },
+      history: {
+        replaceState: (_data: any, _unused: string, url: string) => {
+          replacedUrl = url;
+        },
+      },
+    };
+
+    clearRecoveryTokenFromUrl();
+    assert.strictEqual(replacedUrl, '/');
+
+    (global as any).window = originalWindow;
   });
 });

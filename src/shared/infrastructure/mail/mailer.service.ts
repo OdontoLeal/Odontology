@@ -623,7 +623,6 @@ export class MailerService implements IMailerPort {
       <div class="detail-item"><span class="label">📅 Fecha Solicitada:</span> <span class="value">${requestedDate}</span></div>
       <div class="detail-item"><span class="label">⏰ Hora Solicitada:</span> <span class="value">${requestedTime}</span></div>
       <div class="detail-item"><span class="label">📋 Motivo / Síntomas:</span> <span class="value">${motive}</span></div>
-      ${idSolicitud ? `<div class="detail-item"><span class="label">🔢 N° Solicitud:</span> <span class="value">#${idSolicitud}</span></div>` : ''}
     </div>
 
     <div class="notice-box">
