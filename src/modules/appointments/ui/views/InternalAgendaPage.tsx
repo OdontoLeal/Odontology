@@ -98,7 +98,7 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
 
   // Carga de doctores reales desde base de datos / API
   useEffect(() => {
-    fetch('/api/v1/users')
+    fetch('/api/v1/appointments/professionals')
       .then((res) => (res.ok ? res.json() : { data: [] }))
       .then((json) => {
         const userList: any[] = Array.isArray(json.data)
@@ -114,7 +114,10 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
             idUsuario: Number(u.id_usuario ?? u.idUsuario),
             nombreCompleto: u.nombre_completo ?? u.nombreCompleto ?? 'Doctor',
             especialidad:
-              u.roles?.[0]?.nombreRol || u.roles?.[0]?.nombre_rol || 'Odontología General',
+              u.especialidad ||
+              u.roles?.[0]?.nombreRol ||
+              u.roles?.[0]?.nombre_rol ||
+              'Odontología General',
           }));
 
         if (doctorCandidates.length > 0) {
@@ -181,7 +184,7 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
         sexo: 'Femenino',
         edad: 29,
         esPacienteNuevo: true,
-        doctorAsignado: slot.doctorNombre || 'Dr. Mateo Gómez',
+        doctorAsignado: slot.doctorNombre || 'Por asignar',
       });
     }
 
@@ -402,7 +405,9 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
           }}
           onStartAttention={async (idCita, idPaciente) => {
             try {
-              await startAttention(idCita);
+              if (activeAppointmentDetail.estado === 'Confirmada') {
+                await startAttention(idCita);
+              }
               onStartAttention?.(idCita, idPaciente, {
                 doctorName: activeAppointmentDetail.doctorNombre,
                 doctorSignature: activeAppointmentDetail.doctorFirma,

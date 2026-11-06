@@ -992,4 +992,32 @@ export class AppointmentRepository {
     const rows = await this.getRequests(idSolicitud);
     return rows[0] || null;
   }
+
+  // ------------------------------------------------------------------
+  // Catálogo de profesionales odontológicos activos para asignación de citas
+  // (RF-AGE-001, RF-AGE-002, RF-AGE-005, RF-AGE-006, RF-AGE-008)
+  // ------------------------------------------------------------------
+  async findActiveProfessionals(): Promise<Array<{
+    idUsuario: number;
+    nombreCompleto: string;
+    especialidad: string;
+    codigoRol: string;
+  }>> {
+    const { rows } = await db.query(
+      `SELECT
+         u.id_usuario AS "idUsuario",
+         u.nombre_completo AS "nombreCompleto",
+         string_agg(r.nombre_rol, ', ' ORDER BY r.id_rol) AS "especialidad",
+         string_agg(r.codigo_rol, ', ' ORDER BY r.id_rol) AS "codigoRol"
+       FROM public.usuario u
+       JOIN public.usuario_rol ur ON ur.id_usuario = u.id_usuario AND ur.estado = true
+       JOIN public.rol r ON r.id_rol = ur.id_rol
+      WHERE u.estado = true 
+        AND u.es_sistema = false 
+        AND r.codigo_rol IN ('ROL-ODO', 'ROL-ESP')
+      GROUP BY u.id_usuario, u.nombre_completo
+      ORDER BY u.nombre_completo ASC;`
+    );
+    return rows;
+  }
 }

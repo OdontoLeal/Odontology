@@ -109,7 +109,7 @@ export const AppointmentDetailPage: React.FC<AppointmentDetailPageProps> = ({
       setDoctorsList(doctors);
       return;
     }
-    fetch('/api/v1/users')
+    fetch('/api/v1/appointments/professionals')
       .then((res) => (res.ok ? res.json() : { data: [] }))
       .then((json) => {
         const userList: any[] = json.data || [];
@@ -119,6 +119,7 @@ export const AppointmentDetailPage: React.FC<AppointmentDetailPageProps> = ({
             idUsuario: Number(u.id_usuario ?? u.idUsuario),
             nombreCompleto: u.nombre_completo ?? u.nombreCompleto ?? 'Doctor',
             especialidad:
+              u.especialidad ||
               u.roles?.[0]?.nombreRol ||
               u.roles?.[0]?.nombre_rol ||
               'Odontología General',

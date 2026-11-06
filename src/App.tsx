@@ -528,17 +528,34 @@ export const App: React.FC = () => {
             onScheduleAppointment={(_patient) => {
               setInternalView('APPOINTMENTS');
             }}
-            onOpenConsultation={async (patient, idCita) => {
+            onOpenConsultation={async (patient, idCita, estadoCita) => {
               setSelectedPatient(patient);
-              if (idCita) {
+              if (idCita && estadoCita !== 'En consulta') {
                 try {
-                  await fetch(`/api/v1/appointments/${idCita}/state`, {
+                  const res = await fetch(`/api/v1/appointments/${idCita}/state`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ nuevoEstado: 'En consulta' }),
+                    body: JSON.stringify({ nuevoEstado: 'En consulta', motivo: 'Inicio de atención clínica' }),
                   });
-                } catch (err) {
-                  console.error('Error al iniciar atención desde perfil de paciente:', err);
+                  if (!res.ok) {
+                    const errJson = await res.json().catch(() => ({}));
+                    // Si ya estaba En consulta no bloqueamos
+                    if (!String(errJson.message).toLowerCase().includes('en consulta')) {
+                      showAlert({
+                        title: 'No se pudo iniciar la atención',
+                        message: errJson.message || 'Error al cambiar el estado de la cita a "En consulta".',
+                        type: 'error',
+                      });
+                      return;
+                    }
+                  }
+                } catch (err: any) {
+                  showAlert({
+                    title: 'Error de conexión',
+                    message: err.message || 'No se pudo conectar con el servidor para iniciar la cita.',
+                    type: 'error',
+                  });
+                  return;
                 }
               }
               if (!idCita) return;

@@ -114,13 +114,6 @@ export const ActiveConsultationPage: React.FC<ActiveConsultationPageProps> = ({
   const [isExpandedOdontogramOpen, setIsExpandedOdontogramOpen] = useState(false);
   const [workingOdontogram, setWorkingOdontogram] = useState(currentOdontogram);
 
-  // Sincronizar el odontograma al cargar
-  useEffect(() => {
-    if (currentOdontogram?.cuadrantes) {
-      setWorkingOdontogram(currentOdontogram);
-    }
-  }, [currentOdontogram]);
-
   // Buscar si esta cita ya tiene evolución o si existe una previa para precargar
   const previousEvolution = useMemo(() => {
     if (!history || history.length === 0) return null;
@@ -129,6 +122,15 @@ export const ActiveConsultationPage: React.FC<ActiveConsultationPageProps> = ({
     const otherCita = history.find((e) => Number(e.idCita) !== Number(idCita));
     return otherCita || history[0];
   }, [history, idCita]);
+
+  // Sincronizar el odontograma al cargar (precarga inteligente del odontograma anterior si existe)
+  useEffect(() => {
+    if (previousEvolution?.odontograma?.cuadrantes) {
+      setWorkingOdontogram(previousEvolution.odontograma);
+    } else if (currentOdontogram?.cuadrantes) {
+      setWorkingOdontogram(currentOdontogram);
+    }
+  }, [previousEvolution, currentOdontogram]);
 
   // Si la evolución previa ya tiene datos del profesional que atendió, sincronizarlos
   useEffect(() => {
@@ -159,7 +161,7 @@ export const ActiveConsultationPage: React.FC<ActiveConsultationPageProps> = ({
         diagnosticoGenerado: previousEvolution.diagnosticoGenerado || previousEvolution.diagnostico || '',
         accionesARealizar: previousEvolution.accionesARealizar || '',
         observaciones: previousEvolution.observaciones || previousEvolution.hallazgosObservaciones || '',
-        odontograma: previousEvolution.odontograma || workingOdontogram || currentOdontogram,
+        odontograma: previousEvolution.odontograma || currentOdontogram,
         planManejo: previousEvolution.planManejo || DEFAULT_PLAN_MANEJO,
       };
     }
@@ -178,7 +180,7 @@ export const ActiveConsultationPage: React.FC<ActiveConsultationPageProps> = ({
         diagnosticoGenerado: previousEvolution.diagnosticoGenerado || previousEvolution.diagnostico || '',
         accionesARealizar: previousEvolution.accionesARealizar || '',
         observaciones: '',
-        odontograma: previousEvolution.odontograma || workingOdontogram || currentOdontogram,
+        odontograma: previousEvolution.odontograma || currentOdontogram,
         planManejo: previousEvolution.planManejo || DEFAULT_PLAN_MANEJO,
       };
     }
@@ -196,10 +198,10 @@ export const ActiveConsultationPage: React.FC<ActiveConsultationPageProps> = ({
       diagnosticoGenerado: '',
       accionesARealizar: '',
       observaciones: '',
-      odontograma: workingOdontogram || currentOdontogram,
+      odontograma: currentOdontogram,
       planManejo: DEFAULT_PLAN_MANEJO,
     };
-  }, [previousEvolution, idCita, workingOdontogram, currentOdontogram]);
+  }, [previousEvolution, idCita, currentOdontogram]);
 
   // Fecha legible
   const displayDate = useMemo(() => {
@@ -369,7 +371,6 @@ export const ActiveConsultationPage: React.FC<ActiveConsultationPageProps> = ({
           <OdontogramCanvas
             initialData={workingOdontogram}
             onChange={(updated) => setWorkingOdontogram(updated)}
-            onSave={(updated) => setWorkingOdontogram(updated)}
           />
 
           {/* Tabla inferior de Observaciones y Notas Clínicas por Pieza Dental */}

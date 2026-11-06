@@ -124,6 +124,18 @@ export class AppointmentsController {
     }
   };
 
+  // ---------------------------------------------------------------------------
+  // Catálogo de profesionales odontológicos activos para agendamiento (RF-AGE-001, RF-AGE-002, RF-AGE-005, RF-AGE-006, RF-AGE-008)
+  // ---------------------------------------------------------------------------
+  getActiveProfessionals = async (req: Request, res: Response): Promise<void> => {
+    try {
+      const professionals = await this.appointmentRepo.findActiveProfessionals();
+      res.status(200).json({ data: professionals });
+    } catch (error) {
+      await handleRequestError(req, res, error, 500);
+    }
+  };
+
   /** RF-AGE-003: valida los datos de la sección pública (todos obligatorios salvo el motivo). */
   private validatePublicRequestBody(body: any): void {
     const required: Array<[string, string]> = [

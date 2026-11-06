@@ -116,7 +116,8 @@ export function validateStateChangeRules(ctx: StateChangeContext): void {
     );
   }
 
-  const isResponsible = citaActual.id_usuario === actor.idUsuario;
+  const isAdmin = actor.roles.includes('ROL-ADM');
+  const isResponsible = citaActual.id_usuario === actor.idUsuario || isAdmin;
   const can = (perm: string) => actor.permisos.includes(perm);
   const today = getTodayColombiaDate(now);
   const inicioDia = ctx.inicioCita?.slice(0, 10) ?? null;
@@ -127,7 +128,7 @@ export function validateStateChangeRules(ctx: StateChangeContext): void {
       if (citaActual.estado !== 'Confirmada') {
         throw new AppointmentRuleError('Solo se puede iniciar la atención de una cita Confirmada.', 409);
       }
-      if (inicioDia !== today) {
+      if (inicioDia !== today && !isAdmin) {
         throw new AppointmentRuleError('Solo se puede iniciar la atención de una cita del día.', 409);
       }
       return;

@@ -557,4 +557,21 @@ describe('VERIFICACIÓN Y MITIGACIÓN DE DEFECTOS QA (D-01 a D-14)', () => {
     const fromRequest = Patient.reconstitute({ nombreCompleto: 'X', documentoIdentidad: '1', fechaNacimiento: '1990-01-01' });
     assert.strictEqual(fromRequest.datosIncompletos, true);
   });
+
+  it('DEF-PROF-01: AppointmentsController.getActiveProfessionals retorna catálogo de profesionales para asignación sin requerir permisos de gestión de usuarios (RF-USR-004)', async () => {
+    const fakeApptRepo: any = {
+      findActiveProfessionals: async () => [
+        { idUsuario: 1, nombreCompleto: 'Dr. Eduar Leal', especialidad: 'Odontólogo General', codigoRol: 'ROL-ODO' },
+        { idUsuario: 37, nombreCompleto: 'Dra. Natalia Díaz', especialidad: 'Especialista en Ortodoncia', codigoRol: 'ROL-ESP' },
+      ],
+    };
+    const ctrl = new AppointmentsController(fakeApptRepo);
+    const req: any = {};
+    const res = createMockResponse();
+    await ctrl.getActiveProfessionals(req, res);
+    assert.strictEqual(res.statusCode, 200);
+    assert.strictEqual(res.body.data.length, 2);
+    assert.strictEqual(res.body.data[0].codigoRol, 'ROL-ODO');
+    assert.strictEqual(res.body.data[1].codigoRol, 'ROL-ESP');
+  });
 });

@@ -68,11 +68,11 @@ export const EditAppointmentModal: React.FC<EditAppointmentModalProps> = ({
     }
 
     const previousDoctor =
-      doctors.find((d) => d.id === appointment.idDoctor)?.name ||
+      doctors.find((d) => d.idUsuario === appointment.idDoctor)?.nombreCompleto ||
       appointment.doctorNombre ||
       'Doctor actual';
     const newDoctor =
-      doctors.find((d) => d.id === selectedDoctorId)?.name || 'Doctor seleccionado';
+      doctors.find((d) => d.idUsuario === selectedDoctorId)?.nombreCompleto || 'Doctor seleccionado';
 
     const hasCriticalChanges =
       fecha !== appointment.fecha ||

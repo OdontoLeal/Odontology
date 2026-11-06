@@ -163,9 +163,18 @@ export const EvolutionTemplateEditor: React.FC<EvolutionTemplateEditorProps> = (
   );
 
   const { showAlert, showConfirm, AlertModalComponent } = useAlertModal();
+  const initializedCitaRef = React.useRef<number | null>(null);
 
   useEffect(() => {
     if (!initialData) return;
+    if (idCita && initializedCitaRef.current === idCita) {
+      // Ya se inicializaron los datos para esta cita; no sobreescribir la información digitada por el usuario
+      return;
+    }
+    if (idCita) {
+      initializedCitaRef.current = idCita;
+    }
+
     if (initialData.motivoConsulta !== undefined) setMotivoConsulta(initialData.motivoConsulta);
     if (initialData.enfermedadActual !== undefined) setEnfermedadActual(initialData.enfermedadActual);
     if (initialData.antecedentesClinicos !== undefined || initialData.antecedentes !== undefined) {
@@ -203,7 +212,7 @@ export const EvolutionTemplateEditor: React.FC<EvolutionTemplateEditorProps> = (
       setPlanManejo(initialData.planManejo || DEFAULT_PLAN_MANEJO);
       setConductaPlanManejo(initialData.planManejo?.conducta || '');
     }
-  }, [initialData]);
+  }, [initialData, idCita]);
 
   const affectedTeethCount = useMemo(() => countAffectedTeeth(activeOdontogram), [activeOdontogram]);
 
@@ -480,10 +489,6 @@ export const EvolutionTemplateEditor: React.FC<EvolutionTemplateEditorProps> = (
           onDiagnosticoChange={setDiagnostico}
           onAccionesChange={setAccionesARealizar}
           onObservacionesChange={setObservaciones}
-          onOdontogramSave={(data) => {
-            setLocalOdontogram(data);
-            onOdontogramChange?.(data);
-          }}
           onOpenExpandedOdontogram={onOpenExpandedOdontogram}
           onDiscardChanges={handleDiscardChanges}
           onNextTab={() => setActiveTab('PLAN_MANEJO')}

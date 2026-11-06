@@ -34,7 +34,7 @@ export interface PatientProfilePageProps {
   initialTab?: 'APPOINTMENTS' | 'CLINICAL' | 'CONSENTS' | 'DOCUMENTS';
   onBack: () => void;
   onScheduleAppointment: (patient: PatientListItem) => void;
-  onOpenConsultation: (patient: PatientListItem, idCita?: number) => void;
+  onOpenConsultation: (patient: PatientListItem, idCita?: number, estadoCita?: string) => void;
   onViewClinicalHistoryDetail: (idHistoria: number) => void;
   onSignConsent: (templateOrId: any) => void;
   onUpdatePatient: (id: number, data: PatientFormData) => Promise<void> | void;
@@ -74,7 +74,7 @@ export const PatientProfilePage: React.FC<PatientProfilePageProps> = ({
   const [doctors, setDoctors] = useState<DoctorCandidate[]>([]);
 
   useEffect(() => {
-    fetch('/api/v1/users')
+    fetch('/api/v1/appointments/professionals')
       .then((res) => (res.ok ? res.json() : { data: [] }))
       .then((json) => {
         const userList: any[] = Array.isArray(json.data)
@@ -90,6 +90,7 @@ export const PatientProfilePage: React.FC<PatientProfilePageProps> = ({
             idUsuario: Number(u.id_usuario ?? u.idUsuario),
             nombreCompleto: u.nombre_completo ?? u.nombreCompleto ?? 'Doctor',
             especialidad:
+              u.especialidad ||
               u.roles?.[0]?.nombreRol ||
               u.roles?.[0]?.nombre_rol ||
               'Odontología General',
@@ -326,9 +327,11 @@ export const PatientProfilePage: React.FC<PatientProfilePageProps> = ({
                       {!isCoordinator && canStartAttention ? (
                         <DetailAction
                           variant="primary"
-                          onClick={() => onOpenConsultation(patient, nextAppt.idCita)}
+                          onClick={() => onOpenConsultation(patient, nextAppt.idCita, nextAppt.estado)}
                         >
-                          Iniciar atención odontológica →
+                          {nextAppt.estado === 'En consulta'
+                            ? 'Continuar atención odontológica →'
+                            : 'Iniciar atención odontológica →'}
                         </DetailAction>
                       ) : (
                         <span className="text-[13px] italic text-[#64748B]">

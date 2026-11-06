@@ -16,7 +16,6 @@ export interface FindingsProcedureTabProps {
   onDiagnosticoChange: (val: string) => void;
   onAccionesChange: (val: string) => void;
   onObservacionesChange: (val: string) => void;
-  onOdontogramSave: (data: OdontogramDataDTO) => void;
   onOpenExpandedOdontogram?: () => void;
   onDiscardChanges: () => void;
   onNextTab: () => void;
@@ -34,7 +33,6 @@ export const FindingsProcedureTab: React.FC<FindingsProcedureTabProps> = ({
   onDiagnosticoChange,
   onAccionesChange,
   onObservacionesChange,
-  onOdontogramSave,
   onOpenExpandedOdontogram,
   onDiscardChanges,
   onNextTab,
@@ -89,7 +87,6 @@ export const FindingsProcedureTab: React.FC<FindingsProcedureTabProps> = ({
           <OdontogramCanvas
             initialData={activeOdontogram}
             readOnly={readOnly}
-            onSave={onOdontogramSave}
             onOpenExpandedMode={onOpenExpandedOdontogram}
           />
         </div>

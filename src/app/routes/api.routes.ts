@@ -87,6 +87,12 @@ router.patch('/users/:id/status', auth, can('RF-USR-003'), usersController.toggl
 // ---------------------------------------------------------------------------
 // Módulo B — Agenda
 // ---------------------------------------------------------------------------
+router.get(
+  '/appointments/professionals',
+  auth,
+  can('RF-AGE-001', 'RF-AGE-002', 'RF-AGE-005', 'RF-AGE-006', 'RF-AGE-008'),
+  appointmentsController.getActiveProfessionals
+);
 router.post('/appointments/slots', auth, can('RF-AGE-001'), appointmentsController.upsertTimeSlot);
 router.post('/appointments/generate-day-slots', auth, can('RF-AGE-001'), appointmentsController.generateDaySlots);
 router.patch('/appointments/slots/toggle', auth, can('RF-AGE-001'), appointmentsController.toggleSlotStatus);

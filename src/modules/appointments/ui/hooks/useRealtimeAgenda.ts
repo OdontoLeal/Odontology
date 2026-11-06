@@ -135,7 +135,7 @@ export function useRealtimeAgenda(apiBaseUrl = '/api/v1') {
           ? Math.max(0, Math.floor((Date.now() - new Date(r.fechaNacimiento).getTime()) / (365.25 * 24 * 60 * 60 * 1000)))
           : undefined,
         esPacienteNuevo: r.esPacienteNuevo !== false,
-        doctorAsignado: r.doctorAsignado || 'Dr. Mateo Gómez',
+        doctorAsignado: r.doctorAsignado || 'Por asignar',
       }));
       setRequests(formattedRequests);
 
@@ -246,7 +246,7 @@ export function useRealtimeAgenda(apiBaseUrl = '/api/v1') {
               pacienteTelefono: matchedRequest.telefono,
               pacienteCorreo: matchedRequest.correo,
               tratamiento: matchedRequest.motivoConsulta,
-              doctorNombre: matchedRequest.doctorAsignado || 'Dr. Mateo Gómez',
+              doctorNombre: matchedRequest.doctorAsignado || 'Por asignar',
               estadoCita: 'Solicitada',
             });
           } else {

@@ -86,8 +86,14 @@ export const AppointmentRequestDetailPage: React.FC<AppointmentRequestDetailPage
   const [motivoRechazo, setMotivoRechazo] = useState('');
   const [selectedDoctorId, setSelectedDoctorId] = useState<number>(() => {
     if (doctors.length > 0) return doctors[0].idUsuario;
-    return 101; // Dr. Mateo Gómez
+    return 0;
   });
+
+  useEffect(() => {
+    if (doctors.length > 0 && (!selectedDoctorId || !doctors.some((d) => d.idUsuario === selectedDoctorId))) {
+      setSelectedDoctorId(doctors[0].idUsuario);
+    }
+  }, [doctors, selectedDoctorId]);
   const [tituloCita, setTituloCita] = useState(request.motivoConsulta || 'Valoración Odontológica');
   const [isProcessing, setIsProcessing] = useState(false);
   const { showAlert, AlertModalComponent } = useAlertModal();
@@ -259,6 +265,14 @@ export const AppointmentRequestDetailPage: React.FC<AppointmentRequestDetailPage
 
   // Manejador de confirmación con elemento de carga explícito
   const handleApproveClick = async () => {
+    if (!selectedDoctorId || selectedDoctorId === 0) {
+      showAlert({
+        title: 'Profesional Requerido',
+        message: 'Debe seleccionar un profesional odontológico para asignar la cita.',
+        type: 'warning',
+      });
+      return;
+    }
     if (selectedBlockStarts.length === 0) {
       showAlert({
         title: 'Horario Requerido',
@@ -327,7 +341,7 @@ export const AppointmentRequestDetailPage: React.FC<AppointmentRequestDetailPage
             <DetailAction
               variant="primary"
               onClick={handleApproveClick}
-              disabled={isLoading || isProcessing || selectedBlockStarts.length === 0}
+              disabled={isLoading || isProcessing || selectedBlockStarts.length === 0 || !selectedDoctorId}
             >
               {isProcessing ? 'Creando cita...' : 'Crear cita'}
             </DetailAction>
@@ -400,9 +414,10 @@ export const AppointmentRequestDetailPage: React.FC<AppointmentRequestDetailPage
                   Profesional Odontológico Asignado:
                 </label>
                 <select
-                  value={selectedDoctorId}
+                  value={selectedDoctorId || ''}
                   onChange={(e) => setSelectedDoctorId(Number(e.target.value))}
-                  className="w-full rounded-xl border border-[#E2E6EA] bg-[#F8F9FA] px-3 py-2 text-xs font-bold text-[#1E242B] focus:border-[#D4AF37] focus:bg-white focus:outline-none"
+                  disabled={doctors.length === 0}
+                  className="w-full rounded-xl border border-[#E2E6EA] bg-[#F8F9FA] px-3 py-2 text-xs font-bold text-[#1E242B] focus:border-[#D4AF37] focus:bg-white focus:outline-none disabled:opacity-60"
                 >
                   {doctors.length > 0 ? (
                     doctors.map((d) => (
@@ -411,7 +426,7 @@ export const AppointmentRequestDetailPage: React.FC<AppointmentRequestDetailPage
                       </option>
                     ))
                   ) : (
-                    <option value={101}>Dr. Mateo Gómez (Odontología General)</option>
+                    <option value="" disabled>No hay profesionales disponibles</option>
                   )}
                 </select>
               </div>
