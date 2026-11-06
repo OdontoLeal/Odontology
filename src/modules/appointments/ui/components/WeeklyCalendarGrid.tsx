@@ -215,9 +215,9 @@ export const WeeklyCalendarGrid: React.FC<WeeklyCalendarGridProps> = ({
           return (
             <div key={slot.idBloque} className="flex min-w-0 items-center gap-2 sm:gap-4">
               {/* Horario a la izquierda */}
-              <div className="w-[68px] shrink-0 text-center sm:w-20 font-extrabold text-[#1E242B] text-sm select-none">
-                <div className="leading-tight">{formatTimeCO(slot.horaInicio)}</div>
-                <div className="text-xs text-[#8F99A3] font-semibold mt-0.5">{formatTimeCO(slot.horaFin)}</div>
+              <div className="w-[84px] min-w-[78px] shrink-0 text-right font-extrabold text-[#1E242B] text-sm select-none whitespace-nowrap">
+                <div className="leading-tight whitespace-nowrap">{formatTimeCO(slot.horaInicio)}</div>
+                <div className="text-xs text-[#8F99A3] font-semibold mt-0.5 whitespace-nowrap">{formatTimeCO(slot.horaFin)}</div>
               </div>
 
               {/* Tarjeta de Cita con Borde Izquierdo Dorado */}
@@ -266,9 +266,9 @@ export const WeeklyCalendarGrid: React.FC<WeeklyCalendarGridProps> = ({
         return (
           <div key={slot.idBloque} className="flex min-w-0 items-center gap-2 sm:gap-4">
             {/* Horario a la izquierda */}
-            <div className="w-[68px] shrink-0 text-center sm:w-20 font-extrabold text-[#8F99A3] text-sm select-none">
-              <div className="leading-tight">{formatTimeCO(slot.horaInicio)}</div>
-              <div className="text-xs text-[#CBD2D9] font-medium mt-0.5">{formatTimeCO(slot.horaFin)}</div>
+            <div className="w-[84px] min-w-[78px] shrink-0 text-right font-extrabold text-[#8F99A3] text-sm select-none whitespace-nowrap">
+              <div className="leading-tight whitespace-nowrap">{formatTimeCO(slot.horaInicio)}</div>
+              <div className="text-xs text-[#CBD2D9] font-medium mt-0.5 whitespace-nowrap">{formatTimeCO(slot.horaFin)}</div>
             </div>
 
             {/* Tarjeta: Sin cita asignada vs Bloque no habilitado */}
@@ -303,26 +303,15 @@ export const WeeklyCalendarGrid: React.FC<WeeklyCalendarGridProps> = ({
                     Fecha pasada
                   </span>
                 ) : isEnabled ? (
-                  <>
-                    {canManageSlots && onToggleSlotStatus && (
-                      <button
-                        type="button"
-                        onClick={() => onToggleSlotStatus(slot)}
-                        className="text-xs font-semibold min-h-[44px] justify-center px-3 py-1.5 rounded-xl border border-[#E2E6EA] bg-white text-[#B45309] hover:bg-[#FFFBEB] transition-colors inline-flex items-center gap-1.5 shadow-2xs"
-                      >
-                        <UnlockIcon size={14} className="text-[#B45309]" /> Deshabilitar bloque
-                      </button>
-                    )}
-                    {canCreateAppointment && onScheduleSlot && (
-                      <button
-                        type="button"
-                        onClick={() => onScheduleSlot(slot)}
-                        className="text-xs font-bold min-h-[44px] justify-center px-3 py-1.5 rounded-xl border border-[#E2E6EA] bg-white text-[#1E242B] hover:bg-[#F3F4F6] transition-colors inline-flex items-center gap-1 shadow-2xs"
-                      >
-                        <span className="font-extrabold text-sm leading-none">+</span> Agendar
-                      </button>
-                    )}
-                  </>
+                  canManageSlots && onToggleSlotStatus ? (
+                    <button
+                      type="button"
+                      onClick={() => onToggleSlotStatus(slot)}
+                      className="text-xs font-semibold min-h-[44px] justify-center px-3 py-1.5 rounded-xl border border-[#E2E6EA] bg-white text-[#B45309] hover:bg-[#FFFBEB] transition-colors inline-flex items-center gap-1.5 shadow-2xs"
+                    >
+                      <UnlockIcon size={14} className="text-[#B45309]" /> Deshabilitar bloque
+                    </button>
+                  ) : null
                 ) : (
                   canManageSlots &&
                   onToggleSlotStatus && (

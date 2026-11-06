@@ -196,7 +196,7 @@ export const InternalDashboardLayout: React.FC<InternalDashboardLayoutProps> = (
       <aside
         id="app-sidebar"
         aria-label="Navegación principal"
-        className={`fixed inset-y-0 left-0 z-50 flex w-[min(280px,85vw)] flex-col overflow-y-auto border-r border-[#E2E6EA] bg-white shadow-xl transition-transform duration-200 lg:sticky lg:top-0 lg:z-auto lg:h-screen lg:w-[240px] lg:shrink-0 lg:translate-x-0 lg:shadow-none ${
+        className={`fixed inset-y-0 left-0 z-50 flex h-[100dvh] w-[min(280px,85vw)] flex-col overflow-y-auto border-r border-[#E2E8F0] bg-white shadow-xl transition-transform duration-200 lg:sticky lg:top-0 lg:left-0 lg:z-20 lg:h-screen lg:min-h-screen lg:w-[240px] lg:shrink-0 lg:self-start lg:translate-x-0 lg:shadow-none ${
           mobileMenuOpen ? 'visible translate-x-0' : 'invisible -translate-x-full lg:visible lg:translate-x-0'
         }`}
       >
@@ -206,7 +206,7 @@ export const InternalDashboardLayout: React.FC<InternalDashboardLayoutProps> = (
             type="button"
             onClick={closeMenu}
             aria-label="Cerrar menú de navegación"
-            className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-[#E2E6EA] text-[#1E242B] hover:bg-[#F8F9FA] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37] lg:hidden"
+            className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-[#E2E8F0] text-[#1E242B] hover:bg-[#F8F9FA] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37] lg:hidden"
           >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -244,7 +244,7 @@ export const InternalDashboardLayout: React.FC<InternalDashboardLayoutProps> = (
 
       {/* Contenedor derecho: barra superior + contenido */}
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex min-h-[64px] w-full flex-wrap items-center gap-x-3 gap-y-2 border-b border-[#E2E6EA] bg-white px-3 py-2.5 sm:px-6 md:min-h-[72px] md:gap-4 lg:px-8">
+        <header className="sticky top-0 z-30 flex min-h-[64px] w-full flex-wrap items-center gap-x-3 gap-y-2 border-b border-[#E2E8F0] bg-white/95 backdrop-blur-sm px-3 py-2.5 sm:px-6 md:min-h-[72px] md:gap-4 lg:px-8">
           {/* Hamburguesa (< 1024px) */}
           <button
             type="button"
@@ -252,7 +252,7 @@ export const InternalDashboardLayout: React.FC<InternalDashboardLayoutProps> = (
             aria-label="Abrir menú de navegación"
             aria-controls="app-sidebar"
             aria-expanded={mobileMenuOpen}
-            className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-xl border border-[#E2E6EA] text-[#1E242B] hover:bg-[#F8F9FA] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37] lg:hidden"
+            className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-xl border border-[#E2E8F0] text-[#1E242B] hover:bg-[#F8F9FA] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37] lg:hidden"
           >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
@@ -268,7 +268,7 @@ export const InternalDashboardLayout: React.FC<InternalDashboardLayoutProps> = (
 
           {/* Perfil del usuario activo y Cerrar sesión (RF-USR-008) */}
           <div className="ml-auto flex min-w-0 items-center gap-2 sm:gap-4">
-            <div className="hidden h-8 w-px bg-[#E2E6EA] md:block" aria-hidden="true" />
+            <div className="hidden h-8 w-px bg-[#E2E8F0] md:block" aria-hidden="true" />
 
             <div className="min-w-0 text-right leading-tight">
               <span
@@ -286,7 +286,7 @@ export const InternalDashboardLayout: React.FC<InternalDashboardLayoutProps> = (
               type="button"
               onClick={onManualCloseSession}
               aria-label="Cerrar sesión"
-              className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center gap-1.5 rounded-xl border border-[#E2E6EA] bg-white px-3 py-2 text-[13px] font-bold text-[#1E242B] transition-colors hover:border-[#B91C1C] hover:bg-[#FEE2E2]/40 hover:text-[#B91C1C] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37] sm:px-3.5"
+              className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center gap-1.5 rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-[13px] font-bold text-[#1E242B] transition-colors hover:border-[#B91C1C] hover:bg-[#FEE2E2]/40 hover:text-[#B91C1C] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4AF37] sm:px-3.5"
             >
               <svg className="h-4 w-4 text-[#B91C1C]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
                 <path

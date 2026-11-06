@@ -565,7 +565,7 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
         </div>
 
         {/* Calendario mensual: columna izquierda en escritorio, colapsable en móvil */}
-        <div className="order-2 min-w-0 lg:sticky lg:top-24 lg:col-span-4 lg:col-start-1 lg:row-span-2 lg:row-start-1">
+        <div className="order-2 min-w-0 lg:sticky lg:top-[96px] lg:self-start lg:col-span-4 lg:col-start-1 lg:row-span-2 lg:row-start-1">
           <button
             type="button"
             onClick={() => setIsMonthCalendarOpen((prev) => !prev)}
