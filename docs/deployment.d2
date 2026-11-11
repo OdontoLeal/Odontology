@@ -1,0 +1,247 @@
+# ==============================================================================
+# Diagrama de Despliegue (UML 2.x / C4 Deployment Diagram) - OdontoLeal
+# Producción: Heroku PaaS (heroku-24) + Heroku Postgres Add-on + SMTP Externo
+# URL Producción: https://odontoleal-1233560f76cb.herokuapp.com
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# 1. Clases de Estilos UML de Despliegue
+# ------------------------------------------------------------------------------
+classes: {
+  cloud_container: {
+    style: {
+      fill: "#F5F3FF"
+      stroke: "#6D28D9"
+      stroke-width: 2
+      border-radius: 10
+      shadow: true
+      font-color: "#3B0764"
+      bold: true
+    }
+  }
+
+  tier_container: {
+    style: {
+      fill: "#F8FAFC"
+      stroke: "#64748B"
+      stroke-width: 2
+      stroke-dash: 3
+      border-radius: 8
+      font-color: "#0F172A"
+      bold: true
+    }
+  }
+
+  deployment_node: {
+    shape: rectangle
+    style: {
+      fill: "#FFFFFF"
+      stroke: "#1E293B"
+      stroke-width: 2
+      border-radius: 6
+      shadow: true
+      font-color: "#0F172A"
+      bold: true
+    }
+  }
+
+  exec_env: {
+    shape: rectangle
+    style: {
+      fill: "#EFF6FF"
+      stroke: "#2563EB"
+      stroke-width: 2
+      border-radius: 6
+      font-color: "#1E3A8A"
+    }
+  }
+
+  artifact: {
+    shape: page
+    style: {
+      fill: "#FEFCE8"
+      stroke: "#CA8A04"
+      stroke-width: 2
+      font-color: "#713F12"
+    }
+  }
+
+  config_node: {
+    shape: sql_table
+    style: {
+      fill: "#1E293B"
+      shadow: true
+    }
+  }
+
+  database_node: {
+    shape: cylinder
+    style: {
+      fill: "#ECFDF5"
+      stroke: "#15803D"
+      stroke-width: 2
+      shadow: true
+      font-color: "#14532D"
+    }
+  }
+
+  external_system: {
+    shape: rectangle
+    style: {
+      fill: "#FFF1F2"
+      stroke: "#BE123C"
+      stroke-width: 2
+      stroke-dash: 4
+      border-radius: 6
+      shadow: true
+      font-color: "#881337"
+    }
+  }
+}
+
+direction: right
+
+# ------------------------------------------------------------------------------
+# 2. Nodos de Cliente («device» Client Tier)
+# ------------------------------------------------------------------------------
+client_tier: "«device» Client Tier\nEstaciones Clínicas, Administración y Pacientes" {
+  class: tier_container
+
+  desktop_os: "«device» Desktop OS\nEstación de Trabajo Clínica / Administrativa" {
+    class: deployment_node
+
+    modern_browser: "«executionEnvironment» Modern Web Browser (V8/WebKit)\nChrome / Edge / Firefox / Safari" {
+      class: exec_env
+
+      spa_desktop: "«artifact» SPA Bundle (HTML5/JS/CSS)\nDescargado desde dist/public (caché/memoria)\nReact 19 + Tailwind CSS 4 + window.fetch (JWT)" {
+        class: artifact
+      }
+    }
+  }
+
+  touch_device: "«device» Touch Device iOS/Android\nTablet / Móvil en Consultorio y Portal Público" {
+    class: deployment_node
+
+    mobile_browser: "«executionEnvironment» Mobile Browser (Touch Viewport)\nSafari iOS / Chrome Android" {
+      class: exec_env
+
+      spa_mobile: "«artifact» SPA Bundle\n(Módulo de Firma Digital / HTML5 Canvas & Pacientes)\nSignaturePadCanvas fluido + Portal de Citas" {
+        class: artifact
+      }
+    }
+  }
+}
+
+# ------------------------------------------------------------------------------
+# 3. Plataforma PaaS («cloud» Heroku Cloud Platform - AWS Region)
+# ------------------------------------------------------------------------------
+heroku_cloud: "«cloud» Heroku Cloud Platform - AWS Region\nhttps://odontoleal-1233560f76cb.herokuapp.com (Stack heroku-24)" {
+  class: cloud_container
+
+  routing_mesh: "«node» Heroku Routing Mesh\nBalanceador L7 / Reverse Proxy" {
+    class: deployment_node
+
+    tls_edge: "«executionEnvironment» Terminación TLS 1.2/1.3 (Certificado ACM)\nInyecta X-Forwarded-Proto y enruta HTTP hacia \$PORT" {
+      class: exec_env
+    }
+  }
+
+  web_dyno: "«node» Heroku Web Dyno - Linux Container / Ephemeral Filesystem\nProcfile: web: node dist/app/server.js" {
+    class: deployment_node
+
+    config_vars: "«configuration» Heroku Config Vars" {
+      class: config_node
+      NODE_ENV: "production (exige JWT_SECRET y cookie Secure)"
+      PORT: "Dinámico inyectado por Heroku (fallback 4000)"
+      DATABASE_URL: "URI Postgres gestionada (Add-on Heroku Postgres)"
+      DB_SSL: "true (pg.Pool ssl: rejectUnauthorized=false)"
+      JWT_SECRET: "Llave HMAC-SHA256 (JwtTokenService HS256)"
+      FRONTEND_URL: "https://odontoleal-1233560f76cb.herokuapp.com"
+      "SMTP_* / GMAIL_*": "SMTP_HOST, SMTP_PORT (587), SMTP_SECURE, SMTP_USER, SMTP_PASS, EMAIL_FROM"
+    }
+
+    node_runtime: "«executionEnvironment» Node.js LTS Runtime (v24.13.0)\npackage.json engines: node =24.13.0 | npm >=10.0.0\nExpress 5.3 (trust proxy: 1, CORS dinámico, JSON 5mb)" {
+      class: exec_env
+
+      backend_build: "«artifact» Backend Build (Express API & CronService)\ndist/app/server.js (TypeScript -> ES2022 CommonJS)\nAPI /api/v1/* (6 módulos DDD) + GET /api/v1/health\nCronService (tick 60s, actor Sistema, TZ America/Bogota)" {
+        class: artifact
+      }
+
+      static_assets: "«artifact» Static Assets (dist/public)\nindex.html + assets/index-*.js/.css (Vite 8)\nServido por express.static + Fallback GET SPA" {
+        class: artifact
+      }
+
+      pdf_buffer: "«artifact» In-Memory PDF Buffer (pdf-lib)\nPDF-1.7 en memoria RAM volátil (Uint8Array / Base64)\nNo persiste en el filesystem efímero del contenedor" {
+        class: artifact
+      }
+    }
+  }
+}
+
+# ------------------------------------------------------------------------------
+# 4. Nodos de Datos y Servicios Administrados Externos
+# ------------------------------------------------------------------------------
+data_external_tier: "«cloud» Managed Data Add-on & External Services" {
+  class: tier_container
+
+  heroku_postgres: "«node» Heroku Postgres Add-on - Managed AWS EC2/EBS\nBase de Datos Relacional Gestionada (TZ America/Bogota)" {
+    class: deployment_node
+
+    pg_engine: "«executionEnvironment» PostgreSQL Engine\nMotor PostgreSQL 15+ (JSONB, Triggers, pg.Pool max: 15)" {
+      class: database_node
+
+      public_schema: "«artifact» Esquema public (20 Tablas Operativas)\nrol, usuario, paciente, cita, historia_clinica,\nevolucion, consentimiento_firmado, registro_auditoria..." {
+        class: artifact
+      }
+
+      schema_migrations: "«artifact» Tabla de Control (schema_migrations)\nRegistro de versiones (000_baseline.sql, 001_ers_1_3.sql)" {
+        class: artifact
+      }
+    }
+  }
+
+  external_smtp: "«node» External SMTP Relay Server\nProveedor Externo (Gmail / Brevo / Resend / Ethereal)\nAccesible fuera de la red de Heroku vía Nodemailer" {
+    class: external_system
+  }
+}
+
+# ------------------------------------------------------------------------------
+# 5. Pipeline de Despliegue y Lanzamiento («node» CI/CD & Release Pipeline)
+# ------------------------------------------------------------------------------
+cicd_pipeline: "«node» CI/CD & Release Pipeline\nGitHub Actions (.github/workflows/ci.yml) + Heroku Buildpack" {
+  class: deployment_node
+
+  git_repo: "«node» Git (GitHub / Heroku Git)\nRama main\nCI: tsc --noEmit, npm run lint, npm test" {
+    class: deployment_node
+  }
+
+  slug_compiler: "«executionEnvironment» Heroku Slug Compiler\nStack heroku-24 (Node 24.13.0)\nnpm ci && npm run build (heroku-postbuild)" {
+    class: exec_env
+  }
+
+  slug_artifact: "«artifact» Slug Artefact\ndist/app/* + dist/public/*\n+ node_modules de producción" {
+    class: artifact
+  }
+
+  release_migrator: "«artifact» Migraciones SQL (migrate.ts)\nheroku run \"npm run db:migrate -- --force\"\nAplica database/migrations/*.sql" {
+    class: artifact
+  }
+
+  git_repo -> slug_compiler: "Push / Auto-Deploy"
+  slug_compiler -> slug_artifact: "Compila (tsc && vite)"
+  slug_artifact -> release_migrator: "Ejecuta migraciones"
+}
+
+# ------------------------------------------------------------------------------
+# 6. Rutas de Comunicación y Protocolos de Transporte
+# ------------------------------------------------------------------------------
+client_tier.desktop_os -> heroku_cloud.routing_mesh: "HTTPS / TLS 1.3 (TCP 443)"
+client_tier.touch_device -> heroku_cloud.routing_mesh: "HTTPS / TLS 1.3 (TCP 443)"
+
+heroku_cloud.routing_mesh -> heroku_cloud.web_dyno: "HTTP/1.1 Proxy (Internal \$PORT)"
+
+heroku_cloud.web_dyno.node_runtime -> data_external_tier.heroku_postgres.pg_engine: "PostgreSQL Wire Protocol / TCP 5432\npg.Pool + TLS (rejectUnauthorized: false)"
+heroku_cloud.web_dyno.node_runtime -> data_external_tier.external_smtp: "SMTP / STARTTLS (TCP 587/465) o HTTPS API"
+
+cicd_pipeline.slug_artifact -> heroku_cloud.web_dyno: "Despliegue en Web Dyno (Procfile)"
+cicd_pipeline.release_migrator -> data_external_tier.heroku_postgres.pg_engine: "PostgreSQL Wire Protocol / TCP 5432\nTLS (rejectUnauthorized: false)"

@@ -1,0 +1,364 @@
+# ==============================================================================
+# Diagrama de Componentes UML (Clean Architecture / DDD - 4 Capas Lógicas)
+# Sistema OdontoLeal
+# ==============================================================================
+
+# 1. Clases y Estilos UML
+classes: {
+  layer_container: {
+    style: {
+      fill: "#F8FAFC"
+      stroke: "#64748B"
+      stroke-width: 2
+      border-radius: 8
+      font-color: "#0F172A"
+      bold: true
+    }
+  }
+
+  uml_component: {
+    shape: rectangle
+    style: {
+      fill: "#FFFFFF"
+      stroke: "#334155"
+      stroke-width: 2
+      border-radius: 6
+      shadow: true
+      font-color: "#0F172A"
+    }
+  }
+
+  uml_interface: {
+    shape: rectangle
+    style: {
+      fill: "#FEFCE8"
+      stroke: "#CA8A04"
+      stroke-width: 2
+      stroke-dash: 3
+      border-radius: 6
+      shadow: true
+      font-color: "#713F12"
+    }
+  }
+
+  singleton_node: {
+    shape: rectangle
+    style: {
+      fill: "#EDE9FE"
+      stroke: "#6D28D9"
+      stroke-width: 3
+      border-radius: 8
+      shadow: true
+      font-color: "#3B0764"
+    }
+  }
+
+  uml_service: {
+    shape: rectangle
+    style: {
+      fill: "#ECFDF5"
+      stroke: "#047857"
+      stroke-width: 2
+      border-radius: 6
+      shadow: true
+      font-color: "#064E3B"
+    }
+  }
+
+  uml_validation: {
+    shape: rectangle
+    style: {
+      fill: "#FFF7ED"
+      stroke: "#C2410C"
+      stroke-width: 2
+      border-radius: 6
+      shadow: true
+      font-color: "#7C2D12"
+    }
+  }
+}
+
+# 2. Definición de las 4 Capas y Componentes
+direction: down
+
+ui_layer: "«layer» UI Layer - React SPA" {
+  class: layer_container
+  style: {
+    fill: "#EFF6FF"
+    stroke: "#2563EB"
+    font-color: "#1E3A8A"
+  }
+
+  app_tsx: "«component»\nApp.tsx & AppRouter.tsx\n• src/App.tsx (BrowserRouter)\n• AppRouter.tsx & DetailRoutes.tsx\n• RouteGuards.tsx (RequireAuth, RequirePermission)\n• access-capabilities.ts & InternalDashboardLayout" {
+    class: uml_component
+  }
+
+  module_views: "«component»\nVistas por Módulo (src/modules/*/ui/views)\n• appointments: PublicBookingPage, InternalAgendaPage,\n  AppointmentDetailPage, AppointmentRequestDetailPage\n• patients: PatientsDirectoryPage, PatientProfilePage,\n  HolderDataQueryPage\n• clinical-records: ActiveConsultationPage, ClinicalHistoryListPage\n• consents: ConsentSigningPage, ConsentTemplatesAdminPage,\n  PrivacyNoticePage\n• users-auth: LoginPage, PasswordRecoveryPage,\n  UsersManagementPage, RolesManagementPage" {
+    class: uml_component
+  }
+
+  shared_components: "«component»\nComponentes Compartidos\n• src/shared/ui/components: Button, Input, Modal,\n  AlertModal, Toast, Badge, Table, PageLayout, DetailPage\n• Widgets de dominio: SignaturePadCanvas, OdontogramCanvas,\n  WeeklyCalendarGrid, RolePermissionsMatrix,\n  TopPatientSearchBar, PatientForm" {
+    class: uml_component
+  }
+
+  hooks_fetch_interceptor: "«component»\nHooks & Fetch Interceptor\n• src/main.tsx: window.fetch interceptor\n  (inyecta Authorization: Bearer <JWT> y credentials)\n• Hooks de módulo: useAuth, useSessionDraft,\n  useRealtimeAgenda, usePatients, useClinicalRecord,\n  useConsents, useClinicalDocuments, useHydratedPatient\n• Hooks compartidos: useAlertModal, useToast, useDebounce" {
+    class: uml_component
+  }
+}
+
+api_layer: "«layer» API & Security Layer - Express" {
+  class: layer_container
+  style: {
+    fill: "#EEF2FF"
+    stroke: "#4F46E5"
+    font-color: "#312E81"
+  }
+
+  api_routes: "«component»\napi.routes.ts & server.ts\n• src/app/server.ts (Express 5, trust proxy, CORS, json 5mb)\n• src/app/routes/api.routes.ts (/api/v1/* y /api/users-auth)\n• Healthcheck (/health) + rutas públicas y protegidas\n• Composition root: instancia repositorios y controladores" {
+    class: uml_component
+  }
+
+  auth_rbac_middlewares: "«component»\nMiddlewares Auth & RBAC\n• auth.middleware.ts: authMiddleware, requirePermission\n• access-control.ts: loadActiveSessionUser, hasPermission,\n  hasRole, isTokenRevoked, revokeToken, recordBlockedAccess\n• token.service.ts: JwtTokenService (HS256)" {
+    class: uml_component
+  }
+
+  http_controllers: "«component»\nControladores HTTP (src/modules/*/infrastructure)\n• UsersAuthController\n• AppointmentsController\n• PatientsController\n• ClinicalRecordsController\n• ConsentsController\n• ClinicalDocumentsController" {
+    class: uml_component
+  }
+
+  http_error_handler: "«component»\nManejador Centralizado de Errores HTTP\n• src/shared/infrastructure/http/http-error.handler.ts\n• handleRequestError() & handleHttpError()\n• Mapea ForbiddenError (403 + auditoría), errores Zod/Dominio\n  (400/404/409) y errores PostgreSQL (23505, 22001, 500 seguro)" {
+    class: uml_component
+  }
+}
+
+app_domain_layer: "«layer» Application & Domain Layer" {
+  class: layer_container
+  style: {
+    fill: "#F0FDF4"
+    stroke: "#15803D"
+    font-color: "#14532D"
+  }
+
+  zod_schemas: "«validation»\nIntegradores de Esquemas Zod (src/schemas/)\n• AntecedentesClinicosSchema\n• HabitosHigieneSchema\n• ExamenEstomatognaticoSchema\n• OdontogramaSchema & PlanManejoSchema\n• RolPermisosSchema & ConfigurableRolPermisosSchema" {
+    class: uml_validation
+  }
+
+  use_cases: "«service»\nCasos de Uso (Application Services)\n• users-auth: AuthenticateUser, CreateUser, UpdateUser,\n  ToggleUserStatus, RecoverPassword, CloseSession, Roles\n• appointments: ScheduleAppointment, RequestAppointment,\n  ReviewRequest, ManageAttention, CancelAppointment, MarkNoShow\n• patients: CreatePatient, UpdatePatient, GetPatientProfile,\n  SearchPatients, ExportHolderData, PdfHolderExporterService\n• clinical-records: CreateClinicalRecord, ManageOdontogram,\n  GetClinicalHistory, PrintClinicalHistoryService, PublicApi\n• consents: ConsentService, ConsentPdfGeneratorService\n• clinical-documents: GeneratePrescription, GenerateSickLeave,\n  GenerateReferral, EmbedProfessionalSignatureService" {
+    class: uml_service
+  }
+
+  clinical_policies_entities: "«component»\nPolíticas Clínicas & Entidades de Dominio\n• Políticas: ClinicalAccessPolicy (Regla 4: ROL-ODO/ESP vs ROL-AUX),\n  appointment-state.validator (7 estados, ventana 5-60d),\n  ConsentTemplateInterpolator, ColombiaTime\n• Entidades/VOs: UserEntity, RoleEntity, OneTimeTokenVO,\n  AppointmentEntity, AppointmentRequestEntity, TimeSlotEntity,\n  Patient, ClinicalRecordEntity, OdontogramEntity,\n  EvolutionNoteEntity, ConsentTemplate, SignedConsent,\n  PrescriptionEntity, ReferralEntity, SickLeaveEntity\n• Errores de dominio: ClinicalDomainError, ClinicalStateError,\n  ConsentDomainError, PatientDomainError, AppointmentRuleError" {
+    class: uml_component
+  }
+
+  repository_ports: "«interface»\nPuertos de Repositorio (DIP)\n• IUserRepository\n• IAppointmentRepository\n• IPatientRepository\n• IClinicalRecordRepository\n• IConsentRepository\n• IClinicalDocumentRepository" {
+    class: uml_interface
+  }
+
+  service_ports: "«interface»\nPuertos de Servicios y Auditoría (DIP)\n• IAuditLog, IAuditLoggerPort, IAppointmentAuditLoggerPort\n• IMailerPort, IAppointmentMailerPort\n• IPasswordHasher, IDraftStorageService\n• IClinicalRecordCheckerPort\n• IPdfHolderExporterPort, IPdfFlattenPort" {
+    class: uml_interface
+  }
+}
+
+infra_layer: "«layer» Infrastructure & Persistence Layer" {
+  class: layer_container
+  style: {
+    fill: "#FAF5FF"
+    stroke: "#7C3AED"
+    font-color: "#4C1D95"
+  }
+
+  sql_repositories: "«component»\nRepositorios SQL Concretos\n• UserRepository\n• AppointmentRepository\n• PatientRepository\n• ClinicalRecordRepository & ClinicalCatalogsRepository\n• ConsentRepository\n• ClinicalDocumentRepository" {
+    class: uml_component
+  }
+
+  security_adapters: "«component»\nAdaptadores de Seguridad y Sesión\n• UsersAuditAdapter (adapta IAuditLoggerPort -> IAuditLog)\n• DraftStorageService (borradores de sesión en BD)\n• HybridPasswordHasherService (bcrypt / scrypt)" {
+    class: uml_component
+  }
+
+  database_singleton: "«singleton»\nDatabase (src/shared/infrastructure/database)\n• Database.getInstance() exportado como db\n• Pool pg.Pool (max: 15, SSL, America/Bogota)\n• query() & withTransaction()" {
+    class: singleton_node
+  }
+
+  audit_log_service: "«service»\nAuditLogService (audit-log.service.ts)\n• Instancia compartida auditLog\n• Persistencia inalterable en public.registro_auditoria\n• Comparte QueryExecutor en transacciones ACID" {
+    class: uml_service
+  }
+
+  mailer_service: "«service»\nMailerService (mailer.service.ts)\n• Adaptador Nodemailer (Gmail / SMTP / Ethereal)\n• Recuperación de clave, confirmaciones, recordatorios\n• Reporta envíos fallidos (CORREO_FALLIDO)" {
+    class: uml_service
+  }
+
+  cron_service: "«singleton»\nCronService (cron.service.ts)\n• Planificador cada 60s (usuario técnico 'Sistema')\n• cancelUnmanagedRequests, markUnstartedAsNoShow,\n  closeOpenConsultations, send24HourReminders, sendDailyDigest" {
+    class: singleton_node
+  }
+}
+
+# 3. Relaciones entre Capas y Contratos
+
+# --- Flujo interno Capa 1 (UI) ---
+ui_layer.app_tsx -> ui_layer.module_views: "enruta y protege vistas"
+ui_layer.module_views -> ui_layer.shared_components: "«use»\nreutiliza UI Kit" {
+  style.stroke-dash: 4
+}
+ui_layer.module_views -> ui_layer.hooks_fetch_interceptor: "«use»\nconsume hooks REST" {
+  style.stroke-dash: 4
+}
+
+# --- Frontera Cliente -> Servidor (Capa 1 -> Capa 2) ---
+ui_layer.hooks_fetch_interceptor -> api_layer.api_routes: "HTTP/JSON + Bearer JWT (/api/v1/*)" {
+  style.stroke: "#2563EB"
+  style.stroke-width: 2
+}
+
+# --- Flujo interno Capa 2 (API & Seguridad) ---
+api_layer.api_routes -> api_layer.auth_rbac_middlewares: "«use»\nauthMiddleware\nrequirePermission" {
+  style.stroke-dash: 4
+}
+api_layer.api_routes -> api_layer.http_controllers: "despacha rutas REST"
+api_layer.api_routes -> api_layer.http_error_handler: "pipeline de errores HTTP" {
+  style.stroke: "#DC2626"
+  style.stroke-dash: 4
+}
+api_layer.http_controllers -> api_layer.http_error_handler: "«use»\nhandleRequestError()\nhandleHttpError()" {
+  style.stroke: "#DC2626"
+  style.stroke-dash: 4
+}
+
+# --- Capa 2 -> Capa 3 (Controladores hacia Aplicación y Validación) ---
+api_layer.http_controllers -> app_domain_layer.use_cases: "«use»\ninvoca casos de uso" {
+  style.stroke-dash: 4
+}
+api_layer.http_controllers -> app_domain_layer.zod_schemas: "«validate»\nsafeParse() JSONB" {
+  style.stroke: "#C2410C"
+  style.stroke-dash: 4
+}
+api_layer.http_controllers -> app_domain_layer.clinical_policies_entities: "«use»\nClinicalAccessPolicy\ny validadores" {
+  style.stroke-dash: 4
+}
+
+# --- Flujo interno Capa 3 (Aplicación y Dominio) ---
+app_domain_layer.use_cases -> app_domain_layer.clinical_policies_entities: "«use»\ninvariantes y políticas" {
+  style.stroke-dash: 4
+}
+app_domain_layer.use_cases -> app_domain_layer.repository_ports: "«use»\ncontratos persistencia" {
+  style.stroke-dash: 4
+}
+app_domain_layer.use_cases -> app_domain_layer.service_ports: "«use»\npuertos transversales" {
+  style.stroke-dash: 4
+}
+
+# --- Flujo Transversal de Excepciones (Capa 3 -> Capa 2 Error Handler) ---
+api_layer.http_error_handler <- app_domain_layer.zod_schemas: "«exception»\nZodError / BAD_REQUEST\n-> HTTP 400" {
+  style.stroke: "#DC2626"
+  style.stroke-dash: 4
+}
+api_layer.http_error_handler <- app_domain_layer.clinical_policies_entities: "«exception»\nForbiddenError (403)\nClinicalStateError (409)\nDomainError" {
+  style.stroke: "#DC2626"
+  style.stroke-dash: 4
+}
+
+# --- Inversión de Dependencias: Realización UML (Capa 4 -> Puertos en Capa 3) ---
+app_domain_layer.repository_ports <- infra_layer.sql_repositories: "«realize»\nimplements\nI*Repository" {
+  style: {
+    stroke: "#CA8A04"
+    stroke-dash: 4
+  }
+  source-arrowhead: {
+    shape: triangle
+    style.filled: false
+  }
+}
+
+app_domain_layer.service_ports <- infra_layer.audit_log_service: "«realize»\nimplements\nIAuditLog" {
+  style: {
+    stroke: "#CA8A04"
+    stroke-dash: 4
+  }
+  source-arrowhead: {
+    shape: triangle
+    style.filled: false
+  }
+}
+
+app_domain_layer.service_ports <- infra_layer.mailer_service: "«realize»\nimplements\nIMailerPort" {
+  style: {
+    stroke: "#CA8A04"
+    stroke-dash: 4
+  }
+  source-arrowhead: {
+    shape: triangle
+    style.filled: false
+  }
+}
+
+app_domain_layer.service_ports <- infra_layer.security_adapters: "«realize»\nIAuditLoggerPort,\nIPasswordHasher,\nIDraftStorageService" {
+  style: {
+    stroke: "#CA8A04"
+    stroke-dash: 4
+  }
+  source-arrowhead: {
+    shape: triangle
+    style.filled: false
+  }
+}
+
+# --- Dependencias hacia Capa 4 y dentro de Infraestructura ---
+api_layer.api_routes -> infra_layer.database_singleton: "«use»\nGET /health (SELECT NOW())" {
+  style.stroke-dash: 4
+}
+api_layer.api_routes -> infra_layer.cron_service: "«use»\nserver.ts inicia\nCronService.start()" {
+  style.stroke-dash: 4
+}
+api_layer.auth_rbac_middlewares -> infra_layer.database_singleton: "«use»\nusuario, permisos y\nsesion_revocada" {
+  style.stroke-dash: 4
+}
+api_layer.auth_rbac_middlewares -> infra_layer.audit_log_service: "«use»\nrecordBlockedAccess()\n(ACCESO_BLOQUEADO)" {
+  style.stroke-dash: 4
+}
+
+app_domain_layer.zod_schemas <- infra_layer.sql_repositories: "«use»\nbuilders JSONB" {
+  style.stroke-dash: 4
+}
+app_domain_layer.clinical_policies_entities <- infra_layer.cron_service: "«use»\nfechas/hora Colombia" {
+  style.stroke-dash: 4
+}
+
+infra_layer.sql_repositories -> infra_layer.database_singleton: "«use»\ndb.query() / db.withTransaction()" {
+  style: {
+    stroke: "#6D28D9"
+    stroke-dash: 4
+  }
+}
+infra_layer.sql_repositories -> infra_layer.audit_log_service: "«use»\nauditLog.record(..., txClient)" {
+  style.stroke-dash: 4
+}
+infra_layer.security_adapters -> infra_layer.database_singleton: "«use»\ndb.query() (borradores de sesión)" {
+  style.stroke-dash: 4
+}
+infra_layer.security_adapters -> infra_layer.audit_log_service: "«use»\ndelega a IAuditLog / auditLog" {
+  style.stroke-dash: 4
+}
+infra_layer.audit_log_service -> infra_layer.database_singleton: "«use»\nINSERT public.registro_auditoria" {
+  style: {
+    stroke: "#6D28D9"
+    stroke-dash: 4
+  }
+}
+infra_layer.mailer_service -> infra_layer.audit_log_service: "«use»\nregistra CORREO_FALLIDO" {
+  style.stroke-dash: 4
+}
+infra_layer.cron_service -> infra_layer.database_singleton: "«use»\nconsultas y transacciones Sistema" {
+  style: {
+    stroke: "#6D28D9"
+    stroke-dash: 4
+  }
+}
+infra_layer.cron_service -> infra_layer.audit_log_service: "«use»\nauditoría automática actor Sistema" {
+  style.stroke-dash: 4
+}
+infra_layer.cron_service -> infra_layer.mailer_service: "«use»\nrecordatorios 24h y digest 07:00" {
+  style.stroke-dash: 4
+}
+infra_layer.cron_service -> infra_layer.sql_repositories: "«use»\nAppointmentRepository" {
+  style.stroke-dash: 4
+}
