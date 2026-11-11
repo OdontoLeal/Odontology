@@ -205,7 +205,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
               if (onNavigateToPublicBooking) {
                 onNavigateToPublicBooking();
               } else {
-                window.location.href = '/solicitud-cita';
+                window.location.href = '/';
               }
             }}
           />

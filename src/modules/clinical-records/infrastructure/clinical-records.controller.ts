@@ -145,8 +145,12 @@ export class ClinicalRecordsController {
       } else {
         const data = this.structuredData(body);
         // La auxiliar no escribe la apertura: lo que diligencia queda como nota de evolución con su nombre.
-        const notaTexto = text(body.notaEvolucion) ??
-          (writer.esProfesionalResponsable ? undefined : data.hallazgosObservaciones ?? data.procedimientoRealizado);
+        const rawNoteText = text(body.notaEvolucion) ?? text(body.payload?.notaEvolucion);
+        const notaTexto =
+          rawNoteText ??
+          (writer.esProfesionalResponsable
+            ? undefined
+            : data.hallazgosObservaciones ?? data.procedimientoRealizado);
 
         entry = await this.repo.createEvolutionEntry({
           idPaciente,
@@ -154,7 +158,12 @@ export class ClinicalRecordsController {
           ...data,
           actor: writer,
           nota: notaTexto
-            ? { texto: notaTexto, procedimientoRealizado: writer.esProfesionalResponsable ? undefined : data.procedimientoRealizado }
+            ? {
+                texto: notaTexto,
+                procedimientoRealizado: writer.esProfesionalResponsable
+                  ? undefined
+                  : data.procedimientoRealizado,
+              }
             : undefined,
         });
       }

@@ -46,9 +46,12 @@ export class CreateClinicalRecordUseCase {
       );
     }
 
-    // Una sola historia (apertura) por cita (uq_evolucion_cita)
+    // Una sola apertura médica formal por cita (uq_evolucion_cita).
+    // Si solo existe un pre-diligenciamiento previo de apoyo (motivo vacío), permite completar la apertura.
     const existingForAppointment = await this.clinicalRepo.findEvolutionByCitaId(command.idCita);
-    if (existingForAppointment) {
+    const existingReason =
+      existingForAppointment?.motivoConsulta ?? existingForAppointment?.evolucion?.motivoConsulta;
+    if (existingForAppointment && typeof existingReason === 'string' && existingReason.trim().length > 0) {
       throw new ClinicalDomainError(
         'Ya existe una apertura de historia clínica registrada para esta cita.',
         'BAD_REQUEST'
@@ -57,11 +60,13 @@ export class CreateClinicalRecordUseCase {
 
     const historyRows = await this.clinicalRepo.getClinicalHistoryByPatient(command.idPaciente);
 
-    // Buscar antecedentes de la última historia clínica registrada para precargar (desde la 2da consulta)
+    // Buscar antecedentes de la última apertura clínica previa (excluyendo la cita actual)
     const lastOpeningRecord = historyRows.find(
       (row) =>
-        (row.antecedentesClinicos && Object.keys(row.antecedentesClinicos).length > 0) ||
-        (row.evolucion?.tipoRegistro === 'APERTURA_CONSULTA' && row.evolucion?.antecedentes)
+        row.idCita !== command.idCita &&
+        Boolean((row.motivoConsulta ?? row.evolucion?.motivoConsulta ?? '').trim()) &&
+        ((row.antecedentesClinicos && Object.keys(row.antecedentesClinicos).length > 0) ||
+          (row.evolucion?.tipoRegistro === 'APERTURA_CONSULTA' && row.evolucion?.antecedentes))
     );
 
     const estadoCitaActual = command.estadoCita ?? 'En consulta';

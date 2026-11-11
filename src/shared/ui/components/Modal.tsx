@@ -25,7 +25,10 @@ export const Modal: React.FC<ModalProps> = ({
   closeOnBackdropClick = true,
 }) => {
   const modalCardRef = useRef<HTMLDivElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
   const previouslyFocusedElement = useRef<HTMLElement | null>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   useEffect(() => {
     if (!isOpen) return;
@@ -37,16 +40,26 @@ export const Modal: React.FC<ModalProps> = ({
     const originalOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
 
-    // Auto-focus en el primer elemento interactivo del modal
+    // Auto-focus solo al abrir: priorizar campos del contenido antes que el botón cerrar
     const focusableSelectors =
       'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+    const preferredFieldSelectors =
+      '[data-autofocus]:not([disabled]), input:not([disabled]):not([type="hidden"]), textarea:not([disabled]), select:not([disabled])';
 
     const timer = setTimeout(() => {
-      if (modalCardRef.current) {
-        const focusable = modalCardRef.current.querySelectorAll<HTMLElement>(focusableSelectors);
-        if (focusable.length > 0) {
-          focusable[0].focus();
-        }
+      if (!modalCardRef.current) return;
+      // No mover el foco si el usuario ya interactuó con algún elemento dentro del modal
+      if (modalCardRef.current.contains(document.activeElement)) return;
+
+      const preferredField = bodyRef.current?.querySelector<HTMLElement>(preferredFieldSelectors);
+      if (preferredField) {
+        preferredField.focus();
+        return;
+      }
+
+      const focusable = modalCardRef.current.querySelectorAll<HTMLElement>(focusableSelectors);
+      if (focusable.length > 0) {
+        focusable[0].focus();
       }
     }, 50);
 
@@ -54,7 +67,7 @@ export const Modal: React.FC<ModalProps> = ({
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.stopPropagation();
-        onClose();
+        onCloseRef.current();
         return;
       }
 
@@ -92,7 +105,7 @@ export const Modal: React.FC<ModalProps> = ({
         previouslyFocusedElement.current.focus();
       }
     };
-  }, [isOpen, onClose]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -155,7 +168,7 @@ export const Modal: React.FC<ModalProps> = ({
         )}
 
         {/* Content Body con scroll interno controlado */}
-        <div className="py-4 overflow-y-auto flex-1 text-sm text-[#4B5563]">{children}</div>
+        <div ref={bodyRef} className="py-4 overflow-y-auto flex-1 text-sm text-[#4B5563]">{children}</div>
 
         {/* Footer */}
         {footer && (

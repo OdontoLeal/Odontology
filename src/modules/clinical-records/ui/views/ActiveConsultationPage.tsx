@@ -41,6 +41,10 @@ export interface ActiveConsultationPageProps {
   onFinishConsultation: (idCita: number) => void;
   /** RF-AGE-009: solo el profesional responsable finaliza la atención (la auxiliar solo guarda). */
   canFinishAttention?: boolean;
+  /** Regla de Negocio 4: ROL-AUX asiste en consulta en curso (solo odontograma y nota de evolución). */
+  isAssistantMode?: boolean;
+  canGenerateDocuments?: boolean;
+  canViewClinicalHistory?: boolean;
 }
 
 export const ActiveConsultationPage: React.FC<ActiveConsultationPageProps> = ({
@@ -52,7 +56,7 @@ export const ActiveConsultationPage: React.FC<ActiveConsultationPageProps> = ({
   patientEmail = '',
   patientAge,
   patientSex,
-  doctorName = 'Dr. Eduar Leal Álvarez',
+  doctorName = 'Profesional asignado',
   doctorSignature = null,
   doctorRole = 'Odontólogo General',
   treatmentTitle = '',
@@ -61,8 +65,19 @@ export const ActiveConsultationPage: React.FC<ActiveConsultationPageProps> = ({
   onBackToAgenda,
   onFinishConsultation,
   canFinishAttention = false,
+  isAssistantMode,
+  canGenerateDocuments,
+  canViewClinicalHistory = true,
 }) => {
-  const { history, currentOdontogram, isLoading, saveEvolutionEntry } = useClinicalRecord(idPaciente, '/api/v1', idCita);
+  const effectiveAssistantMode = isAssistantMode ?? !canFinishAttention;
+  const effectiveCanGenerateDocs = canGenerateDocuments ?? canFinishAttention;
+
+  const { history, currentOdontogram, isLoading, saveEvolutionEntry } = useClinicalRecord(
+    idPaciente,
+    '/api/v1',
+    idCita,
+    { preferAppointmentEndpoint: !canViewClinicalHistory || effectiveAssistantMode }
+  );
   const { showAlert, showConfirm, AlertModalComponent } = useAlertModal();
 
   // Datos del doctor asignado a la cita (asociación y firma digital del profesional)
@@ -123,6 +138,12 @@ export const ActiveConsultationPage: React.FC<ActiveConsultationPageProps> = ({
     return otherCita || history[0];
   }, [history, idCita]);
 
+  const currentConsultationNotes = useMemo(() => {
+    if (!history || history.length === 0) return [];
+    const sameCita = history.find((e) => Number(e.idCita) === Number(idCita));
+    return sameCita?.notasEvolucion || [];
+  }, [history, idCita]);
+
   // Sincronizar el odontograma al cargar (precarga inteligente del odontograma anterior si existe)
   useEffect(() => {
     if (previousEvolution?.odontograma?.cuadrantes) {
@@ -132,16 +153,19 @@ export const ActiveConsultationPage: React.FC<ActiveConsultationPageProps> = ({
     }
   }, [previousEvolution, currentOdontogram]);
 
-  // Si la evolución previa ya tiene datos del profesional que atendió, sincronizarlos
+  // Si la evolución de la cita actual ya tiene datos del profesional responsable, sincronizarlos
   useEffect(() => {
-    if (previousEvolution?.profesional?.nombreCompleto) {
+    if (
+      previousEvolution?.profesional?.nombreCompleto &&
+      Number(previousEvolution.idCita) === Number(idCita)
+    ) {
       setAttendingDoctor((prev) => ({
         name: previousEvolution.profesional.nombreCompleto || prev.name,
         signature: previousEvolution.profesional.firmaBase64 ?? prev.signature,
         role: previousEvolution.profesional.rol || prev.role,
       }));
     }
-  }, [previousEvolution]);
+  }, [previousEvolution, idCita]);
 
   // Inicialización inteligente de datos (Precarga automática de la última consulta)
   const initialFormData = useMemo<Partial<EvolutionFormData>>(() => {
@@ -301,8 +325,23 @@ export const ActiveConsultationPage: React.FC<ActiveConsultationPageProps> = ({
     <DetailPageContainer className="space-y-6">
       <AlertModalComponent />
 
+      {/* Banner contextual para Apoyo Asistencial (ROL-AUX) */}
+      {effectiveAssistantMode && (
+        <div className="flex items-start gap-3 rounded-xl border border-[#CBD5E1] bg-[#F8FAFC] p-4 text-[14px] text-[#1E242B]">
+          <SparklesIcon size={20} color="#D4AF37" className="shrink-0 mt-0.5" />
+          <div className="min-w-0 flex-1">
+            <strong className="block font-bold text-[#1E242B]">
+              Modo Apoyo Asistencial en Consulta Activa
+            </strong>
+            <p className="text-[#64748B] text-[13px] mt-0.5">
+              Puede actualizar el <strong>Odontograma FDI</strong> y registrar <strong>notas de evolución o procedimiento asistido</strong> con su nombre (exclusivamente mientras la cita esté En consulta). La apertura médica, diagnóstico, plan de manejo, documentos y finalización son exclusivos de {attendingDoctor.name}.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Banner Informativo de Precarga Automática de Consulta Anterior */}
-      {previousEvolution && Number(previousEvolution.idCita) !== Number(idCita) && (
+      {!effectiveAssistantMode && previousEvolution && Number(previousEvolution.idCita) !== Number(idCita) && (
         <div className="flex items-start gap-3 rounded-xl border border-[#E9C765] bg-[#FBF6E6] p-4 text-[14px] text-[#111111]">
           <SparklesIcon size={20} color="#D4AF37" className="shrink-0 mt-0.5" />
           <div className="min-w-0 flex-1">
@@ -329,6 +368,10 @@ export const ActiveConsultationPage: React.FC<ActiveConsultationPageProps> = ({
         doctorRole={attendingDoctor.role}
         displayDate={displayDate}
         initialData={initialFormData}
+        isAssistantMode={effectiveAssistantMode}
+        canGenerateDocuments={effectiveCanGenerateDocs}
+        hasServerRecord={Boolean(previousEvolution)}
+        consultationNotes={currentConsultationNotes}
         odontogram={workingOdontogram}
         onOdontogramChange={setWorkingOdontogram}
         onSaveDraft={async (formData) => {
@@ -361,7 +404,7 @@ export const ActiveConsultationPage: React.FC<ActiveConsultationPageProps> = ({
         onClose={() => setIsExpandedOdontogramOpen(false)}
         maxWidth="full"
         title="Odontograma Clínico FDI — Modo Edición Ampliada"
-        subtitle={`Paciente: ${patientName} • Odontólogo: ${doctorName}`}
+        subtitle={`Paciente: ${patientName} • Odontólogo: ${attendingDoctor.name}`}
         footer={
           <div className="flex w-full flex-wrap items-center justify-between gap-3">
             <Button variant="outline" onClick={() => setIsExpandedOdontogramOpen(false)}>

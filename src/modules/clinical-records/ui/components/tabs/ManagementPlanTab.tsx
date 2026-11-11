@@ -16,6 +16,7 @@ export interface ManagementPlanTabProps {
   planManejo: PlanManejoDTO;
   conductaPlanManejo: string;
   readOnly?: boolean;
+  canPrintDocuments?: boolean;
   onPlanManejoChange: (updated: PlanManejoDTO) => void;
   onConductaChange: (conducta: string) => void;
   onPrintDocument: (tipo: 'RECETA' | 'INCAPACIDAD' | 'REMISION') => void;
@@ -28,6 +29,7 @@ export const ManagementPlanTab: React.FC<ManagementPlanTabProps> = ({
   planManejo,
   conductaPlanManejo,
   readOnly,
+  canPrintDocuments = true,
   onPlanManejoChange,
   onConductaChange,
   onPrintDocument,
@@ -35,6 +37,7 @@ export const ManagementPlanTab: React.FC<ManagementPlanTabProps> = ({
   onPrevTab,
   onSubmit,
 }) => {
+  const showPrintActions = !readOnly && canPrintDocuments;
   const handleAddMedication = (preset?: Partial<PrescripcionItemDTO>) => {
     if (readOnly) return;
     const newMed: PrescripcionItemDTO = {
@@ -92,14 +95,16 @@ export const ManagementPlanTab: React.FC<ManagementPlanTabProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => onPrintDocument('RECETA')}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-[#E7E7E3] bg-white hover:bg-[#F6F6F4] text-xs font-bold text-[#111111] transition-all cursor-pointer"
-            >
-              <PrinterIcon size={14} className="text-[#687380]" />
-              Imprimir Receta
-            </button>
+            {showPrintActions && (
+              <button
+                type="button"
+                onClick={() => onPrintDocument('RECETA')}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-[#E7E7E3] bg-white hover:bg-[#F6F6F4] text-xs font-bold text-[#111111] transition-all cursor-pointer"
+              >
+                <PrinterIcon size={14} className="text-[#687380]" />
+                Imprimir Receta
+              </button>
+            )}
 
             {!readOnly && (
               <button
@@ -281,14 +286,16 @@ export const ManagementPlanTab: React.FC<ManagementPlanTabProps> = ({
           </div>
 
           <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => onPrintDocument('INCAPACIDAD')}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-[#E7E7E3] bg-white hover:bg-[#F6F6F4] text-xs font-bold text-[#111111] transition-all cursor-pointer"
-            >
-              <PrinterIcon size={14} className="text-[#687380]" />
-              Imprimir Excusa
-            </button>
+            {showPrintActions && (
+              <button
+                type="button"
+                onClick={() => onPrintDocument('INCAPACIDAD')}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-[#E7E7E3] bg-white hover:bg-[#F6F6F4] text-xs font-bold text-[#111111] transition-all cursor-pointer"
+              >
+                <PrinterIcon size={14} className="text-[#687380]" />
+                Imprimir Excusa
+              </button>
+            )}
 
             <div className="flex items-center gap-2 pl-2">
               <span className="text-xs font-bold text-[#111111]">¿Requiere Incapacidad?</span>
@@ -426,14 +433,16 @@ export const ManagementPlanTab: React.FC<ManagementPlanTabProps> = ({
           </div>
 
           <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => onPrintDocument('REMISION')}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-[#E7E7E3] bg-white hover:bg-[#F6F6F4] text-xs font-bold text-[#111111] transition-all cursor-pointer"
-            >
-              <PrinterIcon size={14} className="text-[#687380]" />
-              Imprimir Remisión
-            </button>
+            {showPrintActions && (
+              <button
+                type="button"
+                onClick={() => onPrintDocument('REMISION')}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-[#E7E7E3] bg-white hover:bg-[#F6F6F4] text-xs font-bold text-[#111111] transition-all cursor-pointer"
+              >
+                <PrinterIcon size={14} className="text-[#687380]" />
+                Imprimir Remisión
+              </button>
+            )}
 
             <div className="flex items-center gap-2 pl-2">
               <span className="text-xs font-bold text-[#111111]">¿Requiere Remisión a Especialista?</span>

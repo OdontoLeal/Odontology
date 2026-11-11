@@ -40,6 +40,8 @@ export interface PatientProfilePageProps {
   onUpdatePatient: (id: number, data: PatientFormData) => Promise<void> | void;
   canScheduleAppointment?: boolean;
   canStartAttention?: boolean;
+  canAssistConsultation?: boolean;
+  canViewClinicalHistory?: boolean;
 }
 
 interface PatientAppointment {
@@ -63,6 +65,8 @@ export const PatientProfilePage: React.FC<PatientProfilePageProps> = ({
   onUpdatePatient,
   canScheduleAppointment = true,
   canStartAttention = true,
+  canAssistConsultation,
+  canViewClinicalHistory = true,
 }) => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedEvolutionForView, setSelectedEvolutionForView] = useState<ClinicalEvolutionEntry | null>(null);
@@ -117,8 +121,14 @@ export const PatientProfilePage: React.FC<PatientProfilePageProps> = ({
     }
   }, []);
 
-  // Historias clínicas reales
-  const { history, isLoading: isHistoryLoading } = useClinicalRecord(patient.idPaciente);
+  // Historias clínicas reales (solo roles con RF-HCL-008 consultan historial completo)
+  const canReadFullHistory = canViewClinicalHistory && !isCoordinator;
+  const { history, isLoading: isHistoryLoading } = useClinicalRecord(
+    patient.idPaciente,
+    '/api/v1',
+    undefined,
+    { enabled: canReadFullHistory }
+  );
 
   // Consentimientos reales
   const { patientConsents, templates, fetchPatientConsents, downloadConsentPdf, isLoading: isConsentsLoading } = useConsents();
@@ -249,7 +259,7 @@ export const PatientProfilePage: React.FC<PatientProfilePageProps> = ({
         subtitle="Expediente clínico integral, historial de citas, evoluciones clínicas y consentimientos."
         actions={
           <>
-            {history.length > 0 && !isCoordinator && (
+            {canReadFullHistory && history.length > 0 && (
               <DetailAction
                 onClick={() => printCompleteClinicalHistory({ patient, history })}
                 leftIcon={<PrinterIcon size={16} />}
@@ -305,7 +315,21 @@ export const PatientProfilePage: React.FC<PatientProfilePageProps> = ({
               <EmptyState>Cargando citas del paciente...</EmptyState>
             ) : upcomingAppointments.length > 0 ? (
               (() => {
-                const nextAppt = upcomingAppointments[0];
+                const nextAppt =
+                  upcomingAppointments.find((a) => a.estado === 'En consulta') ??
+                  upcomingAppointments[0];
+                const canOpenThisAppt =
+                  !isCoordinator &&
+                  (nextAppt.estado === 'En consulta'
+                    ? Boolean(canStartAttention || canAssistConsultation)
+                    : nextAppt.estado === 'Confirmada' && canStartAttention);
+                const openButtonLabel =
+                  nextAppt.estado === 'En consulta'
+                    ? canStartAttention
+                      ? 'Continuar atención odontológica →'
+                      : 'Asistir atención odontológica →'
+                    : 'Iniciar atención odontológica →';
+
                 return (
                   <div className="space-y-3 rounded-lg border border-[#D4AF37]/60 bg-[#FFFBEB]/60 p-4">
                     <div className="flex flex-wrap items-center justify-between gap-2">
@@ -325,14 +349,12 @@ export const PatientProfilePage: React.FC<PatientProfilePageProps> = ({
                       </p>
                     </div>
                     <div className="flex flex-wrap items-center justify-end gap-2 border-t border-[#EAD89B]/50 pt-3">
-                      {!isCoordinator && canStartAttention ? (
+                      {canOpenThisAppt ? (
                         <DetailAction
                           variant="primary"
                           onClick={() => onOpenConsultation(patient, nextAppt.idCita, nextAppt.estado)}
                         >
-                          {nextAppt.estado === 'En consulta'
-                            ? 'Continuar atención odontológica →'
-                            : 'Iniciar atención odontológica →'}
+                          {openButtonLabel}
                         </DetailAction>
                       ) : (
                         <span className="text-[13px] italic text-[#64748B]">
@@ -399,9 +421,9 @@ export const PatientProfilePage: React.FC<PatientProfilePageProps> = ({
         <SectionCard
           title="Historias Clínicas y Evoluciones"
           icon={<ClipboardIcon />}
-          count={!isCoordinator && history.length > 0 ? `${history.length}` : undefined}
+          count={canReadFullHistory && history.length > 0 ? `${history.length}` : undefined}
           action={
-            !isCoordinator && history.length > 0 ? (
+            canReadFullHistory && history.length > 0 ? (
               <SectionAction
                 onClick={() => onViewClinicalHistoryDetail(history[0]?.idHistoriaClinica || 1)}
               >
@@ -410,10 +432,12 @@ export const PatientProfilePage: React.FC<PatientProfilePageProps> = ({
             ) : undefined
           }
         >
-          {isCoordinator ? (
+          {!canReadFullHistory ? (
             restrictedNotice(
-              'Acceso clínico restringido a profesionales de la salud',
-              'El perfil de Coordinadora de Atención (ROL-COA) no tiene permisos para consultar o auditar evoluciones clínicas (Ley 1581 / Res. 1995 de 1999).'
+              'Acceso clínico restringido a profesionales tratantes',
+              isCoordinator
+                ? 'El perfil de Coordinadora de Atención (ROL-COA) no tiene permisos para consultar o auditar evoluciones clínicas (Ley 1581 / Res. 1995 de 1999).'
+                : 'El historial completo de consultas pasadas es exclusivo de los odontólogos tratantes (RF-HCL-008). Para registrar evolución u odontograma de una cita activa, use la opción de la cita "En consulta".'
             )
           ) : isHistoryLoading ? (
             <EmptyState>Cargando historial clínico...</EmptyState>

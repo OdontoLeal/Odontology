@@ -2,20 +2,24 @@
 import React from 'react';
 import { OdontogramCanvas } from '../OdontogramCanvas';
 import { OdontogramDataDTO } from '../../../infrastructure/clinical-record.model';
+import { ConsultationNoteViewItem } from '../../hooks/useClinicalRecord';
 import { ToothIcon } from '../../../../../shared/ui/components/Icons';
 
 export interface FindingsProcedureTabProps {
   activeOdontogram: OdontogramDataDTO;
   affectedTeethCount: number;
   readOnly?: boolean;
+  isAssistantMode?: boolean;
   procedimientoRealizado: string;
   diagnostico: string;
   accionesARealizar: string;
   observaciones: string;
+  consultationNotes?: ConsultationNoteViewItem[];
   onProcedimientoChange: (val: string) => void;
   onDiagnosticoChange: (val: string) => void;
   onAccionesChange: (val: string) => void;
   onObservacionesChange: (val: string) => void;
+  onOdontogramChange?: (updated: OdontogramDataDTO) => void;
   onOpenExpandedOdontogram?: () => void;
   onDiscardChanges: () => void;
   onNextTab: () => void;
@@ -25,18 +29,22 @@ export const FindingsProcedureTab: React.FC<FindingsProcedureTabProps> = ({
   activeOdontogram,
   affectedTeethCount,
   readOnly,
+  isAssistantMode = false,
   procedimientoRealizado,
   diagnostico,
   accionesARealizar,
   observaciones,
+  consultationNotes = [],
   onProcedimientoChange,
   onDiagnosticoChange,
   onAccionesChange,
   onObservacionesChange,
+  onOdontogramChange,
   onOpenExpandedOdontogram,
   onDiscardChanges,
   onNextTab,
 }) => {
+  const isMedicalFieldsReadOnly = Boolean(readOnly || isAssistantMode);
   return (
     <div className="space-y-6">
       {/* CARD PRINCIPAL: ODONTOGRAMA CLÍNICO REGISTRADO (FDI UNIVERSAL) */}
@@ -87,19 +95,26 @@ export const FindingsProcedureTab: React.FC<FindingsProcedureTabProps> = ({
           <OdontogramCanvas
             initialData={activeOdontogram}
             readOnly={readOnly}
+            onChange={onOdontogramChange}
             onOpenExpandedMode={onOpenExpandedOdontogram}
           />
         </div>
       </div>
 
-      {/* CARD: PROCEDIMIENTO REALIZADO (OBLIGATORIO) */}
+      {/* CARD: PROCEDIMIENTO REALIZADO */}
       <div className="rounded-xl border border-[#E2E8F0] bg-white px-4 py-5 sm:px-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)] space-y-2">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <label className="text-xs font-black uppercase tracking-wider text-[#111111] flex items-center gap-2">
-            <span>Procedimiento Realizado</span>
-            <span className="px-2 py-0.5 rounded-full text-[13px] font-black bg-red-100 text-red-700">
-              OBLIGATORIO
-            </span>
+            <span>{isAssistantMode ? 'Procedimiento Asistido / Evolución' : 'Procedimiento Realizado'}</span>
+            {isAssistantMode ? (
+              <span className="px-2 py-0.5 rounded-full text-[13px] font-semibold bg-[#FBF6E6] text-[#926C15] border border-[#E9C765]">
+                Se registra a su nombre
+              </span>
+            ) : (
+              <span className="px-2 py-0.5 rounded-full text-[13px] font-black bg-red-100 text-red-700">
+                OBLIGATORIO
+              </span>
+            )}
           </label>
           <span className="text-[13px] text-[#8F99A3]">
             Descripción minuciosa del acto operatorio, técnica, instrumental y materiales empleados
@@ -111,48 +126,62 @@ export const FindingsProcedureTab: React.FC<FindingsProcedureTabProps> = ({
           value={procedimientoRealizado}
           onChange={(e) => onProcedimientoChange(e.target.value)}
           placeholder="Describa el procedimiento operatorio, materiales, técnica, aislamiento..."
-          className="w-full rounded-xl border border-[#E7E7E3] p-3 text-xs text-[#111111] bg-[#F6F6F4] focus:bg-white focus:border-[#D4AF37] focus:outline-none transition-all"
+          className="w-full rounded-xl border border-[#E7E7E3] p-3 text-xs text-[#111111] bg-[#F6F6F4] focus:bg-white focus:border-[#D4AF37] focus:outline-none transition-all disabled:opacity-70 disabled:cursor-not-allowed"
         />
       </div>
 
       {/* CARD: DIAGNÓSTICO CLÍNICO */}
       <div className="rounded-xl border border-[#E2E8F0] bg-white px-4 py-5 sm:px-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)] space-y-2">
-        <label className="text-xs font-black uppercase tracking-wider text-[#111111] block">
-          Diagnóstico Clínico (Definitivo / Presuntivo)
-        </label>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <label className="text-xs font-black uppercase tracking-wider text-[#111111] block">
+            Diagnóstico Clínico (Definitivo / Presuntivo)
+          </label>
+          {isAssistantMode && (
+            <span className="px-2 py-0.5 rounded-full text-[12px] font-semibold bg-[#F1F5F9] text-[#64748B]">
+              Solo odontólogo responsable
+            </span>
+          )}
+        </div>
         <textarea
           rows={2}
-          disabled={readOnly}
+          disabled={isMedicalFieldsReadOnly}
           value={diagnostico}
           onChange={(e) => onDiagnosticoChange(e.target.value)}
           placeholder="Indique diagnóstico odontológico principal y secundarios..."
-          className="w-full rounded-xl border border-[#E7E7E3] p-3 text-xs text-[#111111] bg-[#F6F6F4] focus:bg-white focus:border-[#D4AF37] focus:outline-none transition-all"
+          className="w-full rounded-xl border border-[#E7E7E3] p-3 text-xs text-[#111111] bg-[#F6F6F4] focus:bg-white focus:border-[#D4AF37] focus:outline-none transition-all disabled:opacity-70 disabled:cursor-not-allowed"
         />
       </div>
 
-      {/* GRID 2 COLUMNAS: ACCIONES A REALIZAR Y OBSERVACIONES */}
+      {/* GRID 2 COLUMNAS: ACCIONES A REALIZAR Y OBSERVACIONES / NOTA DE EVOLUCIÓN */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="rounded-xl border border-[#E2E8F0] bg-white px-4 py-5 sm:px-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)] space-y-2">
-          <label className="block text-xs font-black uppercase tracking-wider text-[#111111]">
-            Acciones a Realizar (Plan Próxima Cita)
-          </label>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <label className="block text-xs font-black uppercase tracking-wider text-[#111111]">
+              Acciones a Realizar (Plan Próxima Cita)
+            </label>
+            {isAssistantMode && (
+              <span className="px-2 py-0.5 rounded-full text-[12px] font-semibold bg-[#F1F5F9] text-[#64748B]">
+                Solo odontólogo
+              </span>
+            )}
+          </div>
           <textarea
             rows={3}
-            disabled={readOnly}
+            disabled={isMedicalFieldsReadOnly}
             value={accionesARealizar}
             onChange={(e) => onAccionesChange(e.target.value)}
             placeholder="Próximos pasos terapéuticos o controles..."
-            className="w-full rounded-xl border border-[#E7E7E3] p-3 text-xs text-[#111111] bg-[#F6F6F4] focus:bg-white focus:border-[#D4AF37] focus:outline-none transition-all"
+            className="w-full rounded-xl border border-[#E7E7E3] p-3 text-xs text-[#111111] bg-[#F6F6F4] focus:bg-white focus:border-[#D4AF37] focus:outline-none transition-all disabled:opacity-70 disabled:cursor-not-allowed"
           />
         </div>
 
         <div className="rounded-xl border border-[#E2E8F0] bg-white px-4 py-5 sm:px-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)] space-y-2">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <label className="text-xs font-black uppercase tracking-wider text-[#111111]">
-              Observaciones Generales de la Atención
+              {isAssistantMode ? 'Nota de Evolución / Observaciones' : 'Observaciones Generales de la Atención'}
             </label>
             <span className="px-2 py-0.5 rounded-full text-[13px] font-semibold bg-[#F6F6F4] text-[#687380]">
-              Opcional
+              {isAssistantMode ? 'RF-HCL-009' : 'Opcional'}
             </span>
           </div>
           <textarea
@@ -160,11 +189,45 @@ export const FindingsProcedureTab: React.FC<FindingsProcedureTabProps> = ({
             disabled={readOnly}
             value={observaciones}
             onChange={(e) => onObservacionesChange(e.target.value)}
-            placeholder="Observaciones clínicas adicionales..."
-            className="w-full rounded-xl border border-[#E7E7E3] p-3 text-xs text-[#111111] bg-[#F6F6F4] focus:bg-white focus:border-[#D4AF37] focus:outline-none transition-all"
+            placeholder={
+              isAssistantMode
+                ? 'Registre aquí la nota de evolución o hallazgos asistenciales de la consulta en curso...'
+                : 'Observaciones clínicas adicionales...'
+            }
+            className="w-full rounded-xl border border-[#E7E7E3] p-3 text-xs text-[#111111] bg-[#F6F6F4] focus:bg-white focus:border-[#D4AF37] focus:outline-none transition-all disabled:opacity-70 disabled:cursor-not-allowed"
           />
         </div>
       </div>
+
+      {/* NOTAS DE EVOLUCIÓN REGISTRADAS EN ESTA CONSULTA */}
+      {consultationNotes.length > 0 && (
+        <div className="rounded-xl border border-[#E2E8F0] bg-white px-4 py-5 sm:px-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)] space-y-3">
+          <div className="flex items-center justify-between border-b border-[#F3F4F6] pb-2">
+            <h4 className="text-xs font-black uppercase tracking-wider text-[#111111]">
+              Notas de Evolución Registradas en la Consulta ({consultationNotes.length})
+            </h4>
+          </div>
+          <ul className="space-y-2.5">
+            {consultationNotes.map((nota, idx) => (
+              <li
+                key={nota.idNota || idx}
+                className="rounded-lg border border-[#E2E8F0] bg-[#F8FAFC] p-3 text-xs space-y-1"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-bold text-[#1E242B]">Diligenciado por: {nota.autor}</span>
+                  <span className="text-[#64748B]">{nota.fecha}</span>
+                </div>
+                {nota.procedimientoRealizado && (
+                  <p className="text-[#1E242B]">
+                    <strong>Procedimiento:</strong> {nota.procedimientoRealizado}
+                  </p>
+                )}
+                <p className="text-[#475569] whitespace-pre-line">{nota.texto}</p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* BARRA INFERIOR DE NAVEGACIÓN */}
       <div className="flex items-center justify-between gap-4 pt-4 border-t border-[#E7E7E3]">

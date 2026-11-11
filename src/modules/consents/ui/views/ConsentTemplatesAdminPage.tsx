@@ -1,5 +1,5 @@
 // src/modules/consents/ui/views/ConsentTemplatesAdminPage.tsx
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { formatDateCO } from '../../../../shared/ui/format';
 import { useConsents, ConsentTemplateItem, ConsentTemplateTipo } from '../hooks/useConsents';
 import { Button } from '../../../../shared/ui/components/Button';
@@ -76,6 +76,10 @@ export const ConsentTemplatesAdminPage: React.FC = () => {
       return !query || normalizeText(tpl.titulo).includes(query);
     });
   }, [templates, searchQuery, statusFilter]);
+
+  const handleCloseModal = useCallback(() => {
+    setIsModalOpen(false);
+  }, []);
 
   const handleOpenCreate = () => {
     setEditingTemplate(null);
@@ -368,7 +372,7 @@ export const ConsentTemplatesAdminPage: React.FC = () => {
       {/* Modal de Creación / Edición */}
       <Modal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={handleCloseModal}
         title={
           editingTemplate
             ? `Editar Plantilla (Crea Versión v${editingTemplate.version + 1}.0)`
@@ -445,7 +449,7 @@ export const ConsentTemplatesAdminPage: React.FC = () => {
           </div>
 
           <div className="flex justify-end gap-3 pt-4 border-t border-[#E2E6EA]">
-            <Button variant="outline" type="button" onClick={() => setIsModalOpen(false)}>
+            <Button variant="outline" type="button" onClick={handleCloseModal}>
               Cancelar
             </Button>
             <Button variant="primary" type="submit">

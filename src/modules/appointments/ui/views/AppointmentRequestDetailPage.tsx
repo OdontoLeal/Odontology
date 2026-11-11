@@ -130,7 +130,7 @@ export const AppointmentRequestDetailPage: React.FC<AppointmentRequestDetailPage
         // Mapear doctores u ocupantes por bloque
         const occupantMap = new Map<string, string>();
         for (const appt of agenda) {
-          if (Array.isArray(appt.bloques) && appt.estado !== 'Rechazada') {
+          if (Array.isArray(appt.bloques) && appt.estado !== 'Cancelada' && appt.estado !== 'Rechazada') {
             for (const b of appt.bloques) {
               const cleanB = String(b).replace('T', ' ').slice(0, 19);
               occupantMap.set(cleanB, appt.nombreProfesional || 'Dr. Gómez');

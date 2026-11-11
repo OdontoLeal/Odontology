@@ -4,6 +4,15 @@ import { formatDateTimeCO } from '../../../../shared/ui/format';
 import { OdontogramDataDTO } from '../../infrastructure/clinical-record.model';
 import { OdontogramEntity } from '../../domain/odontogram.entity';
 
+export interface ConsultationNoteViewItem {
+  idNota: string;
+  tipo: string;
+  procedimientoRealizado?: string | null;
+  texto: string;
+  fecha: string;
+  autor: string;
+}
+
 export interface ClinicalEvolutionEntry {
   idEvolucion: number;
   idHistoriaClinica: number;
@@ -30,6 +39,7 @@ export interface ClinicalEvolutionEntry {
   hallazgosObservaciones?: string;
   odontograma: OdontogramDataDTO;
   planManejo?: any;
+  notasEvolucion?: ConsultationNoteViewItem[];
   notasAclaratorias?: Array<{
     idNota: string;
     texto: string;
@@ -38,13 +48,25 @@ export interface ClinicalEvolutionEntry {
   }>;
 }
 
+export interface UseClinicalRecordOptions {
+  enabled?: boolean;
+  preferAppointmentEndpoint?: boolean;
+}
+
 /**
  * Historia clínica del paciente para la consulta en curso.
  * ROL-ODO/ROL-ESP leen el historial completo (RF-HCL-008). La auxiliar no puede
- * (Regla de Negocio 4): si el historial responde 403 y hay cita, se usa solo la
- * historia de esa consulta (`/clinical-records/appointment/:idCita`).
+ * (Regla de Negocio 4): usa solo la historia de esa consulta (`/clinical-records/appointment/:idCita`).
  */
-export function useClinicalRecord(idPaciente: number, apiBaseUrl = '/api/v1', idCita?: number) {
+export function useClinicalRecord(
+  idPaciente: number,
+  apiBaseUrl = '/api/v1',
+  idCita?: number,
+  options?: UseClinicalRecordOptions
+) {
+  const enabled = options?.enabled !== false;
+  const preferAppointmentEndpoint = options?.preferAppointmentEndpoint === true;
+
   const [history, setHistory] = useState<ClinicalEvolutionEntry[]>([]);
   const [currentOdontogram, setCurrentOdontogram] = useState<OdontogramDataDTO>(() =>
     OdontogramEntity.createBlankOdontogramJSON()
@@ -53,13 +75,20 @@ export function useClinicalRecord(idPaciente: number, apiBaseUrl = '/api/v1', id
   const [error, setError] = useState<string | null>(null);
 
   const fetchHistory = useCallback(async () => {
-    if (!idPaciente) return;
+    if (!idPaciente || !enabled) {
+      setHistory([]);
+      return;
+    }
     setIsLoading(true);
     setError(null);
     try {
-      let res = await fetch(`${apiBaseUrl}/clinical-records/patient/${idPaciente}`);
-      let consultaOnly = false;
-      if (res.status === 403 && idCita) {
+      let consultaOnly = preferAppointmentEndpoint && Boolean(idCita);
+      let res = await fetch(
+        consultaOnly
+          ? `${apiBaseUrl}/clinical-records/appointment/${idCita}`
+          : `${apiBaseUrl}/clinical-records/patient/${idPaciente}`
+      );
+      if (!consultaOnly && res.status === 403 && idCita) {
         res = await fetch(`${apiBaseUrl}/clinical-records/appointment/${idCita}`);
         consultaOnly = true;
       }
@@ -106,6 +135,29 @@ export function useClinicalRecord(idPaciente: number, apiBaseUrl = '/api/v1', id
               if (!evoOdonto || !evoOdonto.cuadrantes) {
                 evoOdonto = OdontogramEntity.createBlankOdontogramJSON();
               }
+              const rawNotas: any[] = Array.isArray(ev.notas) ? ev.notas : [];
+              const notasEvolucion: ConsultationNoteViewItem[] = rawNotas
+                .filter((n) => n.tipo !== 'NOTA_ACLARATORIA')
+                .map((n) => ({
+                  idNota: String(n.idNota ?? ''),
+                  tipo: n.tipo ?? 'EVOLUCION',
+                  procedimientoRealizado: n.procedimientoRealizado ?? null,
+                  texto: n.texto ?? '',
+                  fecha: formatDateTimeCO(n.fecha),
+                  autor: n.diligenciadoPor?.nombreUsuario ?? 'Personal clínico',
+                }));
+              const notasAclaratorias =
+                rawNotas.length > 0
+                  ? rawNotas
+                      .filter((n) => n.tipo === 'NOTA_ACLARATORIA')
+                      .map((n) => ({
+                        idNota: String(n.idNota ?? ''),
+                        texto: n.texto ?? '',
+                        fechaRegistro: formatDateTimeCO(n.fecha),
+                        autor: n.diligenciadoPor?.nombreUsuario ?? 'Profesional',
+                      }))
+                  : ev.notasAclaratorias || ev.evolucion?.notasAclaratorias || [];
+
               return {
                 idEvolucion: Number(ev.idEvolucion ?? ev.id_evolucion),
                 idHistoriaClinica: Number(ev.idHistoriaClinica ?? ev.id_historia),
@@ -113,12 +165,12 @@ export function useClinicalRecord(idPaciente: number, apiBaseUrl = '/api/v1', id
                 fechaRegistro: formatDateTimeCO(ev.fechaRegistro ?? ev.fecha),
                 profesional: {
                   idUsuario: Number(ev.profesional?.idUsuario ?? ev.idUsuario ?? 1),
-                  nombreCompleto: ev.profesionalResponsable || ev.profesional?.nombreCompleto || 'Dr. Eduar Leal Álvarez',
+                  nombreCompleto: ev.profesionalResponsable || ev.profesional?.nombreCompleto || 'Profesional asignado',
                   rol: ev.profesional?.rol || 'Odontólogo General',
                   tarjetaProfesional: ev.profesional?.tarjetaProfesional,
                   firmaBase64: ev.profesionalFirma || ev.evolucion?.diligenciadoPor?.firmaBase64 || null,
                 },
-                motivoConsulta: ev.motivoConsulta || ev.evolucion?.motivoConsulta || 'Consulta odontológica',
+                motivoConsulta: ev.motivoConsulta ?? ev.evolucion?.motivoConsulta ?? '',
                 enfermedadActual: ev.enfermedadActual || ev.evolucion?.enfermedadActual,
                 antecedentesClinicos: ev.antecedentesClinicos || ev.evolucion?.antecedentesClinicos || ev.evolucion?.antecedentes,
                 habitosHigiene: ev.habitosHigiene || ev.evolucion?.habitosHigiene,
@@ -132,7 +184,8 @@ export function useClinicalRecord(idPaciente: number, apiBaseUrl = '/api/v1', id
                 hallazgosObservaciones: ev.hallazgosObservaciones || ev.evolucion?.hallazgosObservaciones,
                 odontograma: evoOdonto,
                 planManejo: ev.planManejo || ev.evolucion?.planManejo,
-                notasAclaratorias: ev.notasAclaratorias || ev.evolucion?.notasAclaratorias || [],
+                notasEvolucion,
+                notasAclaratorias,
               };
             })
           );
@@ -147,10 +200,30 @@ export function useClinicalRecord(idPaciente: number, apiBaseUrl = '/api/v1', id
             if (!odonto || !odonto.cuadrantes) {
               odonto = OdontogramEntity.createBlankOdontogramJSON();
             }
-            const motivo = item.motivoConsulta || 'Consulta Odontológica';
-            const proc = item.procedimientoRealizado || item.notasEvolucion?.[0]?.procedimientoRealizado || 'Atención odontológica';
-            const diag = item.diagnosticoGenerado || item.diagnostico || item.notasEvolucion?.[0]?.notaEvolucion || 'Diagnóstico clínico';
-            const obs = item.hallazgosObservaciones || item.notasEvolucion?.[0]?.notaEvolucion || item.motivoConsulta;
+            const rawHistoryNotes: any[] = Array.isArray(item.notasEvolucion) ? item.notasEvolucion : [];
+            const notasEvolucion: ConsultationNoteViewItem[] = rawHistoryNotes
+              .filter((n) => n.idNota && n.tipoRegistro !== 'NOTA_ACLARATORIA')
+              .map((n) => ({
+                idNota: String(n.idNota),
+                tipo: n.tipoRegistro ?? 'EVOLUCION',
+                procedimientoRealizado: n.procedimientoRealizado ?? null,
+                texto: n.notaEvolucion ?? '',
+                fecha: formatDateTimeCO(n.diligenciadoPor?.fechaHoraISO),
+                autor: n.diligenciadoPor?.nombreUsuario ?? 'Personal clínico',
+              }));
+            const notasAclaratorias = rawHistoryNotes
+              .filter((n) => n.idNota && n.tipoRegistro === 'NOTA_ACLARATORIA')
+              .map((n) => ({
+                idNota: String(n.idNota),
+                texto: n.notaEvolucion ?? '',
+                fechaRegistro: formatDateTimeCO(n.diligenciadoPor?.fechaHoraISO),
+                autor: n.diligenciadoPor?.nombreUsuario ?? 'Profesional',
+              }));
+
+            const motivo = item.motivoConsulta || '';
+            const proc = item.procedimientoRealizado || '';
+            const diag = item.diagnosticoGenerado || item.diagnostico || '';
+            const obs = item.hallazgosObservaciones || '';
 
             mappedEntries.push({
               idEvolucion: Number(item.notasEvolucion?.[0]?.idEvolucion || item.idCita || i + 1),
@@ -162,9 +235,9 @@ export function useClinicalRecord(idPaciente: number, apiBaseUrl = '/api/v1', id
               profesional: {
                 idUsuario: Number(item.notasEvolucion?.[0]?.diligenciadoPor?.idUsuario || 1),
                 nombreCompleto:
-                  item.notasEvolucion?.[0]?.diligenciadoPor?.nombreUsuario ||
                   item.profesionalResponsable ||
-                  'Dr. Eduar Leal Álvarez',
+                  item.notasEvolucion?.[0]?.diligenciadoPor?.nombreUsuario ||
+                  'Profesional asignado',
                 rol: item.notasEvolucion?.[0]?.diligenciadoPor?.rol || 'Odontólogo General',
               },
               motivoConsulta: motivo,
@@ -181,7 +254,8 @@ export function useClinicalRecord(idPaciente: number, apiBaseUrl = '/api/v1', id
               hallazgosObservaciones: item.hallazgosObservaciones,
               odontograma: odonto,
               planManejo: item.planManejo,
-              notasAclaratorias: [],
+              notasEvolucion,
+              notasAclaratorias,
             });
           }
           setHistory(mappedEntries);
@@ -221,7 +295,7 @@ export function useClinicalRecord(idPaciente: number, apiBaseUrl = '/api/v1', id
     } finally {
       setIsLoading(false);
     }
-  }, [apiBaseUrl, idPaciente, idCita]);
+  }, [apiBaseUrl, idPaciente, idCita, enabled, preferAppointmentEndpoint]);
 
   useEffect(() => {
     fetchHistory();
@@ -232,14 +306,13 @@ export function useClinicalRecord(idPaciente: number, apiBaseUrl = '/api/v1', id
       setIsLoading(true);
       setError(null);
       try {
-        const notaEvolucionFinal =
+        const rawNote =
           (entryData as any).notaEvolucion ||
           entryData.hallazgosObservaciones ||
           entryData.observaciones ||
           entryData.procedimientoRealizado ||
-          (entryData.motivoConsulta
-            ? `Atención realizada por motivo: ${entryData.motivoConsulta}`
-            : 'Evolución clínica odontológica registrada.');
+          '';
+        const notaEvolucionFinal = typeof rawNote === 'string' ? rawNote.trim() : '';
 
         const payload = {
           tipoRegistro: 'EVOLUCION_ODONTOGRAMA',
@@ -250,7 +323,7 @@ export function useClinicalRecord(idPaciente: number, apiBaseUrl = '/api/v1', id
           examenEstomatognatico: entryData.examenEstomatognatico || {},
           examenFisicoObservaciones: entryData.examenFisicoObservaciones || '',
           procedimientoRealizado: entryData.procedimientoRealizado || '',
-          notaEvolucion: notaEvolucionFinal,
+          ...(notaEvolucionFinal ? { notaEvolucion: notaEvolucionFinal } : {}),
           diagnostico: entryData.diagnostico || '',
           diagnosticoGenerado: entryData.diagnosticoGenerado || entryData.diagnostico || '',
           accionesARealizar: entryData.accionesARealizar || '',
@@ -330,7 +403,7 @@ export function useClinicalRecord(idPaciente: number, apiBaseUrl = '/api/v1', id
         setIsLoading(false);
       }
     },
-    [apiBaseUrl, currentOdontogram, idPaciente, idCita]
+    [apiBaseUrl, currentOdontogram, idPaciente, idCita, fetchHistory]
   );
 
   return {

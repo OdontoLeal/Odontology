@@ -14,6 +14,7 @@ import { AppointmentDetailPageData } from '../../views/AppointmentDetailPage';
 export interface AppointmentDetailHeaderProps {
   appointment: AppointmentDetailPageData;
   canStartAttention: boolean;
+  canAssistConsultation?: boolean;
   formatSpanishHeaderDate: (dateStr: string) => string;
   /** Se conserva por compatibilidad; el avatar usa <UserAvatar />. */
   getInitials?: (name: string) => string;
@@ -27,6 +28,7 @@ export interface AppointmentDetailHeaderProps {
 export const AppointmentDetailHeader: React.FC<AppointmentDetailHeaderProps> = ({
   appointment,
   canStartAttention,
+  canAssistConsultation,
   formatSpanishHeaderDate,
   onBack,
   onStartAttention,
@@ -54,12 +56,12 @@ export const AppointmentDetailHeader: React.FC<AppointmentDetailHeaderProps> = (
           </DetailAction>
         )}
       </>
-    ) : estado === 'En consulta' && canStartAttention ? (
+    ) : estado === 'En consulta' && (canStartAttention || canAssistConsultation) ? (
       <DetailAction
         variant="dark"
         onClick={() => onStartAttention?.(appointment.idCita, appointment.idPaciente)}
       >
-        Continuar en espacio clínico
+        {canStartAttention ? 'Continuar en espacio clínico' : 'Asistir en espacio clínico'}
       </DetailAction>
     ) : undefined;
 

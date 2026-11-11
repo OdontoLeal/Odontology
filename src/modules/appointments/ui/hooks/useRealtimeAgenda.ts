@@ -105,8 +105,8 @@ export function useRealtimeAgenda(apiBaseUrl = '/api/v1') {
   };
 
   // Fetch agenda real desde base de datos
-  const fetchAgenda = useCallback(async () => {
-    setIsLoading(true);
+  const fetchAgenda = useCallback(async (silent = false) => {
+    if (!silent) setIsLoading(true);
     setError(null);
     try {
       // 1. Obtener citas de la agenda médica desde la base de datos
@@ -154,18 +154,22 @@ export function useRealtimeAgenda(apiBaseUrl = '/api/v1') {
       const summaryJson = summaryRes.ok ? await summaryRes.json() : { data: [] };
       setMonthlySummary(summaryJson.data || []);
 
-      // Mapear citas por bloque
-      // Cada cita puede abarcar múltiples bloques contiguos (ej. Carlos Mendoza: 08:30 y 09:00 -> 08:30 a 09:30)
+      // Mapear citas activas por bloque (excluyendo canceladas/rechazadas cuyos bloques fueron liberados)
+      // Como el listado llega ordenado del id_cita más reciente al más antiguo, no se sobrescribe una cita vigente.
       const appointmentMap = new Map<number, any>();
       const processedAppointmentIds = new Set<number>();
       const blockToApptId = new Map<string, number>();
 
       for (const appt of agendaItems) {
+        if (appt.estado === 'Cancelada' || appt.estado === 'Rechazada') {
+          continue;
+        }
         if (Array.isArray(appt.bloques)) {
           for (const b of appt.bloques) {
-            // Normalizar string de fecha
             const cleanKey = String(b).replace('T', ' ').slice(0, 19);
-            blockToApptId.set(cleanKey, appt.idCita);
+            if (!blockToApptId.has(cleanKey)) {
+              blockToApptId.set(cleanKey, appt.idCita);
+            }
           }
           appointmentMap.set(appt.idCita, appt);
         }
@@ -279,6 +283,27 @@ export function useRealtimeAgenda(apiBaseUrl = '/api/v1') {
 
   useEffect(() => {
     fetchAgenda();
+  }, [fetchAgenda]);
+
+  // Refresco silencioso en tiempo real (al volver a la pestaña o cada 20s si está visible)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const silentRefresh = () => {
+      if (document.visibilityState === 'visible') {
+        fetchAgenda(true);
+      }
+    };
+
+    const intervalId = window.setInterval(silentRefresh, 20000);
+    window.addEventListener('focus', silentRefresh);
+    document.addEventListener('visibilitychange', silentRefresh);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener('focus', silentRefresh);
+      document.removeEventListener('visibilitychange', silentRefresh);
+    };
   }, [fetchAgenda]);
 
   // Filtrado de citas por doctor si hay texto en doctorFilter
