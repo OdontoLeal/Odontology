@@ -1,0 +1,220 @@
+# ==============================================================================
+# 1. Estilos
+# ==============================================================================
+classes: {
+  client: {
+    shape: person
+    style: {
+      fill: "#DBEAFE"
+      stroke: "#1D4ED8"
+      stroke-width: 2
+      shadow: true
+      font-color: "#1E3A8A"
+    }
+  }
+
+  edge: {
+    style: {
+      fill: "#FEF3C7"
+      stroke: "#D97706"
+      stroke-width: 2
+      border-radius: 10
+      shadow: true
+      font-color: "#78350F"
+    }
+  }
+
+  runtime: {
+    style: {
+      fill: "#EDE9FE"
+      stroke: "#6D28D9"
+      stroke-width: 2
+      border-radius: 12
+      shadow: true
+      font-color: "#3B0764"
+    }
+  }
+
+  module: {
+    style: {
+      fill: "#FFFFFF"
+      stroke: "#475569"
+      stroke-width: 2
+      border-radius: 8
+      shadow: true
+      font-color: "#0F172A"
+    }
+  }
+
+  database: {
+    shape: cylinder
+    style: {
+      fill: "#DCFCE7"
+      stroke: "#15803D"
+      stroke-width: 2
+      shadow: true
+      font-color: "#14532D"
+    }
+  }
+
+  external: {
+    style: {
+      fill: "#FFF1F2"
+      stroke: "#BE123C"
+      stroke-width: 2
+      stroke-dash: 4
+      border-radius: 10
+      shadow: true
+      font-color: "#881337"
+    }
+  }
+}
+
+# ==============================================================================
+# 2. Nodos y Contenedores
+# ==============================================================================
+direction: right
+
+clientes: "Capa de Clientes Web (Entorno Externo)" {
+  style: {
+    fill: "#F8FAFC"
+    stroke: "#94A3B8"
+    stroke-width: 2
+    stroke-dash: 3
+    border-radius: 12
+    font-color: "#1E293B"
+  }
+
+  personal_clinico: "Personal Clínico y Administrativo\nNavegadores de Escritorio\n(SPA React 19 + Tailwind CSS 4)" {
+    class: client
+  }
+
+  pacientes_firma: "Pacientes / Firma en Consultorio\nPortal Público y Dispositivos Táctiles\n(Tablets / Móviles)" {
+    class: client
+  }
+}
+
+heroku: "Heroku Cloud Platform (PaaS)" {
+  style: {
+    fill: "#FAF5FF"
+    stroke: "#7C3AED"
+    stroke-width: 2
+    border-radius: 14
+    shadow: true
+    font-color: "#4C1D95"
+  }
+
+  router: "Heroku Router\nTerminación TLS (SSL Offloading)\nEncabezados X-Forwarded-Proto" {
+    class: edge
+  }
+
+  dyno_web: "Dyno Web (Node.js 24.13 / Express 5.3 Runtime)\nProceso único: node dist/app/server.js (Procfile)" {
+    class: runtime
+
+    static_server: "Servidor de Archivos Estáticos\nexpress.static('dist/public')\nBundle SPA: React 19 + Vite 8 + Tailwind CSS 4\nFallback GET (no /api/*) -> index.html" {
+      class: module
+    }
+
+    middlewares: "Pipeline de Middlewares Transversales\n• trust proxy (1) + CORS dinámico\n• express.json (limit: 5mb)\n• authMiddleware (JWT HS256 + sesion_revocada)\n• requirePermission (RBAC BD + ACCESO_BLOQUEADO)\n• handleRequestError + AuditLogService + Zod" {
+      class: module
+    }
+
+    api_router: "Enrutador Principal (/api/v1)\nsrc/app/routes/api.routes.ts\n(+ alias /api/users-auth)\nHealthcheck, Rutas Públicas y Protegidas" {
+      class: module
+    }
+
+    modulos: "6 Módulos de Dominio (src/modules/)" {
+      style: {
+        fill: "#F8FAFC"
+        stroke: "#64748B"
+        stroke-width: 2
+        stroke-dash: 3
+        border-radius: 10
+        font-color: "#0F172A"
+      }
+
+      patients: "patients\nDirectorio, Perfil Segregado\ny Habeas Data (Ley 1581)" {
+        class: module
+      }
+
+      consents: "consents\nPlantillas Versionadas y\nFirma Manuscrita Base64" {
+        class: module
+      }
+
+      clinical_documents: "clinical-documents\nÓrdenes, Incapacidades y\nRemisiones con Firma" {
+        class: module
+      }
+
+      clinical_records: "clinical-records\nHistoria Clínica, Evoluciones\nJSONB y Odontograma FDI" {
+        class: module
+      }
+
+      users_auth: "users-auth\nUsuarios, RBAC, JWT HS256,\nRevocación y Recuperación" {
+        class: module
+      }
+
+      appointments: "appointments\nAgenda (bloques 30m), Solicitudes\nPúblicas y Máquina de 7 Estados" {
+        class: module
+      }
+    }
+
+    pdf_engine: "Motor PDF en Memoria (pdf-lib)\nEnsamblaje PDF-1.7 (Uint8Array / Base64)\nEstampado de firmas sin disco efímero" {
+      class: module
+    }
+
+    cron_service: "Planificador en Segundo Plano (CronService)\nEjecución cada 60s / usuario Sistema (UTC-5)\n1. cancelUnmanagedRequests (00:00)\n2. markUnstartedAsNoShow (23:59)\n3. closeOpenConsultations (23:59)\n4. send24HourReminders (24h antes)\n5. sendDailyDigest (07:00 a. m.)" {
+      class: module
+    }
+  }
+}
+
+persistencia_externa: "Persistencia y Servicios Externos" {
+  style: {
+    fill: "#F8FAFC"
+    stroke: "#94A3B8"
+    stroke-width: 2
+    stroke-dash: 3
+    border-radius: 12
+    font-color: "#1E293B"
+  }
+
+  postgres: "Add-on Heroku Postgres\nPostgreSQL 15+ (JSONB / Triggers)\nHuso horario: America/Bogota\nAuditoría: registro_auditoria" {
+    class: database
+  }
+
+  smtp: "Servidor SMTP Externo\nGmail / Brevo / Resend / Ethereal\n(Correo transaccional)" {
+    class: external
+  }
+}
+
+# ==============================================================================
+# 3. Relaciones
+# ==============================================================================
+
+# Tráfico entrante desde clientes hacia el borde TLS de Heroku
+clientes.personal_clinico -> heroku.router: "HTTPS (443 / TLS 1.2-1.3) + Bearer JWT / Cookie"
+clientes.pacientes_firma -> heroku.router: "HTTPS (443 / TLS 1.2-1.3) - Portal Público / Firma"
+
+# Reenvío interno HTTP tras terminación TLS hacia el Dyno Web
+heroku.router -> heroku.dyno_web.static_server: "HTTP Proxy (\$PORT) - GET SPA (dist/public)"
+heroku.router -> heroku.dyno_web.middlewares: "HTTP Proxy (\$PORT) - Peticiones /api/v1"
+
+# Pipeline HTTP y enrutamiento hacia los 6 módulos de dominio
+heroku.dyno_web.middlewares -> heroku.dyno_web.api_router: "Request validada (CORS, JSON, JWT, RBAC)"
+heroku.dyno_web.api_router -> heroku.dyno_web.modulos: "Despacho REST (/api/v1/*)"
+
+# Generación documental en memoria (sin escritura en disco efímero)
+heroku.dyno_web.modulos.patients -> heroku.dyno_web.pdf_engine: "Buffer en memoria (PDF Habeas Data)"
+heroku.dyno_web.modulos.consents -> heroku.dyno_web.pdf_engine: "Buffer en memoria (Acta PDF-1.7 + firma)"
+heroku.dyno_web.modulos.clinical_documents -> heroku.dyno_web.pdf_engine: "Buffer en memoria (Documento PDF-1.7 + firma)"
+
+# Tareas programadas internas (CronService)
+heroku.dyno_web.cron_service -> heroku.dyno_web.modulos.appointments: "Jobs periódicos cada 60s (Usuario Sistema)"
+
+# Persistencia relacional mediante pg.Pool con SSL y envíos SMTP vía nodemailer
+heroku.dyno_web.modulos -> persistencia_externa.postgres: "TCP / pg.Pool (SSL, rejectUnauthorized: false)"
+heroku.dyno_web.cron_service -> persistencia_externa.postgres: "TCP / pg.Pool (SSL, Transacciones Sistema)"
+
+heroku.dyno_web.modulos.users_auth -> persistencia_externa.smtp: "SMTP / TLS (nodemailer - Recuperación)"
+heroku.dyno_web.modulos.appointments -> persistencia_externa.smtp: "SMTP / TLS (nodemailer - Citas y Alertas)"
+heroku.dyno_web.cron_service -> persistencia_externa.smtp: "SMTP / TLS (nodemailer - Recordatorios y Digest)"
