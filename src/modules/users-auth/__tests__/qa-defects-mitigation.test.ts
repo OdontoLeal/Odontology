@@ -629,4 +629,130 @@ describe('VERIFICACIÓN Y MITIGACIÓN DE DEFECTOS QA (D-01 a D-14)', () => {
     assert.strictEqual(res.body.data.yaExistian, true);
     assert.ok(res.body.message.includes('ya se encuentran generados'));
   });
+
+  it('DEF-AGENDA-03: AppointmentsController.getAgenda excluye canceladas en la agenda operativa y las mantiene en historial por paciente', async () => {
+    const calls: any[] = [];
+    const fakeApptRepo: any = {
+      getAgenda: async (idProfesional?: number, idPaciente?: number, fecha?: string, includeCancelled?: boolean) => {
+        calls.push({ idProfesional, idPaciente, fecha, includeCancelled });
+        return [];
+      },
+    };
+    const ctrl = new AppointmentsController(fakeApptRepo);
+
+    // Agenda operativa (sin idPaciente) -> includeCancelled = false
+    await ctrl.getAgenda(
+      { user: { idUsuario: 1, roles: ['ROL-COA'], permisos: ['RF-AGE-008'] }, query: { fecha: '2026-11-10' } } as any,
+      createMockResponse()
+    );
+    assert.strictEqual(calls[0].includeCancelled, false);
+
+    // Historial en ficha de paciente (con idPaciente) -> includeCancelled = true
+    await ctrl.getAgenda(
+      { user: { idUsuario: 1, roles: ['ROL-COA'], permisos: ['RF-AGE-008'] }, query: { idPaciente: '15' } } as any,
+      createMockResponse()
+    );
+    assert.strictEqual(calls[1].idPaciente, 15);
+    assert.strictEqual(calls[1].includeCancelled, true);
+  });
+
+  it('DEF-AUX-01 (Opción A): ROL-AUX puede registrar evolución/odontograma en consulta sin apertura previa y luego el doctor completa la apertura sin perder datos', async () => {
+    const { ClinicalRecordsController } = await import('../../clinical-records/infrastructure/clinical-records.controller');
+    const { CreateClinicalRecordUseCase } = await import('../../clinical-records/application/create-clinical-record.use-case');
+    const { ClinicalRecordsModulePublicApi } = await import('../../clinical-records');
+
+    let storedEvo: any = null;
+    const capturedEntries: any[] = [];
+    const fakeRepo: any = {
+      getAppointmentContext: async (idCita: number) => ({
+        idCita,
+        idPaciente: 7,
+        idProfesional: 2,
+        nombreProfesional: 'Dr. Prueba',
+        estado: 'En consulta',
+      }),
+      findEvolutionByCitaId: async () => storedEvo,
+      getClinicalHistoryByPatient: async () => [
+        {
+          idHistoria: 1,
+          idPaciente: 7,
+          idEvolucion: 90,
+          idCita: 1,
+          motivoConsulta: 'Control previo',
+          antecedentesClinicos: { diabetes: { aplica: true, observacion: 'Controlada' } },
+          evolucion: {
+            tipoRegistro: 'APERTURA_CONSULTA',
+            motivoConsulta: 'Control previo',
+            antecedentes: { diabetes: { aplica: true, observacion: 'Controlada' } },
+          },
+        },
+        ...(storedEvo ? [storedEvo] : []),
+      ],
+      createEvolutionEntry: async (dto: any) => {
+        capturedEntries.push(dto);
+        storedEvo = {
+          idEvolucion: 99,
+          idHistoria: 1,
+          idCita: dto.idCita,
+          motivoConsulta: dto.motivoConsulta ?? '',
+          antecedentesClinicos: dto.antecedentesClinicos ?? {},
+          evolucion: {
+            tipoRegistro: dto.payload?.tipoRegistro ?? 'EVOLUCION_ODONTOGRAMA',
+            motivoConsulta: dto.motivoConsulta ?? '',
+            antecedentes: dto.antecedentesClinicos ?? {},
+          },
+        };
+        return storedEvo;
+      },
+    };
+
+    const ctrl = new ClinicalRecordsController(fakeRepo);
+    const auxReq: any = {
+      user: {
+        idUsuario: 8,
+        correo: 'aux@x.co',
+        nombreCompleto: 'Milena Aux',
+        roles: ['ROL-AUX'],
+        permisos: ['RF-HCL-007', 'RF-HCL-009'],
+      },
+      body: {
+        idPaciente: 7,
+        idCita: 200,
+        procedimientoRealizado: 'Aislamiento y toma radiográfica',
+        hallazgosObservaciones: 'Paciente colaborador',
+      },
+    };
+    const auxRes = createMockResponse();
+    await ctrl.createEntry(auxReq, auxRes);
+
+    assert.strictEqual(auxRes.statusCode, 201);
+    assert.strictEqual(capturedEntries[0].actor.esProfesionalResponsable, false);
+    assert.strictEqual(capturedEntries[0].nota.texto, 'Paciente colaborador');
+    assert.strictEqual(capturedEntries[0].nota.procedimientoRealizado, 'Aislamiento y toma radiográfica');
+
+    // Mientras solo haya apoyo de la auxiliar sin motivoConsulta, NO se considera apertura médica completa
+    const publicApi = new ClinicalRecordsModulePublicApi(fakeRepo);
+    assert.strictEqual(await publicApi.hasConsultationReasonRegistered(200), false);
+
+    // Luego el odontólogo completa la apertura formal (precargando antecedentes de la cita previa #1, no los vacíos de #200)
+    const createUseCase = new CreateClinicalRecordUseCase(fakeRepo);
+    await createUseCase.execute({
+      idPaciente: 7,
+      idCita: 200,
+      estadoCita: 'En consulta',
+      idProfesionalResponsable: 2,
+      actor: { idUsuario: 2, nombreUsuario: 'Dr. Prueba', roles: ['ROL-ODO'] },
+      writer: { idUsuario: 2, nombreUsuario: 'Dr. Prueba', correo: 'dr@x.co', esProfesionalResponsable: true },
+      motivoConsulta: 'Dolor en molar inferior',
+    });
+
+    assert.strictEqual(await publicApi.hasConsultationReasonRegistered(200), true);
+    assert.strictEqual(capturedEntries[1].antecedentesClinicos.diabetes.aplica, true);
+  });
+
+  it('DEF-MODAL-01: Modal.tsx no reinicia foco al cambiar la referencia de onClose al escribir', () => {
+    const modalSrc = fs.readFileSync('src/shared/ui/components/Modal.tsx', 'utf8');
+    assert.ok(modalSrc.includes('onCloseRef'), 'Debe usar onCloseRef para evitar re-ejecución del efecto');
+    assert.ok(!modalSrc.includes('}, [isOpen, onClose])'), 'El useEffect del foco no debe depender de onClose');
+  });
 });

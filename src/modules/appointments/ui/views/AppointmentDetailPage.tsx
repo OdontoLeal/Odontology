@@ -41,6 +41,7 @@ export interface AppointmentDetailPageProps {
   onBack: () => void;
   onNavigateToPatientProfile?: (idPaciente: number) => void;
   canStartAttention?: boolean;
+  canAssistConsultation?: boolean;
   onStartAttention?: (idCita: number, idPaciente: number) => void;
   onMarkNoShow?: (idCita: number, motivo: string) => Promise<void> | void;
   onCancelAppointment?: (idCita: number, motivo: string) => Promise<void> | void;
@@ -62,6 +63,7 @@ export const AppointmentDetailPage: React.FC<AppointmentDetailPageProps> = ({
   onBack,
   onNavigateToPatientProfile,
   canStartAttention = true,
+  canAssistConsultation,
   onStartAttention,
   onMarkNoShow,
   onCancelAppointment,
@@ -372,6 +374,7 @@ export const AppointmentDetailPage: React.FC<AppointmentDetailPageProps> = ({
       <AppointmentDetailHeader
         appointment={appointment}
         canStartAttention={canStartAttention}
+        canAssistConsultation={canAssistConsultation ?? canStartAttention}
         formatSpanishHeaderDate={formatSpanishHeaderDate}
         getInitials={getInitials}
         onBack={onBack}

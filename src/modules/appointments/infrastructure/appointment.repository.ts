@@ -868,7 +868,12 @@ export class AppointmentRepository {
   // ------------------------------------------------------------------
   // RF-AGE-008: agenda con paciente, bloques, "Agendado por", recordatorio e historial
   // ------------------------------------------------------------------
-  async getAgenda(idProfesional?: number, idPaciente?: number, fecha?: string) {
+  async getAgenda(
+    idProfesional?: number,
+    idPaciente?: number,
+    fecha?: string,
+    includeCancelled = false
+  ) {
     const conditions: string[] = [];
     const params: unknown[] = [];
     if (idProfesional) {
@@ -884,6 +889,10 @@ export class AppointmentRepository {
       conditions.push(
         `EXISTS (SELECT 1 FROM public.bloques_citas bcf WHERE bcf.id_cita = c.id_cita AND bcf.id_bloque::date = $${params.length}::date)`
       );
+    }
+    if (!includeCancelled) {
+      // RF-AGE-008: Las citas canceladas/rechazadas liberaron sus bloques y solo aparecen en historial o filtro explícito.
+      conditions.push(`c.estado NOT IN ('Cancelada', 'Rechazada')`);
     }
     const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 

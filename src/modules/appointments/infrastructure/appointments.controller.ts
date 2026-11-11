@@ -484,7 +484,11 @@ export class AppointmentsController {
         : user.idUsuario;
       const idPaciente = req.query.idPaciente ? Number(req.query.idPaciente) : undefined;
       const fecha = req.query.fecha ? String(req.query.fecha) : undefined;
-      res.json({ data: await this.appointmentRepo.getAgenda(idProfesional, idPaciente, fecha) });
+      // En la ficha del paciente (idPaciente) sí se muestran citas canceladas en "Citas anteriores"; en agenda operativa no.
+      const includeCancelled = Boolean(idPaciente) || req.query.incluirCanceladas === 'true';
+      res.json({
+        data: await this.appointmentRepo.getAgenda(idProfesional, idPaciente, fecha, includeCancelled),
+      });
     } catch (error) {
       await handleRequestError(req, res, error, 500);
     }

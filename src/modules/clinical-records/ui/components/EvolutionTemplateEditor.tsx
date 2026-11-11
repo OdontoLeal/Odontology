@@ -19,6 +19,7 @@ import {
   DEFAULT_PLAN_MANEJO,
 } from '../../infrastructure/clinical-record.model';
 import { useAlertModal } from '../../../../shared/ui/hooks/useAlertModal';
+import { ConsultationNoteViewItem } from '../hooks/useClinicalRecord';
 import { downloadClinicalDocument } from '../../../clinical-documents/ui/hooks/useClinicalDocuments';
 import {
   CalendarIcon,
@@ -71,6 +72,10 @@ export interface EvolutionTemplateEditorProps {
   doctorRole?: string;
   displayDate?: string;
   readOnly?: boolean;
+  isAssistantMode?: boolean;
+  canGenerateDocuments?: boolean;
+  hasServerRecord?: boolean;
+  consultationNotes?: ConsultationNoteViewItem[];
   odontogram?: OdontogramDataDTO;
   onOdontogramChange?: (data: OdontogramDataDTO) => void;
   onSaveDraft?: (data: EvolutionFormData) => Promise<void> | void;
@@ -119,6 +124,10 @@ export const EvolutionTemplateEditor: React.FC<EvolutionTemplateEditorProps> = (
   doctorRole = 'Odontología General',
   displayDate,
   readOnly = false,
+  isAssistantMode = false,
+  canGenerateDocuments = true,
+  hasServerRecord = false,
+  consultationNotes = [],
   odontogram: propOdontogram,
   onOdontogramChange,
   onSaveDraft,
@@ -126,7 +135,9 @@ export const EvolutionTemplateEditor: React.FC<EvolutionTemplateEditorProps> = (
   onOpenExpandedOdontogram,
   onBackToDetail,
 }) => {
-  const [activeTab, setActiveTab] = useState<EvolutionTab>('ENTRADA');
+  const [activeTab, setActiveTab] = useState<EvolutionTab>(
+    isAssistantMode ? 'HALLAZGOS_PROCEDIMIENTO' : 'ENTRADA'
+  );
   const [motivoConsulta, setMotivoConsulta] = useState(initialData?.motivoConsulta || '');
   const [enfermedadActual, setEnfermedadActual] = useState(initialData?.enfermedadActual || '');
   const [antecedentesClinicos, setAntecedentesClinicos] = useState<AntecedentesClinicosDTO>(
@@ -164,17 +175,16 @@ export const EvolutionTemplateEditor: React.FC<EvolutionTemplateEditorProps> = (
   );
 
   const { showAlert, showConfirm, AlertModalComponent } = useAlertModal();
-  const initializedCitaRef = React.useRef<number | null>(null);
+  const initializedKeyRef = React.useRef<string | null>(null);
 
   useEffect(() => {
     if (!initialData) return;
-    if (idCita && initializedCitaRef.current === idCita) {
-      // Ya se inicializaron los datos para esta cita; no sobreescribir la información digitada por el usuario
+    const targetKey = `${idCita ?? 'none'}:${hasServerRecord ? 'RECORD' : 'EMPTY'}`;
+    if (initializedKeyRef.current === targetKey || (initializedKeyRef.current === `${idCita ?? 'none'}:RECORD`)) {
+      // Ya se hidrataron los datos reales para esta cita; no sobreescribir lo digitado por el usuario
       return;
     }
-    if (idCita) {
-      initializedCitaRef.current = idCita;
-    }
+    initializedKeyRef.current = targetKey;
 
     if (initialData.motivoConsulta !== undefined) setMotivoConsulta(initialData.motivoConsulta);
     if (initialData.enfermedadActual !== undefined) setEnfermedadActual(initialData.enfermedadActual);
@@ -213,7 +223,7 @@ export const EvolutionTemplateEditor: React.FC<EvolutionTemplateEditorProps> = (
       setPlanManejo(initialData.planManejo || DEFAULT_PLAN_MANEJO);
       setConductaPlanManejo(initialData.planManejo?.conducta || '');
     }
-  }, [initialData, idCita]);
+  }, [initialData, idCita, hasServerRecord]);
 
   const affectedTeethCount = useMemo(() => countAffectedTeeth(activeOdontogram), [activeOdontogram]);
 
@@ -244,7 +254,17 @@ export const EvolutionTemplateEditor: React.FC<EvolutionTemplateEditorProps> = (
     examenFisico: examenEstomatognatico || DEFAULT_EXAMEN_ESTOMATOGNATICO,
   });
 
+  const handleOdontogramUpdate = (updated: OdontogramDataDTO) => {
+    setLocalOdontogram(updated);
+    onOdontogramChange?.(updated);
+  };
+
   const handleSubmit = () => {
+    if (isAssistantMode) {
+      // ROL-AUX puede guardar únicamente odontograma, procedimiento asistido o nota de evolución (RF-HCL-007 / RF-HCL-009)
+      onSubmitOfficial?.(getFullFormData());
+      return;
+    }
     if (!motivoConsulta.trim()) {
       showAlert({
         title: 'Campo Obligatorio Faltante',
@@ -421,7 +441,7 @@ export const EvolutionTemplateEditor: React.FC<EvolutionTemplateEditorProps> = (
                 onClick={handleSubmit}
                 leftIcon={<SaveIcon size={16} color="#111111" />}
               >
-                Guardar y finalizar cita
+                {isAssistantMode ? 'Guardar evolución y odontograma' : 'Guardar y finalizar cita'}
               </DetailAction>
             ) : undefined
           }
@@ -453,7 +473,7 @@ export const EvolutionTemplateEditor: React.FC<EvolutionTemplateEditorProps> = (
         <AnamnesisTab
           motivoConsulta={motivoConsulta}
           enfermedadActual={enfermedadActual}
-          readOnly={readOnly}
+          readOnly={readOnly || isAssistantMode}
           onMotivoConsultaChange={setMotivoConsulta}
           onEnfermedadActualChange={setEnfermedadActual}
           onNextTab={() => setActiveTab('ANTECEDENTES')}
@@ -465,7 +485,7 @@ export const EvolutionTemplateEditor: React.FC<EvolutionTemplateEditorProps> = (
         <MedicalBackgroundTab
           antecedentesClinicos={antecedentesClinicos}
           habitosHigiene={habitosHigiene}
-          readOnly={readOnly}
+          readOnly={readOnly || isAssistantMode}
           onChange={(bgs, hbts) => {
             setAntecedentesClinicos(bgs);
             setHabitosHigiene(hbts);
@@ -480,7 +500,7 @@ export const EvolutionTemplateEditor: React.FC<EvolutionTemplateEditorProps> = (
         <PhysicalExamTab
           examenEstomatognatico={examenEstomatognatico}
           examenFisicoObservaciones={examenFisicoObservaciones}
-          readOnly={readOnly}
+          readOnly={readOnly || isAssistantMode}
           onChange={(structs, notes) => {
             setExamenEstomatognatico(structs);
             setExamenFisicoObservaciones(notes);
@@ -496,14 +516,17 @@ export const EvolutionTemplateEditor: React.FC<EvolutionTemplateEditorProps> = (
           activeOdontogram={activeOdontogram}
           affectedTeethCount={affectedTeethCount}
           readOnly={readOnly}
+          isAssistantMode={isAssistantMode}
           procedimientoRealizado={procedimientoRealizado}
           diagnostico={diagnostico}
           accionesARealizar={accionesARealizar}
           observaciones={observaciones}
+          consultationNotes={consultationNotes}
           onProcedimientoChange={setProcedimientoRealizado}
           onDiagnosticoChange={setDiagnostico}
           onAccionesChange={setAccionesARealizar}
           onObservacionesChange={setObservaciones}
+          onOdontogramChange={handleOdontogramUpdate}
           onOpenExpandedOdontogram={onOpenExpandedOdontogram}
           onDiscardChanges={handleDiscardChanges}
           onNextTab={() => setActiveTab('PLAN_MANEJO')}
@@ -515,7 +538,8 @@ export const EvolutionTemplateEditor: React.FC<EvolutionTemplateEditorProps> = (
         <ManagementPlanTab
           planManejo={planManejo}
           conductaPlanManejo={conductaPlanManejo}
-          readOnly={readOnly}
+          readOnly={readOnly || isAssistantMode}
+          canPrintDocuments={canGenerateDocuments && !readOnly && !isAssistantMode}
           onPlanManejoChange={setPlanManejo}
           onConductaChange={setConductaPlanManejo}
           onPrintDocument={handlePrintDocument}

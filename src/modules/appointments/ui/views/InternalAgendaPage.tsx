@@ -41,6 +41,7 @@ export interface InternalAgendaPageProps {
   canManageSlots?: boolean;
   canCreateAppointment?: boolean;
   canStartAttention?: boolean;
+  canAssistConsultation?: boolean;
 }
 
 export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
@@ -50,6 +51,7 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
   canManageSlots = true,
   canCreateAppointment = true,
   canStartAttention = true,
+  canAssistConsultation,
 }) => {
   const {
     selectedDate,
@@ -397,6 +399,7 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
           appointment={activeAppointmentDetail}
           doctors={doctors}
           canStartAttention={canStartAttention}
+          canAssistConsultation={canAssistConsultation ?? canStartAttention}
           onBack={() => setViewMode('AGENDA')}
           onNavigateToPatientProfile={onNavigateToPatientProfile}
           onUpdateAppointment={async (idCita, data) => {

@@ -278,15 +278,29 @@ export class ClinicalRecordRepository implements IClinicalRecordRepository {
       let idEvolucion: number;
 
       if (!existing) {
-        if (!actor.esProfesionalResponsable) {
+        if (actor.esProfesionalResponsable) {
+          if (!nonEmpty(opening.motivo_consulta)) {
+            throw new ClinicalDomainError('Falta registrar el motivo de consulta.', 'BAD_REQUEST');
+          }
+        } else if (!odontograma && !nonEmpty(dto.nota?.texto) && !nonEmpty(dto.nota?.procedimientoRealizado)) {
           throw new ClinicalDomainError(
-            'El profesional responsable debe registrar primero la apertura de la consulta (motivo de consulta).',
+            'Debe registrar al menos un hallazgo en el odontograma o una nota de evolución.',
             'BAD_REQUEST'
           );
         }
-        if (!nonEmpty(opening.motivo_consulta)) {
-          throw new ClinicalDomainError('Falta registrar el motivo de consulta.', 'BAD_REQUEST');
+
+        let initialOdontogram = odontograma;
+        if (!initialOdontogram) {
+          const prevOdontoRes = await client.query<{ odontograma: any }>(
+            `SELECT odontograma FROM public.evolucion
+              WHERE id_historia = $1 AND jsonb_typeof(odontograma) = 'object' AND odontograma ? 'cuadrantes'
+              ORDER BY fecha DESC LIMIT 1;`,
+            [idHistoria]
+          );
+          initialOdontogram = prevOdontoRes.rows[0]?.odontograma ?? createInitialOdontograma();
         }
+
+        const isProfessionalOpening = actor.esProfesionalResponsable;
         const ins = await client.query<{ id_evolucion: number }>(
           `INSERT INTO public.evolucion (
              id_historia, id_cita, motivo_consulta, enfermedad_actual, antecedentes_clinicos, habitos_higiene,
@@ -297,19 +311,35 @@ export class ClinicalRecordRepository implements IClinicalRecordRepository {
           [
             idHistoria,
             dto.idCita,
-            String(opening.motivo_consulta).trim().slice(0, 250),
-            (opening.enfermedad_actual as string) ?? 'N/A',
-            JSON.stringify(opening.antecedentes_clinicos ?? createDefaultAntecedentesClinicos()),
-            JSON.stringify(opening.habitos_higiene ?? createDefaultHabitosHigiene()),
-            JSON.stringify(opening.examen_estomatognatico ?? createDefaultExamenEstomatognatico()),
-            (opening.examen_fisico_observaciones as string) ?? null,
-            JSON.stringify(odontograma ?? createInitialOdontograma()),
-            (opening.procedimiento_realizado as string) ?? null,
-            (opening.diagnostico_generado as string) ?? null,
-            (opening.acciones_a_realizar as string) ?? null,
-            (opening.hallazgos_observaciones as string) ?? null,
-            JSON.stringify(opening.plan_manejo ?? createDefaultPlanManejo()),
-            actor.idUsuario,
+            isProfessionalOpening ? String(opening.motivo_consulta).trim().slice(0, 250) : '',
+            isProfessionalOpening ? ((opening.enfermedad_actual as string) ?? 'N/A') : 'N/A',
+            JSON.stringify(
+              isProfessionalOpening
+                ? (opening.antecedentes_clinicos ?? createDefaultAntecedentesClinicos())
+                : createDefaultAntecedentesClinicos()
+            ),
+            JSON.stringify(
+              isProfessionalOpening
+                ? (opening.habitos_higiene ?? createDefaultHabitosHigiene())
+                : createDefaultHabitosHigiene()
+            ),
+            JSON.stringify(
+              isProfessionalOpening
+                ? (opening.examen_estomatognatico ?? createDefaultExamenEstomatognatico())
+                : createDefaultExamenEstomatognatico()
+            ),
+            isProfessionalOpening ? ((opening.examen_fisico_observaciones as string) ?? null) : null,
+            JSON.stringify(initialOdontogram),
+            isProfessionalOpening ? ((opening.procedimiento_realizado as string) ?? null) : null,
+            isProfessionalOpening ? ((opening.diagnostico_generado as string) ?? null) : null,
+            isProfessionalOpening ? ((opening.acciones_a_realizar as string) ?? null) : null,
+            isProfessionalOpening ? ((opening.hallazgos_observaciones as string) ?? null) : null,
+            JSON.stringify(
+              isProfessionalOpening
+                ? (opening.plan_manejo ?? createDefaultPlanManejo())
+                : createDefaultPlanManejo()
+            ),
+            isProfessionalOpening ? actor.idUsuario : null,
           ]
         );
         idEvolucion = ins.rows[0].id_evolucion;
@@ -320,14 +350,28 @@ export class ClinicalRecordRepository implements IClinicalRecordRepository {
             accion: 'CREAR',
             entidad: 'evolucion',
             idRegistro: idEvolucion,
-            valorNuevo: { idCita: dto.idCita, ...opening, odontograma: Boolean(odontograma) },
+            valorNuevo: isProfessionalOpening
+              ? { idCita: dto.idCita, ...opening, odontograma: Boolean(odontograma) }
+              : { idCita: dto.idCita, preDiligenciamientoAuxiliar: true, odontograma: Boolean(odontograma) },
           },
           client
         );
       } else {
         idEvolucion = existing.id_evolucion;
         const changes: Record<string, unknown> = {};
-        if (actor.esProfesionalResponsable) Object.assign(changes, opening);
+        if (actor.esProfesionalResponsable) {
+          if (
+            !nonEmpty(existing.motivo_consulta) &&
+            !nonEmpty(opening.motivo_consulta) &&
+            existing.id_usuario_diligencio == null
+          ) {
+            throw new ClinicalDomainError('Falta registrar el motivo de consulta.', 'BAD_REQUEST');
+          }
+          Object.assign(changes, opening);
+          if (existing.id_usuario_diligencio == null) {
+            changes.id_usuario_diligencio = actor.idUsuario;
+          }
+        }
         if (odontograma) changes.odontograma = odontograma;
         await this.applyChanges(client, existing, changes, actor);
       }
@@ -355,7 +399,7 @@ export class ClinicalRecordRepository implements IClinicalRecordRepository {
     const nuevo: Record<string, unknown> = {};
 
     for (const [col, value] of Object.entries(changes)) {
-      if (![...OPENING_COLUMNS, 'odontograma'].includes(col as any)) continue;
+      if (![...OPENING_COLUMNS, 'odontograma', 'id_usuario_diligencio'].includes(col as any)) continue;
       const before = existing[col];
       const same = JSON.stringify(before ?? null) === JSON.stringify(value ?? null);
       if (same) continue;
@@ -410,7 +454,12 @@ export class ClinicalRecordRepository implements IClinicalRecordRepository {
 
       const payload = nuevoPayload as any;
       const changes: Record<string, unknown> = {};
-      if (actor.esProfesionalResponsable) Object.assign(changes, openingValuesFrom(payload));
+      if (actor.esProfesionalResponsable) {
+        Object.assign(changes, openingValuesFrom(payload));
+        if (existing.id_usuario_diligencio == null) {
+          changes.id_usuario_diligencio = actor.idUsuario;
+        }
+      }
       if (isNonEmptyObject(payload.odontograma)) changes.odontograma = payload.odontograma;
 
       const before = mapEvolucionRow({ ...existing });

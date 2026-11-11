@@ -226,10 +226,49 @@ export const App: React.FC = () => {
   const canManageSlots = auth.hasPermission('RF-AGE-001');
   const canCreateAppointment = auth.hasPermission('RF-AGE-002');
   const canStartAttention = auth.hasPermission('RF-AGE-009');
+  const canEditClinicalOpening =
+    auth.hasPermission('RF-HCL-005') || auth.hasPermission('RF-HCL-006');
+  const canAssistConsultation =
+    canStartAttention ||
+    auth.hasPermission('RF-HCL-007') ||
+    auth.hasPermission('RF-HCL-009');
+  const canViewClinicalHistory = auth.hasPermission('RF-HCL-008');
+  const canGenerateClinicalDocuments =
+    auth.hasPermission('RF-DOC-001') ||
+    auth.hasPermission('RF-DOC-002') ||
+    auth.hasPermission('RF-DOC-003');
   const canCreatePatient = auth.hasPermission('RF-HCL-001');
   const canAccessHabeasData = auth.hasPermission('RF-HCL-010');
   const canCreateUser = auth.hasPermission('RF-USR-001');
   const canCreateRole = auth.hasPermission('RF-USR-007');
+
+  const openConsultationWorkspace = useCallback(
+    (
+      idPaciente: number,
+      idCita: number,
+      doctorInfo?: { doctorName?: string; doctorSignature?: string | null }
+    ) => {
+      const matched = patients.find((p) => p.idPaciente === idPaciente);
+      if (matched) {
+        setSelectedPatient(matched);
+      } else {
+        setSelectedPatient(null);
+        fetch(`/api/v1/patients/${idPaciente}`)
+          .then((res) => (res.ok ? res.json() : null))
+          .then((json) => {
+            if (json?.data) setSelectedPatient(json.data);
+          })
+          .catch(() => {});
+      }
+      setActiveConsultationContext({
+        idPaciente,
+        idCita,
+        doctorName: doctorInfo?.doctorName,
+        doctorSignature: doctorInfo?.doctorSignature,
+      });
+    },
+    [patients]
+  );
 
   // Redirigir dinámicamente si la vista activa no está permitida para el rol del usuario
   useEffect(() => {
@@ -446,10 +485,19 @@ export const App: React.FC = () => {
             patientEmail={selectedPatient?.correo || ''}
             patientAge={calculatedPatientAge}
             patientSex={selectedPatient?.sexo ?? undefined}
-            doctorName={activeConsultationContext.doctorName || auth.session.usuario.nombreCompleto}
-            doctorSignature={activeConsultationContext.doctorSignature || (auth.session.usuario as any).firmaUrl}
+            doctorName={
+              activeConsultationContext.doctorName ||
+              (canEditClinicalOpening ? auth.session.usuario.nombreCompleto : 'Profesional asignado')
+            }
+            doctorSignature={
+              activeConsultationContext.doctorSignature ??
+              (canEditClinicalOpening ? (auth.session.usuario as any).firmaUrl : null)
+            }
             onBackToAgenda={() => setActiveConsultationContext(null)}
             canFinishAttention={canStartAttention}
+            isAssistantMode={!canEditClinicalOpening}
+            canGenerateDocuments={canGenerateClinicalDocuments}
+            canViewClinicalHistory={canViewClinicalHistory}
             onFinishConsultation={async (idCita) => {
               try {
                 const res = await fetch(`/api/v1/appointments/${idCita}/state`, {
@@ -481,26 +529,13 @@ export const App: React.FC = () => {
             canManageSlots={canManageSlots}
             canCreateAppointment={canCreateAppointment}
             canStartAttention={canStartAttention}
-            onStartAttention={(idCita, idPaciente, doctorInfo) => {
-              const matched = patients.find((p) => p.idPaciente === idPaciente);
-              if (matched) setSelectedPatient(matched);
-              setActiveConsultationContext({
-                idPaciente,
-                idCita,
-                doctorName: doctorInfo?.doctorName,
-                doctorSignature: doctorInfo?.doctorSignature,
-              });
-            }}
-            onOpenConsultationWorkspace={(idPaciente, idCita, doctorInfo) => {
-              const matched = patients.find((p) => p.idPaciente === idPaciente);
-              if (matched) setSelectedPatient(matched);
-              setActiveConsultationContext({
-                idPaciente,
-                idCita,
-                doctorName: doctorInfo?.doctorName,
-                doctorSignature: doctorInfo?.doctorSignature,
-              });
-            }}
+            canAssistConsultation={canAssistConsultation}
+            onStartAttention={(idCita, idPaciente, doctorInfo) =>
+              openConsultationWorkspace(idPaciente, idCita, doctorInfo)
+            }
+            onOpenConsultationWorkspace={(idPaciente, idCita, doctorInfo) =>
+              openConsultationWorkspace(idPaciente, idCita, doctorInfo)
+            }
             onNavigateToPatientProfile={(idPaciente) => {
               const matched = patients.find((p) => p.idPaciente === idPaciente);
               if (matched) {
@@ -540,6 +575,8 @@ export const App: React.FC = () => {
             patient={selectedPatient}
             canScheduleAppointment={canCreateAppointment}
             canStartAttention={canStartAttention}
+            canAssistConsultation={canAssistConsultation}
+            canViewClinicalHistory={canViewClinicalHistory}
             onBack={() => setPatientSubView('DIRECTORY')}
             onScheduleAppointment={(_patient) => {
               setInternalView('APPOINTMENTS');
