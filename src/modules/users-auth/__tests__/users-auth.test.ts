@@ -753,6 +753,17 @@ describe('MÓDULO A: Gestión de Usuarios y Roles (RF-USR-001 a RF-USR-011)', ()
     clearRecoveryTokenFromUrl();
     assert.strictEqual(replacedUrl, '/');
 
+    // También debe conservar /recuperar-contrasena al limpiar el token en la ruta dedicada
+    replacedUrl = '';
+    (global as any).window.location = {
+      href: 'https://odontoleal-1233560f76cb.herokuapp.com/recuperar-contrasena?token=cc96829e99fc7b8c9e19bd0da464b9a02b6df4a208bbac39a7156a49ff5da1da',
+      search: '?token=cc96829e99fc7b8c9e19bd0da464b9a02b6df4a208bbac39a7156a49ff5da1da',
+      pathname: '/recuperar-contrasena',
+      hash: '',
+    };
+    clearRecoveryTokenFromUrl();
+    assert.strictEqual(replacedUrl, '/recuperar-contrasena');
+
     (global as any).window = originalWindow;
   });
 });

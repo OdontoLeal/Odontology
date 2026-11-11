@@ -75,9 +75,13 @@ export class RecoverPasswordUseCase {
 
       const rawBase = command.baseRecoveryUrl ?? 'http://localhost:5173';
       const cleanBase = rawBase.replace(/\/+$/, '');
-      const recoveryLink = cleanBase.includes('?')
-        ? `${cleanBase}&token=${rawToken}`
-        : `${cleanBase}/?token=${rawToken}`;
+      const targetBase =
+        cleanBase.includes('?') || cleanBase.endsWith('/recuperar-contrasena')
+          ? cleanBase
+          : `${cleanBase}/recuperar-contrasena`;
+      const recoveryLink = targetBase.includes('?')
+        ? `${targetBase}&token=${rawToken}`
+        : `${targetBase}?token=${rawToken}`;
 
       let previewUrl: string | null = null;
       if (this.mailer) {

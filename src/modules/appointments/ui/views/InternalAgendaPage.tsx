@@ -13,6 +13,7 @@ import { AppointmentDetailPage, AppointmentDetailPageData } from './AppointmentD
 import { usePatients } from '../../../patients/ui/hooks/usePatients';
 import { useAlertModal } from '../../../../shared/ui/hooks/useAlertModal';
 import { CalendarIcon, DoctorIcon } from '../../../../shared/ui/components/Icons';
+import { Button } from '../../../../shared/ui/components/Button';
 import { PageLayout } from '../../../../shared/ui/components/PageLayout';
 import {
   PageHeader,
@@ -25,6 +26,58 @@ import {
   ToolbarSelect,
   ToolbarLabel,
 } from '../../../../shared/ui/components/PageToolbar';
+
+const add30MinutesHHmm = (timeHHmm: string): string => {
+  const [h, m] = timeHHmm.split(':').map(Number);
+  if (isNaN(h) || isNaN(m)) return '00:30';
+  const total = h * 60 + m + 30;
+  const endH = Math.floor(total / 60) % 24;
+  const endM = total % 60;
+  return `${endH.toString().padStart(2, '0')}:${endM.toString().padStart(2, '0')}`;
+};
+
+const extractBlockHHmm = (block: string): string => {
+  const clean = String(block).replace('T', ' ');
+  const timePart = clean.split(' ')[1] || clean;
+  return timePart.slice(0, 5);
+};
+
+const mapAgendaRowToDetail = (
+  realAppt: any,
+  fallbackDate?: string,
+  slot?: CalendarTimeSlot
+): AppointmentDetailPageData => {
+  const sortedBlocks = Array.isArray(realAppt?.bloques)
+    ? [...realAppt.bloques].map(String).sort()
+    : [];
+  const firstBlock = sortedBlocks[0];
+  const lastBlock = sortedBlocks[sortedBlocks.length - 1];
+  const fecha = firstBlock
+    ? firstBlock.replace('T', ' ').slice(0, 10)
+    : fallbackDate || '';
+  const horaInicio = slot?.horaInicio || (firstBlock ? extractBlockHHmm(firstBlock) : '08:00');
+  const horaFin =
+    slot?.horaFin || (lastBlock ? add30MinutesHHmm(extractBlockHHmm(lastBlock)) : add30MinutesHHmm(horaInicio));
+
+  return {
+    idCita: Number(realAppt?.idCita ?? slot?.idCita ?? 0),
+    idPaciente: Number(realAppt?.idPaciente ?? 1),
+    nombrePaciente: realAppt?.nombrePaciente || slot?.pacienteNombre || 'Paciente',
+    documentoIdentidad: realAppt?.documentoPaciente || slot?.pacienteDocumento || '',
+    telefono: realAppt?.telefonoPaciente || slot?.pacienteTelefono || 'Sin registrar',
+    correo: realAppt?.correoPaciente || slot?.pacienteCorreo || 'Sin registrar',
+    titulo: realAppt?.titulo || slot?.tratamiento || 'Consulta odontológica',
+    descripcion: realAppt?.descripcion || '',
+    doctorNombre: realAppt?.nombreProfesional || slot?.doctorNombre || 'Profesional asignado',
+    doctorFirma: realAppt?.firmaProfesional ?? null,
+    idDoctor: Number(realAppt?.idProfesional || 1),
+    fecha,
+    horaInicio,
+    horaFin,
+    agendadoPor: realAppt?.agendadoPor || 'Portal Web',
+    estado: (realAppt?.estado || slot?.estadoCita || 'Confirmada') as AppointmentDetailPageData['estado'],
+  };
+};
 
 export interface InternalAgendaPageProps {
   onStartAttention?: (
@@ -42,6 +95,12 @@ export interface InternalAgendaPageProps {
   canCreateAppointment?: boolean;
   canStartAttention?: boolean;
   canAssistConsultation?: boolean;
+  /** Props opcionales para sincronización con URL (/agenda, /agenda/solicitudes/:id, /agenda/citas/:id) */
+  routeViewMode?: 'AGENDA' | 'REQUEST_DETAIL' | 'APPOINTMENT_DETAIL';
+  routeEntityId?: number;
+  onOpenRequestDetail?: (idSolicitud: number) => void;
+  onOpenAppointmentDetail?: (idCita: number) => void;
+  onReturnToAgenda?: () => void;
 }
 
 export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
@@ -52,6 +111,11 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
   canCreateAppointment = true,
   canStartAttention = true,
   canAssistConsultation,
+  routeViewMode,
+  routeEntityId,
+  onOpenRequestDetail,
+  onOpenAppointmentDetail,
+  onReturnToAgenda,
 }) => {
   const {
     selectedDate,
@@ -85,11 +149,140 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
 
   // Estados de navegación dentro de la Agenda
   const [viewMode, setViewMode] = useState<'AGENDA' | 'REQUEST_DETAIL' | 'APPOINTMENT_DETAIL'>(
-    'AGENDA'
+    routeViewMode ?? 'AGENDA'
   );
   const [activeRequestDetail, setActiveRequestDetail] = useState<RequestDetailData | null>(null);
   const [activeAppointmentDetail, setActiveAppointmentDetail] =
     useState<AppointmentDetailPageData | null>(null);
+  const [isHydratingRouteDetail, setIsHydratingRouteDetail] = useState(false);
+  const [routeDetailError, setRouteDetailError] = useState<string | null>(null);
+
+  const closeDetailView = () => {
+    setViewMode('AGENDA');
+    setActiveRequestDetail(null);
+    setActiveAppointmentDetail(null);
+    setRouteDetailError(null);
+    onReturnToAgenda?.();
+  };
+
+  // Hidratar vistas detalladas cuando se accede directo por URL (/agenda/solicitudes/:id o /agenda/citas/:id)
+  useEffect(() => {
+    if (!routeViewMode || routeViewMode === 'AGENDA') {
+      if (routeViewMode === 'AGENDA') {
+        setViewMode('AGENDA');
+        setActiveRequestDetail(null);
+        setActiveAppointmentDetail(null);
+        setRouteDetailError(null);
+      }
+      return;
+    }
+
+    if (!routeEntityId || isNaN(routeEntityId) || routeEntityId <= 0) {
+      setRouteDetailError('El identificador indicado en la URL no es válido.');
+      return;
+    }
+
+    let cancelled = false;
+    setRouteDetailError(null);
+
+    if (routeViewMode === 'REQUEST_DETAIL') {
+      setViewMode('REQUEST_DETAIL');
+      if (activeRequestDetail && Number(activeRequestDetail.idSolicitud) === Number(routeEntityId)) {
+        return;
+      }
+      const inList = requests.find((r) => Number(r.idSolicitud) === Number(routeEntityId));
+      if (inList) {
+        setActiveRequestDetail(inList);
+        return;
+      }
+      if (isLoading) return;
+
+      setIsHydratingRouteDetail(true);
+      fetch(`/api/v1/appointments/requests/${routeEntityId}`)
+        .then(async (res) => {
+          const json = await res.json().catch(() => ({}));
+          if (!res.ok || !json?.data) {
+            throw new Error(json?.message || 'Solicitud de cita no encontrada.');
+          }
+          const r = json.data;
+          if (!cancelled) {
+            setActiveRequestDetail({
+              idSolicitud: r.idSolicitud,
+              idCita: r.idCita || null,
+              nombrePaciente: r.nombrePaciente,
+              documentoIdentidad: r.documentoIdentidad,
+              telefono: r.telefono || '',
+              correo: r.correo || '',
+              fechaSolicitada: r.fechaSolicitada,
+              horaSolicitada: r.horaSolicitada,
+              motivoConsulta: r.motivoConsulta,
+              fechaSolicitud: r.fechaSolicitud,
+              sexo: r.sexo || undefined,
+              edad: r.fechaNacimiento
+                ? Math.max(
+                    0,
+                    Math.floor((Date.now() - new Date(r.fechaNacimiento).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
+                  )
+                : undefined,
+              esPacienteNuevo: r.esPacienteNuevo !== false,
+              doctorAsignado: r.doctorAsignado || 'Por asignar',
+            });
+          }
+        })
+        .catch((err: any) => {
+          if (!cancelled) setRouteDetailError(err.message || 'No se pudo cargar la solicitud.');
+        })
+        .finally(() => {
+          if (!cancelled) setIsHydratingRouteDetail(false);
+        });
+    } else if (routeViewMode === 'APPOINTMENT_DETAIL') {
+      setViewMode('APPOINTMENT_DETAIL');
+      if (activeAppointmentDetail && Number(activeAppointmentDetail.idCita) === Number(routeEntityId)) {
+        return;
+      }
+      const inList = agendaItems.find((a) => Number(a.idCita) === Number(routeEntityId));
+      if (inList) {
+        setActiveAppointmentDetail(mapAgendaRowToDetail(inList, selectedDate));
+        return;
+      }
+      if (isLoading) return;
+
+      setIsHydratingRouteDetail(true);
+      fetch('/api/v1/appointments/agenda?incluirCanceladas=true')
+        .then(async (res) => {
+          const json = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            throw new Error(json?.message || 'No se pudo consultar la cita.');
+          }
+          const match = (json?.data || []).find((a: any) => Number(a.idCita) === Number(routeEntityId));
+          if (!match) {
+            throw new Error('Cita médica no encontrada en la agenda.');
+          }
+          if (!cancelled) {
+            setActiveAppointmentDetail(mapAgendaRowToDetail(match, selectedDate));
+          }
+        })
+        .catch((err: any) => {
+          if (!cancelled) setRouteDetailError(err.message || 'No se pudo cargar el detalle de la cita.');
+        })
+        .finally(() => {
+          if (!cancelled) setIsHydratingRouteDetail(false);
+        });
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    routeViewMode,
+    routeEntityId,
+    requests,
+    agendaItems,
+    isLoading,
+    selectedDate,
+    activeRequestDetail,
+    activeAppointmentDetail,
+  ]);
 
   // Modal para agendar nueva cita
   const [isQuickScheduleOpen, setIsQuickScheduleOpen] = useState(false);
@@ -166,31 +359,30 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
         (r.horaSolicitada === slot.horaInicio && r.fechaSolicitada === selectedDate)
     );
 
-    if (matchedRequest) {
-      setActiveRequestDetail(matchedRequest);
-    } else {
-      // Fallback con los datos del bloque traído de BD
-      setActiveRequestDetail({
-        idSolicitud: slot.idSolicitud || 6,
-        idCita: slot.idCita || null,
-        nombrePaciente: slot.pacienteNombre || 'Lucía Restrepo Gómez',
-        documentoIdentidad: slot.pacienteDocumento || '1025884320',
-        telefono: slot.pacienteTelefono || 'Sin registrar',
-        correo: slot.pacienteCorreo || 'lucia.restrepo@email.com',
-        fechaSolicitada: selectedDate,
-        horaSolicitada: slot.horaInicio,
-        motivoConsulta:
-          slot.tratamiento ||
-          'Valoración por sensibilidad en molar inferior derecho y revisión general',
-        fechaSolicitud: '2026-10-24 09:15:00',
-        sexo: 'Femenino',
-        edad: 29,
-        esPacienteNuevo: true,
-        doctorAsignado: slot.doctorNombre || 'Por asignar',
-      });
-    }
+    const nextDetail: RequestDetailData = matchedRequest || {
+      idSolicitud: slot.idSolicitud || 6,
+      idCita: slot.idCita || null,
+      nombrePaciente: slot.pacienteNombre || 'Lucía Restrepo Gómez',
+      documentoIdentidad: slot.pacienteDocumento || '1025884320',
+      telefono: slot.pacienteTelefono || 'Sin registrar',
+      correo: slot.pacienteCorreo || 'lucia.restrepo@email.com',
+      fechaSolicitada: selectedDate,
+      horaSolicitada: slot.horaInicio,
+      motivoConsulta:
+        slot.tratamiento ||
+        'Valoración por sensibilidad en molar inferior derecho y revisión general',
+      fechaSolicitud: '2026-10-24 09:15:00',
+      sexo: 'Femenino',
+      edad: 29,
+      esPacienteNuevo: true,
+      doctorAsignado: slot.doctorNombre || 'Por asignar',
+    };
 
+    setActiveRequestDetail(nextDetail);
     setViewMode('REQUEST_DETAIL');
+    if (nextDetail.idSolicitud) {
+      onOpenRequestDetail?.(nextDetail.idSolicitud);
+    }
   };
 
   // Al dar click a una cita confirmada u otra cita (Imagen 2)
@@ -198,30 +390,14 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
     if (!slot.idCita) return;
 
     const realAppt = agendaItems.find((a) => a.idCita === slot.idCita);
-
-    setActiveAppointmentDetail({
-      idCita: slot.idCita,
-      idPaciente: realAppt?.idPaciente || 1,
-      nombrePaciente: realAppt?.nombrePaciente || slot.pacienteNombre || 'Paciente',
-      documentoIdentidad: realAppt?.documentoPaciente || slot.pacienteDocumento || '1020456789',
-      telefono: realAppt?.telefonoPaciente || slot.pacienteTelefono || 'Sin registrar',
-      correo: realAppt?.correoPaciente || slot.pacienteCorreo || 'Sin registrar',
-      titulo: realAppt?.titulo || slot.tratamiento || 'Valoración para Implante Dental',
-      descripcion:
-        realAppt?.descripcion ||
-        'Evaluación de densidad ósea mediante tomografía CBCT, toma de impresiones digitales 3D y diseño de la guía quirúrgica para osteointegración.',
-      doctorNombre: realAppt?.nombreProfesional || slot.doctorNombre || 'Dr. Eduar Leal Álvarez',
-      doctorFirma: realAppt?.firmaProfesional ?? null,
-      idDoctor: realAppt?.idProfesional || 1,
-      fecha: selectedDate,
-      horaInicio: slot.horaInicio,
-      horaFin: slot.horaFin,
-      sillon: 'Gabinete 02',
-      agendadoPor: realAppt?.agendadoPor || 'Portal Web',
-      estado: (slot.estadoCita as any) || 'Confirmada',
-    });
+    setActiveAppointmentDetail(
+      realAppt
+        ? mapAgendaRowToDetail(realAppt, selectedDate, slot)
+        : mapAgendaRowToDetail({ idCita: slot.idCita }, selectedDate, slot)
+    );
 
     setViewMode('APPOINTMENT_DETAIL');
+    onOpenAppointmentDetail?.(slot.idCita);
   };
 
   const todayColombia = useMemo(() => {
@@ -287,7 +463,7 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
           'Se ha confirmado la cita médica en la agenda con el doctor asignado. Se envió el correo de confirmación al paciente y la notificación al doctor.',
         type: 'success',
       });
-      setViewMode('AGENDA');
+      closeDetailView();
     } catch (err: any) {
       showAlert({
         title: 'Error al procesar solicitud',
@@ -307,7 +483,7 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
           'La solicitud ha sido rechazada y el bloque de horario ha quedado liberado en la agenda médica.',
         type: 'info',
       });
-      setViewMode('AGENDA');
+      closeDetailView();
     } catch (err: any) {
       showAlert({
         title: 'Error al rechazar solicitud',
@@ -382,7 +558,7 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
         <AppointmentRequestDetailPage
           request={activeRequestDetail}
           doctors={doctors}
-          onBack={() => setViewMode('AGENDA')}
+          onBack={closeDetailView}
           onApprove={handleApproveRequest}
           onReject={handleRejectRequest}
         />
@@ -400,7 +576,7 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
           doctors={doctors}
           canStartAttention={canStartAttention}
           canAssistConsultation={canAssistConsultation ?? canStartAttention}
-          onBack={() => setViewMode('AGENDA')}
+          onBack={closeDetailView}
           onNavigateToPatientProfile={onNavigateToPatientProfile}
           onUpdateAppointment={async (idCita, data) => {
             await updateAppointment(idCita, data);
@@ -432,7 +608,7 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
                 'La cita médica ha sido cancelada y los bloques de horario han sido liberados.',
               type: 'info',
             });
-            setViewMode('AGENDA');
+            closeDetailView();
           }}
           onMarkNoShow={async (idCita, motivo) => {
             await markNoShow(idCita, motivo);
@@ -441,7 +617,7 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
               message: 'Se ha registrado la inasistencia del paciente.',
               type: 'warning',
             });
-            setViewMode('AGENDA');
+            closeDetailView();
           }}
           onSignConsent={() => {
             showAlert({
@@ -452,6 +628,30 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
           }}
         />
       </>
+    );
+  }
+
+  // Estado de carga o error si se entró directo por URL detallada de agenda (/agenda/citas/:id o /agenda/solicitudes/:id)
+  if (viewMode !== 'AGENDA') {
+    const isBusy = isLoading || isHydratingRouteDetail;
+    return (
+      <PageLayout>
+        <div className="mx-auto max-w-xl rounded-2xl border border-[#E2E6EA] bg-white p-8 text-center shadow-xs space-y-4">
+          <h2 className="text-lg font-extrabold text-[#1E242B]">
+            {routeDetailError
+              ? 'Detalle no disponible'
+              : isBusy
+                ? 'Cargando detalle...'
+                : 'Preparando detalle...'}
+          </h2>
+          <p className="text-sm text-[#687380]">
+            {routeDetailError || 'Consultando la información actualizada en la agenda clínica.'}
+          </p>
+          <Button variant="outline" onClick={closeDetailView}>
+            ← Volver a la Agenda
+          </Button>
+        </div>
+      </PageLayout>
     );
   }
 

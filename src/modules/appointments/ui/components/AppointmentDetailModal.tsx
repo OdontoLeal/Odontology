@@ -125,7 +125,7 @@ export const AppointmentDetailModal: React.FC<AppointmentDetailModalProps> = ({
           />
         </div>
       }
-      subtitle={`📅 ${formatLongDateCO(appointment.fecha)} · ${formatTimeRangeCO(appointment.horaInicio, appointment.horaFin)} • Sillón: ${appointment.sillon || 'Gabinete 02'} • Agendado por: ${appointment.agendadoPor || 'Portal Web'}`}
+      subtitle={`📅 ${formatLongDateCO(appointment.fecha)} · ${formatTimeRangeCO(appointment.horaInicio, appointment.horaFin)} • Agendado por: ${appointment.agendadoPor || 'Portal Web'}`}
       maxWidth="4xl"
       footer={
         <div className="flex items-center gap-3">

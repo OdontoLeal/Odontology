@@ -198,10 +198,10 @@ describe('VERIFICACIÓN Y MITIGACIÓN DE DEFECTOS QA (D-01 a D-14)', () => {
     assert.strictEqual(usersPageCode.includes('fetchRolesDirectory'), true);
     assert.strictEqual(usersPageCode.includes("fetch('/api/v1/roles')"), true);
 
-    // Verificar que App.tsx pasa onFetchRoles a UsersManagementPage
-    const appCode = fs.readFileSync('src/App.tsx', 'utf8');
-    assert.strictEqual(appCode.includes('onFetchRoles={auth.fetchRoles}'), true);
-    assert.strictEqual(appCode.includes('refreshCatalogRoles'), true);
+    // Verificar que el router raíz pasa onFetchRoles a UsersManagementPage
+    const routerCode = fs.readFileSync('src/app/routes/AppRouter.tsx', 'utf8');
+    assert.strictEqual(routerCode.includes('onFetchRoles={auth.fetchRoles}'), true);
+    assert.strictEqual(routerCode.includes('refreshCatalogRoles'), true);
   });
 
   it('ROLES: Creación de rol funcional según el modelo de datos actual y rechaza permisos clínicos y códigos iniciales', async () => {

@@ -16,13 +16,11 @@ export interface AvailableSlotItem {
 }
 
 export interface PublicBookingPageProps {
-  onNavigateToStaffLogin?: () => void;
   /** RQNF-SEG-006: abre el aviso de privacidad completo (página pública). */
   onOpenPrivacyNotice?: () => void;
 }
 
 export const PublicBookingPage: React.FC<PublicBookingPageProps> = ({
-  onNavigateToStaffLogin,
   onOpenPrivacyNotice,
 }) => {
   // Datos del Paciente
@@ -238,8 +236,8 @@ export const PublicBookingPage: React.FC<PublicBookingPageProps> = ({
     <div className="min-h-screen bg-[#F8F9FA] text-[#1E242B] flex flex-col justify-between">
       <AlertModalComponent />
 
-      {/* 1. Header Unificado con Marca OdontoLeal y Acceso Personal */}
-      <PublicNavbar onNavigateToStaffLogin={onNavigateToStaffLogin} />
+      {/* 1. Header Unificado con Marca OdontoLeal (sin acceso personal visible) */}
+      <PublicNavbar />
 
       {/* Contenedor Principal */}
       <main className="max-w-4xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
