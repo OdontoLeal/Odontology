@@ -1,5 +1,6 @@
 // src/modules/appointments/infrastructure/appointments.controller.ts
 import { Request, Response } from 'express';
+import { isBiologicalSex, normalizeOptionalSex } from '../../../shared/domain/biological-sex';
 import { handleRequestError } from '../../../shared/infrastructure/http/http-error.handler';
 import { MailerService } from '../../../shared/infrastructure/mail/mailer.service';
 import { getSessionUser, hasRole } from '../../../shared/infrastructure/security/access-control';
@@ -183,6 +184,13 @@ export class AppointmentsController {
     if (body.descripcion && String(body.descripcion).length > 500) {
       throw new AppointmentRuleError('El motivo no puede superar 500 caracteres.');
     }
+    const normalizedSexo = normalizeOptionalSex(body.sexo);
+    if (normalizedSexo !== null && !isBiologicalSex(normalizedSexo)) {
+      throw Object.assign(
+        new AppointmentRuleError('El género debe ser Femenino, Masculino o Ambiguo.'),
+        { field: 'sexo' }
+      );
+    }
   }
 
   requestAppointmentPublic = async (req: Request, res: Response): Promise<void> => {
@@ -196,7 +204,7 @@ export class AppointmentsController {
         correoSolicitante: body.correoSolicitante,
         telefonoSolicitante: body.telefonoSolicitante,
         fechaNacimiento: body.fechaNacimiento,
-        sexo: body.sexo,
+        sexo: normalizeOptionalSex(body.sexo) ?? undefined,
         bloqueSolicitado: body.bloqueSolicitado,
         descripcion: body.descripcion,
         autorizacionDatos: body.autorizacionDatos === true,

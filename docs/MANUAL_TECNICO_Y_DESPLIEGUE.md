@@ -700,7 +700,7 @@ Registro maestro de datos demográficos de identificación y contacto del pacien
 | `correo` | `varchar(150)` | SÍ | — | Correo electrónico de contacto y notificaciones. |
 | `telefono` | `varchar(20)` | SÍ | — | Teléfono móvil o fijo de contacto. |
 | `fecha_nacimiento` | `date` | NO | — | Fecha de nacimiento (`YYYY-MM-DD`); determina mayoría de edad (< 18 años). |
-| `sexo` | `varchar(10)` | SÍ | — | Valores esperados: `Femenino`, `Masculino`, `Indeterminado`. Si es `NULL` al crearse desde solicitud web, activa la marca derivada `datosIncompletos`. |
+| `sexo` | `varchar(10)` | SÍ | — | Valores esperados: `Femenino`, `Masculino`, `Ambiguo`. Si es `NULL` al crearse desde solicitud web, activa la marca derivada `datosIncompletos`. |
 
 #### Tabla 9: `public.bloques_horario`
 Grilla única de bloques de 30 minutos de la agenda del consultorio (`RF-AGE-001`).

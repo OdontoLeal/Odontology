@@ -27,6 +27,7 @@ import { GetWeeklyAgendaUseCase } from '../application/get-weekly-agenda.use-cas
 import { ManageAttentionUseCase } from '../application/manage-attention.use-case';
 import { MarkNoShowUseCase } from '../application/mark-no-show.use-case';
 import { AppointmentsModulePublicApi } from '../index';
+import { AppointmentsController } from '../infrastructure/appointments.controller';
 import { ColombiaTime } from '../../../shared/domain/colombia-time.util';
 
 // Implementación en memoria del repositorio para pruebas unitarias y de integración
@@ -843,5 +844,72 @@ describe('MÓDULO B: Agendamiento de Citas (RF-AGE-001 a RF-AGE-013)', () => {
     const patientHistory = await publicApi.getPatientAppointmentHistory(sched.data.idPaciente);
     assert.strictEqual(patientHistory.length, 1);
     assert.strictEqual(patientHistory[0].agendadoPorNombre, 'Daniela Guerrero');
+  });
+
+  it('RF-AGE-003: Solicitud pública acepta sexo Ambiguo y rechaza valores fuera del catálogo sin llegar a BD', async () => {
+    let capturedDto: any = null;
+    const mockRepo: any = {
+      createPublicRequest: async (dto: any) => {
+        capturedDto = dto;
+        return {
+          idSolicitud: 101,
+          bloqueSolicitado: dto.bloqueSolicitado,
+        };
+      },
+      getStaffForNewRequestNotification: async () => [],
+    };
+    const mockMailer: any = {
+      sendPublicRequestReceivedEmail: async () => {},
+      sendCoordinatorNewRequestAlertEmail: async () => {},
+    };
+    const controller = new AppointmentsController(mockRepo, mockMailer);
+
+    const makeRes = () => {
+      const state: { statusCode: number; body: any } = { statusCode: 200, body: null };
+      const res: any = {
+        status(code: number) {
+          state.statusCode = code;
+          return res;
+        },
+        json(payload: any) {
+          state.body = payload;
+          return res;
+        },
+      };
+      return { res, state };
+    };
+
+    const validReq: any = {
+      body: {
+        nombreSolicitante: 'Alex Rivera',
+        documentoSolicitante: '1020304050',
+        telefonoSolicitante: '3101234567',
+        correoSolicitante: 'alex@ejemplo.com',
+        fechaNacimiento: '1995-03-10',
+        sexo: ' Ambiguo ',
+        bloqueSolicitado: '2026-12-10 09:00:00',
+        descripcion: 'Valoración',
+        autorizacionDatos: true,
+      },
+    };
+    const ok = makeRes();
+    await controller.requestAppointmentPublic(validReq, ok.res);
+    assert.strictEqual(ok.state.statusCode, 201);
+    assert.strictEqual(capturedDto.sexo, 'Ambiguo');
+    assert.ok(capturedDto.sexo.length <= 10);
+
+    capturedDto = null;
+    const invalidReq: any = {
+      body: {
+        ...validReq.body,
+        sexo: 'Indeterminado',
+      },
+    };
+    const bad = makeRes();
+    await controller.requestAppointmentPublic(invalidReq, bad.res);
+    assert.strictEqual(bad.state.statusCode, 400);
+    assert.strictEqual(bad.state.body.field, 'sexo');
+    assert.match(bad.state.body.message, /Femenino, Masculino o Ambiguo/);
+    assert.strictEqual(capturedDto, null);
   });
 });

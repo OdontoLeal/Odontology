@@ -1,0 +1,423 @@
+# ==============================================================================
+# Diagrama Entidad-Relación (DER) - Base de Datos PostgreSQL (OdontoLeal)
+# 20 tablas operativas (esquema public) + schema_migrations (21 tablas en total)
+# Fuente de verdad: DDL actual.txt & database/migrations/000_baseline.sql, 001_ers_1_3.sql
+# ==============================================================================
+
+# 1. Estilos de Dominios y Tablas
+classes: {
+  domain_container: {
+    style: {
+      stroke-width: 2
+      border-radius: 10
+      font-color: "#0F172A"
+      bold: true
+    }
+  }
+
+  erd_table: {
+    shape: sql_table
+    style: {
+      fill: "#0F172A"
+      stroke: "#FFFFFF"
+      shadow: true
+    }
+  }
+}
+
+direction: right
+
+# 2. Definición de los 5 Dominios Semánticos y 21 Tablas
+
+seguridad_auth: "Dominio de Identidad, RBAC y Sesiones" {
+  class: domain_container
+  style: {
+    fill: "#EFF6FF"
+    stroke: "#2563EB"
+    font-color: "#1E3A8A"
+  }
+
+  usuario: {
+    class: erd_table
+    id_usuario: "integer (identity)" {constraint: primary_key}
+    nombre_completo: "varchar(150)"
+    documento_identidad: "varchar(20)" {constraint: unique}
+    correo: "varchar(150)" {constraint: unique}
+    telefono: "varchar(20)"
+    contrasena_hash: "varchar(255)"
+    estado: boolean
+    firma_base64: text
+    es_contrasena_temporal: boolean
+    es_sistema: boolean
+  }
+
+  rol: {
+    class: erd_table
+    id_rol: smallserial {constraint: primary_key}
+    nombre_rol: "varchar(40)" {constraint: unique}
+    permisos: jsonb
+    es_inicial: boolean
+    codigo_rol: "varchar(20)" {constraint: unique}
+    descripcion: "varchar(250)"
+  }
+
+  usuario_rol: {
+    class: erd_table
+    id_usuario: integer {constraint: [primary_key; foreign_key]}
+    id_rol: smallint {constraint: [primary_key; foreign_key]}
+    estado: boolean
+  }
+
+  intento_login: {
+    class: erd_table
+    correo: "varchar(150)" {constraint: primary_key}
+    intentos_fallidos: smallint
+    bloqueado_hasta: timestamptz
+  }
+
+  token_recuperacion: {
+    class: erd_table
+    token: "varchar(255)" {constraint: primary_key}
+    id_usuario: integer
+    correo: "varchar(150)"
+    creado_en: timestamp
+    expira_en: timestamp
+    usado: boolean
+    invalidado: boolean
+  }
+
+  sesion_revocada: {
+    class: erd_table
+    token_hash: "char(64)" {constraint: primary_key}
+    id_usuario: integer {constraint: foreign_key}
+    revocada_en: timestamptz
+    expira_en: timestamptz
+  }
+
+  borrador_sesion: {
+    class: erd_table
+    id_usuario: integer {constraint: [primary_key; foreign_key]}
+    formulario_id: "varchar(120)" {constraint: primary_key}
+    datos: jsonb
+    fecha_guardado: timestamptz
+  }
+}
+
+agenda_citas: "Dominio de Agenda (Bloques 30m) y Citas" {
+  class: domain_container
+  style: {
+    fill: "#F0FDF4"
+    stroke: "#16A34A"
+    font-color: "#14532D"
+  }
+
+  bloques_horario: {
+    class: erd_table
+    inicio: timestamp {constraint: primary_key}
+    final: timestamp
+    estado: boolean
+    ocupacion: boolean
+  }
+
+  solicitud_cita: {
+    class: erd_table
+    id_solicitud: "integer (identity)" {constraint: primary_key}
+    nombre_solicitante: "varchar(150)"
+    documento_solicitante: "varchar(20)"
+    correo_solicitante: "varchar(150)"
+    bloque_solicitado: timestamp {constraint: foreign_key}
+    descripcion: "varchar(500)"
+    estado: boolean
+    telefono_solicitante: "varchar(20)"
+    fecha_nacimiento: date
+    sexo: "varchar(10)"
+    fecha_solicitud: timestamp
+    id_plantilla_autorizacion: integer {constraint: foreign_key}
+    version_plantilla_autorizacion: smallint
+    fecha_aceptacion_autorizacion: timestamp
+  }
+
+  historial_solicitud: {
+    class: erd_table
+    id_cambio_solicitud: "integer (identity)" {constraint: primary_key}
+    id_solicitud: integer {constraint: foreign_key}
+    id_usuario_gestor: integer {constraint: foreign_key}
+    fecha_historial: timestamp
+    reporte: "varchar(1000)"
+    motivo: "varchar(500)"
+  }
+
+  cita: {
+    class: erd_table
+    id_cita: "integer (identity)" {constraint: primary_key}
+    titulo: "varchar(50)"
+    descripcion: "varchar(500)"
+    id_paciente: integer {constraint: foreign_key}
+    id_usuario: integer {constraint: foreign_key}
+    estado: "varchar(20)"
+    recordatorio_estado: "varchar(12)"
+    recordatorio_causa: "varchar(250)"
+    recordatorio_fecha: timestamptz
+  }
+
+  bloques_citas: {
+    class: erd_table
+    id_bloque: timestamp {constraint: [primary_key; foreign_key]}
+    id_cita: integer {constraint: [primary_key; foreign_key]}
+  }
+
+  historial_cita: {
+    class: erd_table
+    id_cambio_cita: "integer (identity)" {constraint: primary_key}
+    id_cita: integer {constraint: foreign_key}
+    id_usuario_gestor: integer {constraint: foreign_key}
+    fecha_historial: timestamp
+    reporte: "varchar(1000)"
+    motivo: "varchar(500)"
+  }
+}
+
+clinica_pacientes: "Dominio Clínico y Ficha de Paciente" {
+  class: domain_container
+  style: {
+    fill: "#FAF5FF"
+    stroke: "#7C3AED"
+    font-color: "#4C1D95"
+  }
+
+  paciente: {
+    class: erd_table
+    id_paciente: "integer (identity)" {constraint: primary_key}
+    nombre_completo: "varchar(150)"
+    documento_identidad: "varchar(20)" {constraint: unique}
+    correo: "varchar(150)"
+    telefono: "varchar(20)"
+    fecha_nacimiento: date
+    sexo: "varchar(10)"
+  }
+
+  historia_clinica: {
+    class: erd_table
+    id_historia: "integer (identity)" {constraint: primary_key}
+    id_paciente: integer {constraint: [foreign_key; unique]}
+    fecha_creacion: timestamp
+  }
+
+  evolucion: {
+    class: erd_table
+    id_evolucion: "integer (identity)" {constraint: primary_key}
+    id_historia: integer {constraint: foreign_key}
+    fecha: timestamp
+    id_cita: integer {constraint: [foreign_key; unique]}
+    motivo_consulta: "varchar(250)"
+    enfermedad_actual: "varchar(1000)"
+    antecedentes_clinicos: jsonb
+    habitos_higiene: jsonb
+    examen_estomatognatico: jsonb
+    examen_fisico_observaciones: text
+    odontograma: jsonb
+    procedimiento_realizado: text
+    diagnostico_generado: text
+    acciones_a_realizar: text
+    hallazgos_observaciones: text
+    plan_manejo: jsonb
+    id_usuario_diligencio: integer {constraint: foreign_key}
+  }
+
+  nota_evolucion: {
+    class: erd_table
+    id_nota: "integer (identity)" {constraint: primary_key}
+    id_evolucion: integer {constraint: foreign_key}
+    tipo: "varchar(20)"
+    procedimiento_realizado: text
+    texto: text
+    id_usuario_diligencio: integer {constraint: foreign_key}
+    fecha: timestamp
+  }
+}
+
+consentimientos: "Dominio de Consentimientos Versionados" {
+  class: domain_container
+  style: {
+    fill: "#FFFBEB"
+    stroke: "#D97706"
+    font-color: "#78350F"
+  }
+
+  plantilla_consentimiento: {
+    class: erd_table
+    id_consentimiento: "integer (identity)" {constraint: primary_key}
+    nombre: "varchar(150)" {constraint: unique}
+    version: smallint
+    estado: boolean
+    texto_plantilla: text
+    id_usuario_modificador: integer {constraint: foreign_key}
+    fecha_modificacion: timestamp
+    tipo: "varchar(20)"
+  }
+
+  consentimiento_firmado: {
+    class: erd_table
+    id_consentimiento_firmado: "integer (identity)" {constraint: primary_key}
+    id_consentimiento: integer {constraint: foreign_key}
+    id_paciente: integer {constraint: foreign_key}
+    fecha: timestamp
+    version_plantilla: smallint
+    texto_firmado: text
+    firma_base64: text
+    firma_por_acudiente: boolean
+    nombre_documento_acudiente: "varchar(200)"
+    id_usuario_diligencio: integer {constraint: foreign_key}
+  }
+}
+
+auditoria_sistema: "Auditoría Append-Only y Migraciones" {
+  class: domain_container
+  style: {
+    fill: "#FFF1F2"
+    stroke: "#E11D48"
+    font-color: "#881337"
+  }
+
+  registro_auditoria: {
+    class: erd_table
+    id_auditoria: "bigint (identity)" {constraint: primary_key}
+    fecha: timestamptz
+    id_usuario: integer {constraint: foreign_key}
+    actor: "varchar(150)"
+    accion: "varchar(120)"
+    entidad: "varchar(60)"
+    id_registro: "varchar(60)"
+    valor_anterior: jsonb
+    valor_nuevo: jsonb
+    detalle: jsonb
+  }
+
+  schema_migrations: {
+    class: erd_table
+    nombre: "varchar(200)" {constraint: primary_key}
+    aplicada_en: timestamptz
+  }
+}
+
+# 3. Relaciones y Cardinalidades (Crow's Foot)
+
+# --- Dominio Seguridad, Identidad y Sesiones ---
+seguridad_auth.usuario.id_usuario <-> seguridad_auth.usuario_rol.id_usuario: "1 : 0..N" {
+  source-arrowhead.shape: cf-one-required
+  target-arrowhead.shape: cf-many
+}
+seguridad_auth.rol.id_rol <-> seguridad_auth.usuario_rol.id_rol: "1 : 0..N" {
+  source-arrowhead.shape: cf-one-required
+  target-arrowhead.shape: cf-many
+}
+seguridad_auth.usuario.id_usuario <-> seguridad_auth.sesion_revocada.id_usuario: "0..1 : 0..N" {
+  source-arrowhead.shape: cf-one
+  target-arrowhead.shape: cf-many
+}
+seguridad_auth.usuario.id_usuario <-> seguridad_auth.borrador_sesion.id_usuario: "1 : 0..N" {
+  source-arrowhead.shape: cf-one-required
+  target-arrowhead.shape: cf-many
+}
+seguridad_auth.usuario.id_usuario <-> seguridad_auth.token_recuperacion.id_usuario: "1 : 0..N (lógica, sin FK)" {
+  style.stroke-dash: 4
+  source-arrowhead.shape: cf-one-required
+  target-arrowhead.shape: cf-many
+}
+seguridad_auth.usuario.correo <-> seguridad_auth.intento_login.correo: "0..1 : 0..1 (lógica, sin FK)" {
+  style.stroke-dash: 4
+  source-arrowhead.shape: cf-one
+  target-arrowhead.shape: cf-one
+}
+
+# --- Dominio Agenda y Citas ---
+agenda_citas.bloques_horario.inicio <-> agenda_citas.solicitud_cita.bloque_solicitado: "1 : 0..N" {
+  source-arrowhead.shape: cf-one-required
+  target-arrowhead.shape: cf-many
+}
+agenda_citas.solicitud_cita.id_solicitud <-> agenda_citas.historial_solicitud.id_solicitud: "1 : 0..N" {
+  source-arrowhead.shape: cf-one-required
+  target-arrowhead.shape: cf-many
+}
+seguridad_auth.usuario.id_usuario <-> agenda_citas.historial_solicitud.id_usuario_gestor: "1 : 0..N" {
+  source-arrowhead.shape: cf-one-required
+  target-arrowhead.shape: cf-many
+}
+clinica_pacientes.paciente.id_paciente <-> agenda_citas.cita.id_paciente: "1 : 0..N" {
+  source-arrowhead.shape: cf-one-required
+  target-arrowhead.shape: cf-many
+}
+seguridad_auth.usuario.id_usuario <-> agenda_citas.cita.id_usuario: "1 : 0..N (profesional)" {
+  source-arrowhead.shape: cf-one-required
+  target-arrowhead.shape: cf-many
+}
+agenda_citas.bloques_horario.inicio <-> agenda_citas.bloques_citas.id_bloque: "1 : 0..N" {
+  source-arrowhead.shape: cf-one-required
+  target-arrowhead.shape: cf-many
+}
+agenda_citas.cita.id_cita <-> agenda_citas.bloques_citas.id_cita: "1 : 0..N" {
+  source-arrowhead.shape: cf-one-required
+  target-arrowhead.shape: cf-many
+}
+agenda_citas.cita.id_cita <-> agenda_citas.historial_cita.id_cita: "1 : 0..N" {
+  source-arrowhead.shape: cf-one-required
+  target-arrowhead.shape: cf-many
+}
+seguridad_auth.usuario.id_usuario <-> agenda_citas.historial_cita.id_usuario_gestor: "1 : 0..N" {
+  source-arrowhead.shape: cf-one-required
+  target-arrowhead.shape: cf-many
+}
+
+# --- Dominio Clínico y Ficha de Paciente ---
+clinica_pacientes.paciente.id_paciente <-> clinica_pacientes.historia_clinica.id_paciente: "1 : 0..1 (UQ 1:1)" {
+  source-arrowhead.shape: cf-one-required
+  target-arrowhead.shape: cf-one
+}
+clinica_pacientes.historia_clinica.id_historia <-> clinica_pacientes.evolucion.id_historia: "1 : 0..N" {
+  source-arrowhead.shape: cf-one-required
+  target-arrowhead.shape: cf-many
+}
+agenda_citas.cita.id_cita <-> clinica_pacientes.evolucion.id_cita: "1 : 0..1 (uq_evolucion_cita)" {
+  source-arrowhead.shape: cf-one-required
+  target-arrowhead.shape: cf-one
+}
+seguridad_auth.usuario.id_usuario <-> clinica_pacientes.evolucion.id_usuario_diligencio: "0..1 : 0..N" {
+  source-arrowhead.shape: cf-one
+  target-arrowhead.shape: cf-many
+}
+clinica_pacientes.evolucion.id_evolucion <-> clinica_pacientes.nota_evolucion.id_evolucion: "1 : 0..N" {
+  source-arrowhead.shape: cf-one-required
+  target-arrowhead.shape: cf-many
+}
+seguridad_auth.usuario.id_usuario <-> clinica_pacientes.nota_evolucion.id_usuario_diligencio: "1 : 0..N" {
+  source-arrowhead.shape: cf-one-required
+  target-arrowhead.shape: cf-many
+}
+
+# --- Dominio Consentimientos Versionados ---
+seguridad_auth.usuario.id_usuario <-> consentimientos.plantilla_consentimiento.id_usuario_modificador: "0..1 : 0..N" {
+  source-arrowhead.shape: cf-one
+  target-arrowhead.shape: cf-many
+}
+consentimientos.plantilla_consentimiento.id_consentimiento <-> agenda_citas.solicitud_cita.id_plantilla_autorizacion: "0..1 : 0..N" {
+  source-arrowhead.shape: cf-one
+  target-arrowhead.shape: cf-many
+}
+consentimientos.plantilla_consentimiento.id_consentimiento <-> consentimientos.consentimiento_firmado.id_consentimiento: "1 : 0..N" {
+  source-arrowhead.shape: cf-one-required
+  target-arrowhead.shape: cf-many
+}
+clinica_pacientes.paciente.id_paciente <-> consentimientos.consentimiento_firmado.id_paciente: "1 : 0..N" {
+  source-arrowhead.shape: cf-one-required
+  target-arrowhead.shape: cf-many
+}
+seguridad_auth.usuario.id_usuario <-> consentimientos.consentimiento_firmado.id_usuario_diligencio: "0..1 : 0..N" {
+  source-arrowhead.shape: cf-one
+  target-arrowhead.shape: cf-many
+}
+
+# --- Dominio Auditoría Append-Only ---
+seguridad_auth.usuario.id_usuario <-> auditoria_sistema.registro_auditoria.id_usuario: "0..1 : 0..N" {
+  source-arrowhead.shape: cf-one
+  target-arrowhead.shape: cf-many
+}

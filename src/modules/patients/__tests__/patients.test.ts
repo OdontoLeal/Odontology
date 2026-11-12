@@ -6,6 +6,7 @@ import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { Patient } from '../domain/patient.entity';
+import { BIOLOGICAL_SEX_VALUES } from '../../../shared/domain/biological-sex';
 import {
   IPatientRepository,
   CreatedPatientResult,
@@ -278,5 +279,29 @@ describe('MÓDULO C (Parte 1): Gestión de Pacientes y Ficha Médica (RF-HCL-001
     const buffer = Buffer.from(exportResult.pdfBufferBase64!, 'base64');
     assert.strictEqual(buffer.subarray(0, 5).toString('utf-8'), '%PDF-');
     assert.ok(buffer.length > 500);
+  });
+
+  it('RF-HCL-001: Acepta sexo Ambiguo (<=10 caracteres para varchar(10)) y rechaza valores fuera del catálogo', async () => {
+    for (const val of BIOLOGICAL_SEX_VALUES) {
+      assert.ok(val.length <= 10, `El valor "${val}" excede varchar(10)`);
+    }
+
+    const useCase = new CreatePatientUseCase(repo);
+    const created = await useCase.execute({
+      ...adulto,
+      documentoIdentidad: '1011223344',
+      sexo: 'Ambiguo',
+    });
+    assert.strictEqual(created.patient.sexo, 'Ambiguo');
+
+    await assert.rejects(
+      () =>
+        useCase.execute({
+          ...adulto,
+          documentoIdentidad: '1011223345',
+          sexo: 'Indeterminado' as any,
+        }),
+      /Femenino, Masculino o Ambiguo/
+    );
   });
 });

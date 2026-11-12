@@ -1,6 +1,7 @@
 // src/modules/patients/domain/patient.entity.ts
+import { BiologicalSex, isBiologicalSex } from '../../../shared/domain/biological-sex';
 
-export type PatientSex = 'Femenino' | 'Masculino' | 'Indeterminado';
+export type PatientSex = BiologicalSex;
 
 /**
  * Datos del paciente según RF-HCL-001 v1.3: identificación y contacto, sin
@@ -32,7 +33,6 @@ export class PatientDomainError extends Error {
 }
 
 export class Patient {
-  private static readonly VALID_SEX_VALUES: PatientSex[] = ['Femenino', 'Masculino', 'Indeterminado'];
   private static readonly DOCUMENT_REGEX = /^\d+$/;
   private static readonly PHONE_REGEX = /^\d{10}$/;
   private static readonly EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -149,8 +149,8 @@ export class Patient {
     if (!this._sexo) {
       throw new PatientDomainError('sexo', 'El sexo del paciente es obligatorio.');
     }
-    if (!Patient.VALID_SEX_VALUES.includes(this._sexo)) {
-      throw new PatientDomainError('sexo', 'El sexo debe ser Femenino, Masculino o Indeterminado.');
+    if (!isBiologicalSex(this._sexo)) {
+      throw new PatientDomainError('sexo', 'El sexo debe ser Femenino, Masculino o Ambiguo.');
     }
     if (!this._telefono) {
       throw new PatientDomainError('telefono', 'El teléfono del paciente es obligatorio.');
