@@ -1,4 +1,5 @@
 // src/modules/appointments/application/schedule-appointment.use-case.ts
+import { BiologicalSex } from '../../../shared/domain/biological-sex';
 import { ColombiaTime } from '../../../shared/domain/colombia-time.util';
 import { findServiceConfigByName } from '../../../app/config/services-catalog.config';
 import {
@@ -17,7 +18,7 @@ export interface NewPatientInlineInput {
   correo?: string;
   telefono?: string;
   fechaNacimiento: string | Date;
-  sexo?: 'Femenino' | 'Masculino' | 'Indeterminado' | string;
+  sexo?: BiologicalSex | string;
   autorizacionDatos: boolean;
 }
 

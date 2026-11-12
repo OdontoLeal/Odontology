@@ -38,7 +38,7 @@ export const ClinicalHistoryListPage: React.FC<ClinicalHistoryListPageProps> = (
     nombreCompleto: patientName,
     documentoIdentidad: patientDoc,
     fechaNacimiento: '',
-    sexo: 'Indeterminado',
+    sexo: 'Ambiguo',
     correo: '',
     telefono: '',
   };

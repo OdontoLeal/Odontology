@@ -70,7 +70,7 @@ export const TopPatientSearchBar: React.FC<TopPatientSearchBarProps> = ({
             nombreCompleto: p.nombreCompleto,
             documentoIdentidad: p.documentoIdentidad,
             fechaNacimiento: p.fechaNacimiento || '',
-            sexo: p.sexo || 'Indeterminado',
+            sexo: p.sexo || 'Ambiguo',
             correo: p.correo || '',
             telefono: p.telefono || '',
             datosIncompletos: Boolean(p.datosIncompletos),

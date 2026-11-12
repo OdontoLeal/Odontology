@@ -1,5 +1,6 @@
 // src/modules/appointments/ui/views/PublicBookingPage.tsx
 import React, { useState, useEffect } from 'react';
+import { BIOLOGICAL_SEX_VALUES, BiologicalSex } from '../../../../shared/domain/biological-sex';
 import { formatLongDateCO, formatTimeCO } from '../../../../shared/ui/format';
 import { Button } from '../../../../shared/ui/components/Button';
 import { Input } from '../../../../shared/ui/components/Input';
@@ -28,7 +29,7 @@ export const PublicBookingPage: React.FC<PublicBookingPageProps> = ({
   const [documentoIdentidad, setDocumentoIdentidad] = useState('');
   const [fechaNacimiento, setFechaNacimiento] = useState('');
   const [telefono, setTelefono] = useState('');
-  const [genero, setGenero] = useState<'Femenino' | 'Masculino' | 'Indeterminado' | ''>('');
+  const [genero, setGenero] = useState<BiologicalSex | ''>('');
   const [correo, setCorreo] = useState('');
   const [motivoConsulta, setMotivoConsulta] = useState('');
 
@@ -323,13 +324,15 @@ export const PublicBookingPage: React.FC<PublicBookingPageProps> = ({
                   <select
                     id="genero"
                     value={genero}
-                    onChange={(e) => setGenero(e.target.value as any)}
+                    onChange={(e) => setGenero(e.target.value as BiologicalSex | '')}
                     className="w-full h-[42px] min-h-[42px] rounded-xl border border-[#E2E6EA] bg-white px-3.5 py-2 text-sm text-[#1E242B] transition-colors focus:border-[#D4AF37] focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/30"
                   >
                     <option value="">Seleccione género...</option>
-                    <option value="Femenino">Femenino</option>
-                    <option value="Masculino">Masculino</option>
-                    <option value="Indeterminado">Indeterminado</option>
+                    {BIOLOGICAL_SEX_VALUES.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>

@@ -1,5 +1,6 @@
 // src/modules/patients/ui/hooks/usePatients.ts
 import { useState, useCallback, useEffect } from 'react';
+import { BiologicalSex } from '../../../../shared/domain/biological-sex';
 import { PatientFormData } from '../components/PatientForm';
 
 export interface PatientListItem {
@@ -8,7 +9,7 @@ export interface PatientListItem {
   documentoIdentidad: string;
   fechaNacimiento: string;
   /** null en pacientes creados desde una solicitud pública ("Datos incompletos", RF-AGE-005). */
-  sexo: 'Femenino' | 'Masculino' | 'Indeterminado' | null;
+  sexo: BiologicalSex | null;
   correo: string;
   telefono: string;
   datosIncompletos?: boolean;

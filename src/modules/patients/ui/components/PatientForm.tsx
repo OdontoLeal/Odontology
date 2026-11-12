@@ -1,5 +1,6 @@
 // src/modules/patients/ui/components/PatientForm.tsx
 import React, { useState, useEffect } from 'react';
+import { BIOLOGICAL_SEX_VALUES, BiologicalSex } from '../../../../shared/domain/biological-sex';
 import { Button } from '../../../../shared/ui/components/Button';
 import { Input } from '../../../../shared/ui/components/Input';
 import { Badge } from '../../../../shared/ui/components/Badge';
@@ -9,7 +10,7 @@ export interface PatientFormData {
   nombreCompleto: string;
   documentoIdentidad: string;
   fechaNacimiento: string; // YYYY-MM-DD
-  sexo: 'Femenino' | 'Masculino' | 'Indeterminado';
+  sexo: BiologicalSex;
   correo: string;
   telefono: string;
 }
@@ -32,7 +33,7 @@ export const PatientForm: React.FC<PatientFormProps> = ({
   const [nombreCompleto, setNombreCompleto] = useState(initialData?.nombreCompleto || '');
   const [documentoIdentidad, setDocumentoIdentidad] = useState(initialData?.documentoIdentidad || '');
   const [fechaNacimiento, setFechaNacimiento] = useState(initialData?.fechaNacimiento || '');
-  const [sexo, setSexo] = useState<'Femenino' | 'Masculino' | 'Indeterminado'>(
+  const [sexo, setSexo] = useState<BiologicalSex>(
     initialData?.sexo || 'Femenino'
   );
   const [correo, setCorreo] = useState(initialData?.correo || '');
@@ -211,39 +212,20 @@ export const PatientForm: React.FC<PatientFormProps> = ({
             Sexo Biológico <span className="text-[#DC2626]">*</span>
           </label>
           <div className="grid grid-cols-3 gap-3">
-            <button
-              type="button"
-              onClick={() => setSexo('Femenino')}
-              className={`min-h-[44px] rounded-xl border font-bold text-sm transition-all ${
-                sexo === 'Femenino'
-                  ? 'bg-[#1E242B] text-white border-[#1E242B] shadow-xs'
-                  : 'bg-white text-[#687380] border-[#E2E6EA] hover:border-[#D4AF37]'
-              }`}
-            >
-              Femenino
-            </button>
-            <button
-              type="button"
-              onClick={() => setSexo('Masculino')}
-              className={`min-h-[44px] rounded-xl border font-bold text-sm transition-all ${
-                sexo === 'Masculino'
-                  ? 'bg-[#1E242B] text-white border-[#1E242B] shadow-xs'
-                  : 'bg-white text-[#687380] border-[#E2E6EA] hover:border-[#D4AF37]'
-              }`}
-            >
-              Masculino
-            </button>
-            <button
-              type="button"
-              onClick={() => setSexo('Indeterminado')}
-              className={`min-h-[44px] rounded-xl border font-bold text-sm transition-all ${
-                sexo === 'Indeterminado'
-                  ? 'bg-[#1E242B] text-white border-[#1E242B] shadow-xs'
-                  : 'bg-white text-[#687380] border-[#E2E6EA] hover:border-[#D4AF37]'
-              }`}
-            >
-              Indeterminado
-            </button>
+            {BIOLOGICAL_SEX_VALUES.map((option) => (
+              <button
+                key={option}
+                type="button"
+                onClick={() => setSexo(option)}
+                className={`min-h-[44px] rounded-xl border font-bold text-sm transition-all ${
+                  sexo === option
+                    ? 'bg-[#1E242B] text-white border-[#1E242B] shadow-xs'
+                    : 'bg-white text-[#687380] border-[#E2E6EA] hover:border-[#D4AF37]'
+                }`}
+              >
+                {option}
+              </button>
+            ))}
           </div>
         </div>
       </div>
