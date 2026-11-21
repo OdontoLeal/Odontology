@@ -417,6 +417,28 @@ export function printCompleteClinicalHistory({ patient, history }: PrintClinical
               : ''
           }
 
+          ${
+            Array.isArray(ev.notasAclaratorias) && ev.notasAclaratorias.length > 0
+              ? `
+            <div style="margin-top:8px; padding:6px 8px; background:#FEFCE8; border-left:3px solid #D4AF37; border-radius:3px;">
+              <div style="font-size:7.5pt; font-weight:800; color:#854D0E; text-transform:uppercase; margin-bottom:4px;">
+                Notas Aclaratorias Post-Cierre (Resolución 1995 de 1999):
+              </div>
+              ${ev.notasAclaratorias
+                .map(
+                  (nota) => `
+                <div style="margin-bottom:3px; font-size:7.5pt; color:#1F2937; line-height:1.3;">
+                  <span style="font-weight:700; color:#111827;">${nota.fechaRegistro} • ${nota.autor}:</span>
+                  <span style="font-style:italic;">"${nota.texto}"</span>
+                </div>
+              `
+                )
+                .join('')}
+            </div>
+          `
+              : ''
+          }
+
           <div style="text-align:right; margin-top:8px; border-top:1px dashed #E5E7EB; padding-top:4px;">
             <span style="font-size:7.5pt; font-weight:800; color:#111827;">Dr(a). ${ev.profesional.nombreCompleto}</span>
             <span style="font-size:7pt; color:#6B7280; margin-left:6px;">Odontólogo(a) Tratante</span>

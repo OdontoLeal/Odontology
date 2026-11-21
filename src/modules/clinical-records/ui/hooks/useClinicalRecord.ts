@@ -406,6 +406,45 @@ export function useClinicalRecord(
     [apiBaseUrl, currentOdontogram, idPaciente, idCita, fetchHistory]
   );
 
+  const saveClarificationNote = useCallback(
+    async (targetCitaId: number, texto: string) => {
+      const cleanText = (texto || '').trim();
+      if (!cleanText) {
+        throw new Error('El texto de la nota aclaratoria es obligatorio.');
+      }
+      setIsLoading(true);
+      setError(null);
+      try {
+        const res = await fetch(`${apiBaseUrl}/clinical-records/evolutions`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            idPaciente,
+            idCita: targetCitaId,
+            tipoRegistro: 'NOTA_ACLARATORIA',
+            notaAclaratoria: cleanText,
+          }),
+        });
+
+        if (!res.ok) {
+          const errJson = await res.json().catch(() => ({}));
+          throw new Error(errJson.message || 'Error al registrar la nota aclaratoria');
+        }
+
+        const json = await res.json();
+        await fetchHistory();
+        return json.data || json;
+      } catch (err: any) {
+        console.error('Error saving clarification note:', err.message);
+        setError(err.message);
+        throw err;
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [apiBaseUrl, idPaciente, fetchHistory]
+  );
+
   return {
     history,
     currentOdontogram,
@@ -413,5 +452,6 @@ export function useClinicalRecord(
     error,
     fetchHistory,
     saveEvolutionEntry,
+    saveClarificationNote,
   };
 }
