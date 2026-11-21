@@ -5,3 +5,4 @@ export * from './QuickScheduleModal';
 export * from './RequestReviewModal';
 export * from './AppointmentDetailModal';
 export * from './EditAppointmentModal';
+export * from './ActiveConsultationConflictModal';

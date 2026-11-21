@@ -496,6 +496,35 @@ export class AppointmentEntity {
   }
 
   /**
+   * Cierre automático por tiempo límite excedido (Timeout) o cierre asistido para iniciar nueva cita.
+   * Exime la obligatoriedad del motivo de consulta clínico previo para evitar deadlocks del profesional.
+   */
+  public finalizarAtencionPorTimeout(params: {
+    idUsuarioGestor: number;
+    nombreUsuarioGestor: string;
+    motivo?: string;
+    now?: Date;
+  }): void {
+    const now = params.now ?? new Date();
+
+    if (this._estado !== 'En consulta') {
+      throw new Error(`Solo se puede finalizar una cita que esté En consulta. Estado actual: ${this._estado}.`);
+    }
+
+    this._estado = 'Atendida';
+
+    this.appendHistory({
+      idUsuarioGestor: params.idUsuarioGestor,
+      nombreUsuarioGestor: params.nombreUsuarioGestor,
+      fechaHistorial: now,
+      estadoAnterior: 'En consulta',
+      estadoNuevo: 'Atendida',
+      reporte: 'Atención finalizada automáticamente por tiempo límite excedido o traspaso de cita (Timeout).',
+      motivo: params.motivo || 'Límite de tiempo de consulta excedido',
+    });
+  }
+
+  /**
    * RF-AGE-013: Marcar inasistencia de una cita Confirmada desde su hora de inicio hasta las 23:59 del mismo día.
    */
   public marcarInasistencia(params: {

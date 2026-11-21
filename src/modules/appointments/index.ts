@@ -10,6 +10,8 @@ export * from './domain/time-slot.entity';
 export * from './domain/appointment.entity';
 export * from './domain/appointment-request.entity';
 export * from './domain/appointment.repository.interface';
+export * from './domain/consultation-timeout.policy';
+export * from './domain/active-consultation-conflict.error';
 
 // Exportación de Casos de Uso de Aplicación (Módulo B)
 export * from './application/manage-time-slots.use-case';

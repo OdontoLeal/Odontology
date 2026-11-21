@@ -17,7 +17,10 @@ export function handleHttpError(
   if (error && typeof error.statusCode === 'number') {
     res.status(error.statusCode).json({
       field: error.field,
+      ...(error.code ? { code: error.code } : {}),
       message: error.message,
+      ...(error.activeAppointment ? { data: error.activeAppointment } : {}),
+      ...(error.data ? { data: error.data } : {}),
     });
     return;
   }

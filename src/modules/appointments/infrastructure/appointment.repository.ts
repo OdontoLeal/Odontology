@@ -18,6 +18,7 @@ import {
   validatePublicBookingWindow,
   validateStateChangeRules,
 } from './helpers/appointment-state.validator';
+import { ActiveConsultationConflictError } from '../domain/active-consultation-conflict.error';
 import {
   blockEnd,
   computeTimeRangeFromBlocks,
@@ -601,6 +602,9 @@ export class AppointmentRepository {
     actor: AgendaActor;
     motivo?: string | null;
     liberarBloques?: boolean;
+    forzarCierreCitaPreviaId?: number;
+    motivoCierrePrevio?: string;
+    ignorarMotivoConsulta?: boolean;
   }) {
     return db.withTransaction(async (client) => {
       const currentRes = await client.query(`SELECT * FROM public.cita WHERE id_cita = $1 FOR UPDATE;`, [
@@ -627,15 +631,89 @@ export class AppointmentRepository {
       if (params.nuevoEstado === 'En consulta') {
         // RF-AGE-009: máximo una cita En consulta por profesional
         const activeRes = await client.query(
-          `SELECT id_cita FROM public.cita WHERE id_usuario = $1 AND estado = 'En consulta' AND id_cita <> $2;`,
+          `SELECT c.id_cita, c.id_paciente, p.nombre_completo AS nombre_paciente,
+                  to_char(MIN(bc.id_bloque), 'YYYY-MM-DD HH24:MI') AS inicio,
+                  to_char(MAX(bc.id_bloque) + interval '30 minutes', 'HH24:MI') AS fin,
+                  COALESCE(
+                    (SELECT to_char(hc.fecha_historial, 'YYYY-MM-DD HH24:MI:SS')
+                       FROM public.historial_cita hc
+                      WHERE hc.id_cita = c.id_cita AND hc.reporte ILIKE '%En consulta%'
+                      ORDER BY hc.id_cambio_cita DESC LIMIT 1),
+                    to_char(MIN(bc.id_bloque), 'YYYY-MM-DD HH24:MI:SS')
+                  ) AS atencion_iniciada
+             FROM public.cita c
+             JOIN public.paciente p ON p.id_paciente = c.id_paciente
+             JOIN public.bloques_citas bc ON bc.id_cita = c.id_cita
+            WHERE c.id_usuario = $1 AND c.estado = 'En consulta' AND c.id_cita <> $2
+            GROUP BY c.id_cita, c.id_paciente, p.nombre_completo;`,
           [citaActual.id_usuario, params.idCita]
         );
+
         if (activeRes.rows.length > 0) {
-          throw new AppointmentRuleError('El profesional ya tiene otra cita En consulta.', 409);
+          const activeRow = activeRes.rows[0];
+
+          // Si el cliente solicitó forzar el cierre de la cita previa en conflicto:
+          if (
+            params.forzarCierreCitaPreviaId &&
+            Number(params.forzarCierreCitaPreviaId) === Number(activeRow.id_cita)
+          ) {
+            const cierreMotivo =
+              params.motivoCierrePrevio || 'Cierre asistido al iniciar nueva atención clínica';
+
+            await client.query(
+              `UPDATE public.cita SET estado = 'Atendida', recordatorio_estado = 'Anulado' WHERE id_cita = $1;`,
+              [activeRow.id_cita]
+            );
+
+            await client.query(
+              `INSERT INTO public.historial_cita (id_cita, id_usuario_gestor, reporte, motivo)
+               VALUES ($1, $2, $3, $4);`,
+              [
+                activeRow.id_cita,
+                params.actor.idUsuario,
+                'Atención finalizada (Cierre asistido al iniciar nueva cita)',
+                cierreMotivo,
+              ]
+            );
+
+            await auditLog.record(
+              {
+                idUsuario: params.actor.idUsuario,
+                actor: params.actor.correo,
+                accion: 'CAMBIAR_ESTADO',
+                entidad: 'cita',
+                idRegistro: activeRow.id_cita,
+                valorAnterior: { estado: 'En consulta' },
+                valorNuevo: { estado: 'Atendida', motivo: cierreMotivo },
+              },
+              client
+            );
+          } else {
+            const atencionDate = new Date(activeRow.atencion_iniciada);
+            const now = new Date();
+            const elapsed = Math.max(
+              0,
+              Math.floor((now.getTime() - atencionDate.getTime()) / 60000)
+            );
+            const isOverdue = elapsed > 45;
+
+            throw new ActiveConsultationConflictError(
+              'El profesional ya tiene otra cita En consulta.',
+              {
+                idCita: Number(activeRow.id_cita),
+                idPaciente: Number(activeRow.id_paciente),
+                nombrePaciente: activeRow.nombre_paciente,
+                horaInicio: activeRow.inicio,
+                horaFin: activeRow.fin,
+                minutosTranscurridos: elapsed,
+                tiempoExcedido: isOverdue,
+              }
+            );
+          }
         }
       }
 
-      if (params.nuevoEstado === 'Atendida') {
+      if (params.nuevoEstado === 'Atendida' && !params.ignorarMotivoConsulta) {
         // RF-AGE-009: sin el motivo de consulta guardado (RF-HCL-005) no se finaliza
         const evoRes = await client.query(
           `SELECT 1 FROM public.evolucion
@@ -1062,5 +1140,53 @@ export class AppointmentRepository {
       ORDER BY u.nombre_completo ASC;`
     );
     return rows;
+  }
+
+  // ------------------------------------------------------------------
+  // Consulta de cita activa "En consulta" de un profesional con cálculo de tiempo
+  // (RF-AGE-009, Regla de Negocio 5)
+  // ------------------------------------------------------------------
+  async findActiveConsultationByProfessional(idProfesional: number) {
+    const { rows } = await db.query(
+      `SELECT c.id_cita AS "idCita",
+              c.id_paciente AS "idPaciente",
+              c.titulo,
+              p.nombre_completo AS "nombrePaciente",
+              to_char(MIN(bc.id_bloque), 'YYYY-MM-DD HH24:MI') AS "horaInicio",
+              to_char(MAX(bc.id_bloque) + interval '30 minutes', 'HH24:MI') AS "horaFin",
+              COALESCE(
+                (SELECT to_char(hc.fecha_historial, 'YYYY-MM-DD HH24:MI:SS')
+                   FROM public.historial_cita hc
+                  WHERE hc.id_cita = c.id_cita AND hc.reporte ILIKE '%En consulta%'
+                  ORDER BY hc.id_cambio_cita DESC LIMIT 1),
+                to_char(MIN(bc.id_bloque), 'YYYY-MM-DD HH24:MI:SS')
+              ) AS "atencionIniciada"
+         FROM public.cita c
+         JOIN public.paciente p ON p.id_paciente = c.id_paciente
+         JOIN public.bloques_citas bc ON bc.id_cita = c.id_cita
+        WHERE c.id_usuario = $1 AND c.estado = 'En consulta'
+        GROUP BY c.id_cita, c.id_paciente, c.titulo, p.nombre_completo
+        LIMIT 1;`,
+      [idProfesional]
+    );
+
+    if (rows.length === 0) return null;
+    const row = rows[0];
+    const atencionDate = new Date(row.atencionIniciada);
+    const now = new Date();
+    const elapsedMinutes = Math.max(0, Math.floor((now.getTime() - atencionDate.getTime()) / 60000));
+    const isOverdue = elapsedMinutes > 45;
+
+    return {
+      idCita: Number(row.idCita),
+      idPaciente: Number(row.idPaciente),
+      nombrePaciente: row.nombrePaciente,
+      titulo: row.titulo,
+      horaInicio: row.horaInicio,
+      horaFin: row.horaFin,
+      atencionIniciada: row.atencionIniciada,
+      minutosTranscurridos: elapsedMinutes,
+      tiempoExcedido: isOverdue,
+    };
   }
 }

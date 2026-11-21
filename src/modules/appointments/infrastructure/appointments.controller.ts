@@ -423,7 +423,14 @@ export class AppointmentsController {
     try {
       const idCita = Number(req.params.id);
       if (Number.isNaN(idCita)) throw new AppointmentRuleError('El ID de cita debe ser numérico.');
-      const { nuevoEstado, motivo, liberarBloques } = req.body ?? {};
+      const {
+        nuevoEstado,
+        motivo,
+        liberarBloques,
+        forzarCierreCitaPreviaId,
+        motivoCierrePrevio,
+        ignorarMotivoConsulta,
+      } = req.body ?? {};
       if (!nuevoEstado || typeof nuevoEstado !== 'string' || !nuevoEstado.trim()) {
         throw new AppointmentRuleError("El campo 'nuevoEstado' es obligatorio.");
       }
@@ -445,6 +452,9 @@ export class AppointmentsController {
         actor: agendaActor(req),
         motivo: motivo ? String(motivo) : null,
         liberarBloques,
+        forzarCierreCitaPreviaId: forzarCierreCitaPreviaId ? Number(forzarCierreCitaPreviaId) : undefined,
+        motivoCierrePrevio: motivoCierrePrevio ? String(motivoCierrePrevio) : undefined,
+        ignorarMotivoConsulta: Boolean(ignorarMotivoConsulta),
       });
 
       // RF-AGE-007: correo de cancelación al paciente y al profesional
