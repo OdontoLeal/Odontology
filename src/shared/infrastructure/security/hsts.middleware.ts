@@ -35,7 +35,14 @@ export function createHstsMiddleware(options: HstsOptions = {}) {
   const headerValue = directives.join('; ');
 
   return (req: Request, res: Response, next: NextFunction): void => {
-    const isEnabled = options.enabled ?? (envConfig.security.forceHttps || envConfig.isProduction);
+    const isProxyHttps = req.headers['x-forwarded-proto'] === 'https';
+    const isExplicitlyDisabled = process.env.FORCE_HTTPS === 'false' || options.enabled === false;
+
+    if (isExplicitlyDisabled) {
+      return next();
+    }
+
+    const isEnabled = options.enabled ?? (envConfig.security.forceHttps || envConfig.isProduction || isProxyHttps);
 
     // Si no está habilitado, omitir
     if (!isEnabled) {
@@ -48,7 +55,8 @@ export function createHstsMiddleware(options: HstsOptions = {}) {
     if (
       (hostname === 'localhost' || hostname === '127.0.0.1') &&
       options.enabled === undefined &&
-      process.env.NODE_ENV !== 'production'
+      process.env.NODE_ENV !== 'production' &&
+      !isProxyHttps
     ) {
       return next();
     }
@@ -57,7 +65,7 @@ export function createHstsMiddleware(options: HstsOptions = {}) {
     const isSecure =
       req.secure ||
       req.protocol === 'https' ||
-      req.headers['x-forwarded-proto'] === 'https';
+      isProxyHttps;
 
     if (isSecure) {
       res.setHeader('Strict-Transport-Security', headerValue);

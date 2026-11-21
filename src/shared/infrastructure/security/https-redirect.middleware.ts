@@ -21,9 +21,16 @@ export interface EnforceHttpsOptions {
  */
 export function createEnforceHttpsMiddleware(options: EnforceHttpsOptions = {}) {
   return (req: Request, res: Response, next: NextFunction): void => {
-    const isEnabled = options.enabled ?? envConfig.security.forceHttps;
+    const isProxyHttp = req.headers['x-forwarded-proto'] === 'http';
+    const isExplicitlyDisabled = process.env.FORCE_HTTPS === 'false' || options.enabled === false;
 
-    // Si no está habilitado (p. ej. entorno de desarrollo local), continuar
+    if (isExplicitlyDisabled) {
+      return next();
+    }
+
+    const isEnabled = options.enabled ?? (envConfig.security.forceHttps || isProxyHttp);
+
+    // Si no está habilitado (p. ej. entorno de desarrollo local sin proxy), continuar
     if (!isEnabled) {
       return next();
     }
@@ -35,7 +42,8 @@ export function createEnforceHttpsMiddleware(options: EnforceHttpsOptions = {}) 
     if (
       (hostname === 'localhost' || hostname === '127.0.0.1') &&
       options.enabled === undefined &&
-      process.env.NODE_ENV !== 'production'
+      process.env.NODE_ENV !== 'production' &&
+      !isProxyHttp
     ) {
       return next();
     }
