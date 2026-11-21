@@ -372,21 +372,41 @@ export const ManagementPlanTab: React.FC<ManagementPlanTabProps> = ({
                 <label className="block text-xs font-black uppercase text-[#111111] mb-1">
                   Fecha Culminación
                 </label>
-                <input
-                  type="date"
-                  disabled={readOnly}
-                  value={planManejo.incapacidad_medica?.fecha_culminacion || ''}
-                  onChange={(e) =>
-                    onPlanManejoChange({
-                      ...planManejo,
-                      incapacidad_medica: {
-                        ...planManejo.incapacidad_medica,
-                        fecha_culminacion: e.target.value,
-                      },
-                    })
-                  }
-                  className="w-full rounded-xl border border-[#E7E7E3] bg-[#F6F6F4] px-3.5 py-2 text-xs text-[#111111] focus:bg-white focus:border-[#D4AF37] focus:outline-none"
-                />
+                {(() => {
+                  const fInicio = planManejo.incapacidad_medica?.fecha_inicio;
+                  const fFin = planManejo.incapacidad_medica?.fecha_culminacion;
+                  const isDateOrderInvalid = Boolean(fInicio && fFin && fFin < fInicio);
+
+                  return (
+                    <div>
+                      <input
+                        type="date"
+                        disabled={readOnly}
+                        min={fInicio || undefined}
+                        value={fFin || ''}
+                        onChange={(e) =>
+                          onPlanManejoChange({
+                            ...planManejo,
+                            incapacidad_medica: {
+                              ...planManejo.incapacidad_medica,
+                              fecha_culminacion: e.target.value,
+                            },
+                          })
+                        }
+                        className={`w-full rounded-xl border px-3.5 py-2 text-xs text-[#111111] focus:outline-none transition-all ${
+                          isDateOrderInvalid
+                            ? 'border-[#EF4444] bg-[#FEF2F2] focus:border-[#DC2626] focus:ring-1 focus:ring-[#DC2626]'
+                            : 'border-[#E7E7E3] bg-[#F6F6F4] focus:bg-white focus:border-[#D4AF37]'
+                        }`}
+                      />
+                      {isDateOrderInvalid && (
+                        <p className="text-[11px] font-semibold text-[#DC2626] mt-1">
+                          La fecha de culminación no puede ser anterior a la fecha de inicio.
+                        </p>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             </div>
 

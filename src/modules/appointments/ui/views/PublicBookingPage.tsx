@@ -467,13 +467,13 @@ export const PublicBookingPage: React.FC<PublicBookingPageProps> = ({
                       style={{
                         display: 'inline',
                         fontWeight: 600,
-                        color: '#B8942A',
+                        color: '#7A5506',
                         textDecoration: 'underline',
                         textUnderlineOffset: '2px',
                         cursor: 'pointer',
                       }}
                       onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = '#111111')}
-                      onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = '#B8942A')}
+                      onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = '#7A5506')}
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
@@ -498,13 +498,13 @@ export const PublicBookingPage: React.FC<PublicBookingPageProps> = ({
                       style={{
                         display: 'inline',
                         fontWeight: 600,
-                        color: '#B8942A',
+                        color: '#7A5506',
                         textDecoration: 'underline',
                         textUnderlineOffset: '2px',
                         cursor: 'pointer',
                       }}
                       onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = '#111111')}
-                      onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = '#B8942A')}
+                      onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = '#7A5506')}
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
@@ -565,7 +565,7 @@ export const PublicBookingPage: React.FC<PublicBookingPageProps> = ({
             <p className="text-[#64748B] leading-relaxed">
               Recibirás la confirmación formal por correo electrónico y aviso previo 24 horas antes.
             </p>
-            <div className="pt-2 border-t border-[#F1F5F9] text-[11px] text-[#475569] space-y-0.5">
+            <div className="pt-2 border-t border-[#F1F5F9] text-[13px] sm:text-sm text-[#475569] space-y-0.5 leading-relaxed">
               <p className="font-semibold text-[#1E242B]">Canales de atención:</p>
               <p>
                 Teléfono: <span className="font-medium text-[#1E242B]">+57 300 123 4567</span>
@@ -584,7 +584,7 @@ export const PublicBookingPage: React.FC<PublicBookingPageProps> = ({
             <p className="text-[#64748B] leading-relaxed">
               Calle 21A # 10-57, Tunja, Boyacá.
             </p>
-            <div className="pt-2 border-t border-[#F1F5F9] text-[11px] text-[#475569]">
+            <div className="pt-2 border-t border-[#F1F5F9] text-[13px] sm:text-sm text-[#475569] leading-relaxed">
               <p>Horario de atención: Lunes a Sábado de 07:00 a. m. a 07:00 p. m.</p>
             </div>
           </div>
@@ -597,7 +597,7 @@ export const PublicBookingPage: React.FC<PublicBookingPageProps> = ({
         <div>
           <button
             type="button"
-            className="font-bold text-[#B8962E] hover:text-[#97741C] underline cursor-pointer focus:outline-none"
+            className="font-bold text-[#7A5506] hover:text-[#583C04] underline cursor-pointer focus:outline-none"
             onClick={() => (onOpenPrivacyNotice ? onOpenPrivacyNotice() : setIsPrivacyModalOpen(true))}
           >
             Aviso de privacidad y política de tratamiento de datos personales

@@ -430,14 +430,36 @@ export const MedicalBackgroundForm: React.FC<MedicalBackgroundFormProps> = ({
                     </td>
 
                     <td className="p-3.5 align-top">
-                      <input
-                        type="text"
-                        disabled={readOnly}
-                        value={item.observaciones}
-                        onChange={(e) => updateBackground(key, item.presenta, e.target.value)}
-                        placeholder="Indique detalles clínicos o N/A..."
-                        className="w-full rounded-xl border border-[#E7E7E3] px-3.5 py-2 text-xs text-[#1F2430] bg-[#F6F6F4] focus:bg-white focus:border-[#D4AF37] focus:outline-none transition-all"
-                      />
+                      {(() => {
+                        const obsTrim = (item.observaciones || '').trim();
+                        const isInvalid =
+                          item.presenta &&
+                          (!obsTrim ||
+                            obsTrim.toUpperCase() === 'N/A' ||
+                            obsTrim.toUpperCase().startsWith('N/A -') ||
+                            obsTrim.toUpperCase().startsWith('N/A-'));
+                        return (
+                          <div>
+                            <input
+                              type="text"
+                              disabled={readOnly}
+                              value={item.observaciones}
+                              onChange={(e) => updateBackground(key, item.presenta, e.target.value)}
+                              placeholder={item.presenta ? 'Describa el antecedente clínico...' : 'Indique detalles clínicos o N/A...'}
+                              className={`w-full rounded-xl border px-3.5 py-2 text-xs text-[#1F2430] transition-all focus:outline-none ${
+                                isInvalid
+                                  ? 'border-[#EF4444] bg-[#FEF2F2] focus:border-[#DC2626] focus:ring-1 focus:ring-[#DC2626]'
+                                  : 'border-[#E7E7E3] bg-[#F6F6F4] focus:bg-white focus:border-[#D4AF37]'
+                              }`}
+                            />
+                            {isInvalid && (
+                              <p className="text-[11px] font-semibold text-[#DC2626] mt-1">
+                                Obligatorio al marcar «Sí»: describa el antecedente (no puede estar vacío ni ser N/A).
+                              </p>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </td>
                   </tr>
                 );

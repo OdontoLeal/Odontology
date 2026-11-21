@@ -79,6 +79,15 @@ app.use('/api/users-auth', (req, res, next) => {
   apiRoutes(req, res, next);
 });
 
+// Manejador 404 específico para endpoints de API: Garantiza respuesta JSON en lugar del HTML por defecto de Express
+app.all(/^\/api(\/.*)?$/, (req, res) => {
+  res.status(404).json({
+    statusCode: 404,
+    error: 'Not Found',
+    message: `Ruta de API no encontrada: ${req.method} ${req.originalUrl}`,
+  });
+});
+
 // Servir el frontend SPA compilado en modo producción (Monolito modular)
 const clientDistPath = path.resolve(process.cwd(), 'dist/public');
 if (fs.existsSync(clientDistPath)) {

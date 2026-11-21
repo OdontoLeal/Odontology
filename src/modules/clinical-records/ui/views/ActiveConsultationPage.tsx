@@ -39,6 +39,8 @@ export interface ActiveConsultationPageProps {
   appointmentTime?: string;
   onBackToAgenda: () => void;
   onFinishConsultation: (idCita: number) => void;
+  /** Modo solo lectura si la cita ya fue atendida/finalizada */
+  readOnly?: boolean;
   /** RF-AGE-009: solo el profesional responsable finaliza la atención (la auxiliar solo guarda). */
   canFinishAttention?: boolean;
   /** Regla de Negocio 4: ROL-AUX asiste en consulta en curso (solo odontograma y nota de evolución). */
@@ -64,6 +66,7 @@ export const ActiveConsultationPage: React.FC<ActiveConsultationPageProps> = ({
   appointmentTime,
   onBackToAgenda,
   onFinishConsultation,
+  readOnly = false,
   canFinishAttention = false,
   isAssistantMode,
   canGenerateDocuments,
@@ -205,7 +208,7 @@ export const ActiveConsultationPage: React.FC<ActiveConsultationPageProps> = ({
         accionesARealizar: previousEvolution.accionesARealizar || '',
         observaciones: '',
         odontograma: previousEvolution.odontograma || currentOdontogram,
-        planManejo: previousEvolution.planManejo || DEFAULT_PLAN_MANEJO,
+        planManejo: DEFAULT_PLAN_MANEJO,
       };
     }
 
@@ -325,8 +328,23 @@ export const ActiveConsultationPage: React.FC<ActiveConsultationPageProps> = ({
     <DetailPageContainer className="space-y-6">
       <AlertModalComponent />
 
+      {/* Banner de solo lectura si la cita ya fue Atendida */}
+      {readOnly && (
+        <div className="flex items-start gap-3 rounded-xl border border-[#CBD5E1] bg-[#F8FAFC] p-4 text-[14px] text-[#1E242B]">
+          <span className="text-xl">🔒</span>
+          <div className="min-w-0 flex-1">
+            <strong className="block font-bold text-[#1E242B]">
+              Cita Atendida — Modo Solo Lectura
+            </strong>
+            <p className="text-[#64748B] text-[13px] mt-0.5">
+              Esta cita ya fue finalizada y registrada formalmente. El formulario se presenta en modo de solo lectura. Para aclaraciones o correcciones posteriores, utilice las notas aclaratorias desde la Agenda o el Historial.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Banner contextual para Apoyo Asistencial (ROL-AUX) */}
-      {effectiveAssistantMode && (
+      {!readOnly && effectiveAssistantMode && (
         <div className="flex items-start gap-3 rounded-xl border border-[#CBD5E1] bg-[#F8FAFC] p-4 text-[14px] text-[#1E242B]">
           <SparklesIcon size={20} color="#D4AF37" className="shrink-0 mt-0.5" />
           <div className="min-w-0 flex-1">
@@ -341,7 +359,7 @@ export const ActiveConsultationPage: React.FC<ActiveConsultationPageProps> = ({
       )}
 
       {/* Banner Informativo de Precarga Automática de Consulta Anterior */}
-      {!effectiveAssistantMode && previousEvolution && Number(previousEvolution.idCita) !== Number(idCita) && (
+      {!readOnly && !effectiveAssistantMode && previousEvolution && Number(previousEvolution.idCita) !== Number(idCita) && (
         <div className="flex items-start gap-3 rounded-xl border border-[#E9C765] bg-[#FBF6E6] p-4 text-[14px] text-[#111111]">
           <SparklesIcon size={20} color="#D4AF37" className="shrink-0 mt-0.5" />
           <div className="min-w-0 flex-1">
@@ -367,6 +385,7 @@ export const ActiveConsultationPage: React.FC<ActiveConsultationPageProps> = ({
         doctorSignature={attendingDoctor.signature}
         doctorRole={attendingDoctor.role}
         displayDate={displayDate}
+        readOnly={readOnly}
         initialData={initialFormData}
         isAssistantMode={effectiveAssistantMode}
         canGenerateDocuments={effectiveCanGenerateDocs}
@@ -374,26 +393,30 @@ export const ActiveConsultationPage: React.FC<ActiveConsultationPageProps> = ({
         consultationNotes={currentConsultationNotes}
         odontogram={workingOdontogram}
         onOdontogramChange={setWorkingOdontogram}
-        onSaveDraft={async (formData) => {
-          await saveEvolutionEntry({
-            idCita,
-            motivoConsulta: formData.motivoConsulta,
-            enfermedadActual: formData.enfermedadActual,
-            antecedentesClinicos: formData.antecedentesClinicos,
-            habitosHigiene: formData.habitosHigiene,
-            examenEstomatognatico: formData.examenEstomatognatico,
-            examenFisicoObservaciones: formData.examenFisicoObservaciones,
-            procedimientoRealizado: formData.procedimientoRealizado,
-            diagnostico: formData.diagnostico,
-            diagnosticoGenerado: formData.diagnosticoGenerado || formData.diagnostico,
-            accionesARealizar: formData.accionesARealizar,
-            observaciones: formData.observaciones,
-            hallazgosObservaciones: formData.hallazgosObservaciones || formData.observaciones,
-            odontograma: workingOdontogram || formData.odontograma,
-            planManejo: formData.planManejo,
-          });
-        }}
-        onSubmitOfficial={handleOfficialSubmit}
+        onSaveDraft={
+          readOnly
+            ? undefined
+            : async (formData) => {
+                await saveEvolutionEntry({
+                  idCita,
+                  motivoConsulta: formData.motivoConsulta,
+                  enfermedadActual: formData.enfermedadActual,
+                  antecedentesClinicos: formData.antecedentesClinicos,
+                  habitosHigiene: formData.habitosHigiene,
+                  examenEstomatognatico: formData.examenEstomatognatico,
+                  examenFisicoObservaciones: formData.examenFisicoObservaciones,
+                  procedimientoRealizado: formData.procedimientoRealizado,
+                  diagnostico: formData.diagnostico,
+                  diagnosticoGenerado: formData.diagnosticoGenerado || formData.diagnostico,
+                  accionesARealizar: formData.accionesARealizar,
+                  observaciones: formData.observaciones,
+                  hallazgosObservaciones: formData.hallazgosObservaciones || formData.observaciones,
+                  odontograma: workingOdontogram || formData.odontograma,
+                  planManejo: formData.planManejo,
+                });
+              }
+        }
+        onSubmitOfficial={readOnly ? undefined : handleOfficialSubmit}
         onOpenExpandedOdontogram={() => setIsExpandedOdontogramOpen(true)}
         onBackToDetail={onBackToAgenda}
       />

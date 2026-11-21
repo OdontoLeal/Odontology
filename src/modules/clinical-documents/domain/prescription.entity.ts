@@ -52,11 +52,11 @@ export class PrescriptionEntity {
 
   public static create(props: PrescriptionProps): PrescriptionEntity {
     if (!props.idPaciente || props.idPaciente <= 0) {
-      throw new Error('Campo [idPaciente]: El identificador del paciente es obligatorio.');
+      throw new Error('Identificador del paciente: El identificador es obligatorio.');
     }
 
     if (!props.idCita || props.idCita <= 0) {
-      throw new Error('Campo [idCita]: El identificador de la cita es obligatorio.');
+      throw new Error('Identificador de la cita: El identificador es obligatorio.');
     }
 
     if (props.tieneDatosIncompletos || !props.pacienteSexo || !props.pacienteSexo.trim()) {
@@ -67,7 +67,7 @@ export class PrescriptionEntity {
 
     if (!Array.isArray(props.medicamentos) || props.medicamentos.length === 0) {
       throw new Error(
-        'Campo [medicamentos]: Debe registrar al menos un medicamento en la orden.'
+        'Medicamentos recetados: Debe registrar al menos un medicamento en la orden.'
       );
     }
 
@@ -75,22 +75,22 @@ export class PrescriptionEntity {
       const posicion = index + 1;
       if (!med.nombrePresentacion || !med.nombrePresentacion.trim()) {
         throw new Error(
-          `Campo [medicamentos[${posicion}].nombrePresentacion]: El nombre y presentación del medicamento #${posicion} es obligatorio.`
+          `Medicamento #${posicion}: El nombre y presentación son obligatorios.`
         );
       }
       if (!med.dosis || !med.dosis.trim()) {
         throw new Error(
-          `Campo [medicamentos[${posicion}].dosis]: La dosis del medicamento #${posicion} es obligatoria.`
+          `Medicamento #${posicion}: La dosis es obligatoria.`
         );
       }
       if (!med.frecuencia || !med.frecuencia.trim()) {
         throw new Error(
-          `Campo [medicamentos[${posicion}].frecuencia]: La frecuencia del medicamento #${posicion} es obligatoria.`
+          `Medicamento #${posicion}: La frecuencia es obligatoria.`
         );
       }
       if (!med.duracion || !med.duracion.trim()) {
         throw new Error(
-          `Campo [medicamentos[${posicion}].duracion]: La duración del medicamento #${posicion} es obligatoria.`
+          `Medicamento #${posicion}: La duración del tratamiento es obligatoria.`
         );
       }
     });
@@ -101,7 +101,7 @@ export class PrescriptionEntity {
       !props.diligenciadoPor.nombreProfesional?.trim()
     ) {
       throw new Error(
-        'Campo [diligenciadoPor]: Los datos de autoría del profesional responsable son obligatorios.'
+        'Profesional responsable: Los datos de autoría son obligatorios.'
       );
     }
 

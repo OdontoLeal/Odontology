@@ -236,6 +236,20 @@ describe('CONTRATOS JSONB Y ESQUEMAS ZOD (Single Source of Truth - Capa 2 y Capa
       }
     });
 
+    it('Rechaza incapacidad médica si fecha_culminacion es anterior a fecha_inicio', () => {
+      const plan = createDefaultPlanManejo();
+      plan.incapacidad_medica.requiere_incapacidad = true;
+      plan.incapacidad_medica.fecha_inicio = '2026-11-10';
+      plan.incapacidad_medica.fecha_culminacion = '2026-11-05'; // Anterior a fecha_inicio
+      plan.incapacidad_medica.diagnostico_justificacion = 'Reposo posoperatorio';
+      const res = PlanManejoSchema.safeParse(plan);
+      assert.strictEqual(res.success, false);
+      if (!res.success) {
+        const msg = (res.error.issues || (res.error as any).errors)[0].message;
+        assert.match(msg, /no puede ser anterior a la fecha de inicio/i);
+      }
+    });
+
     it('Rechaza remisión a médico o especialista individual (RF-DOC-003)', () => {
       const plan = createDefaultPlanManejo();
       plan.remision_medica.requiere_remision = true;

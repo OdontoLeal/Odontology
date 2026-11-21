@@ -349,10 +349,20 @@ export const EvolutionTemplateEditor: React.FC<EvolutionTemplateEditorProps> = (
         });
         return;
       }
+      const fInicio = planManejo.incapacidad_medica.fecha_inicio;
+      const fFin = planManejo.incapacidad_medica.fecha_culminacion;
+      if (fInicio && fFin && fFin < fInicio) {
+        showAlert({
+          title: 'Fechas de Incapacidad Inválidas',
+          message: 'La fecha de culminación no puede ser anterior a la fecha de inicio de la incapacidad.',
+          type: 'warning',
+        });
+        return;
+      }
       let dias = 1;
-      if (planManejo.incapacidad_medica.fecha_inicio && planManejo.incapacidad_medica.fecha_culminacion) {
-        const start = new Date(planManejo.incapacidad_medica.fecha_inicio).getTime();
-        const end = new Date(planManejo.incapacidad_medica.fecha_culminacion).getTime();
+      if (fInicio && fFin) {
+        const start = new Date(fInicio).getTime();
+        const end = new Date(fFin).getTime();
         const diff = Math.round((end - start) / (1000 * 60 * 60 * 24)) + 1;
         if (diff > 0) dias = diff;
       }
@@ -410,7 +420,7 @@ export const EvolutionTemplateEditor: React.FC<EvolutionTemplateEditorProps> = (
           backLabel={onBackToDetail ? 'Volver a la Agenda' : undefined}
           onBack={onBackToDetail}
           title="Nueva Evolución"
-          badge={<StatusBadge tone={readOnly ? 'neutral' : 'dark'}>{readOnly ? 'Solo lectura' : 'Consulta en curso'}</StatusBadge>}
+          badge={<StatusBadge tone={readOnly ? 'neutral' : 'dark'}>{readOnly ? 'Atendida (Solo lectura)' : 'Consulta en curso'}</StatusBadge>}
           subtitle={
             <span className="inline-flex flex-wrap items-center gap-x-3 gap-y-1">
               <span className="inline-flex items-center gap-1.5">
