@@ -5,3 +5,4 @@ export * from './StomatognathicExamForm';
 export * from './EvolutionTemplateEditor';
 export * from './EvolutionDetailModal';
 export * from './AddClarificationNoteModal';
+export * from './ReplaceFindingModal';
