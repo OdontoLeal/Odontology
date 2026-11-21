@@ -20,6 +20,7 @@ export interface ClinicalHistoryListPageProps {
   patientDoc: string;
   patientData?: PatientListItem;
   onBack: () => void;
+  canAddClarificationNote?: boolean;
 }
 
 export const ClinicalHistoryListPage: React.FC<ClinicalHistoryListPageProps> = ({
@@ -28,8 +29,9 @@ export const ClinicalHistoryListPage: React.FC<ClinicalHistoryListPageProps> = (
   patientDoc,
   patientData,
   onBack,
+  canAddClarificationNote = true,
 }) => {
-  const { history, isLoading } = useClinicalRecord(idPaciente);
+  const { history, isLoading, saveClarificationNote } = useClinicalRecord(idPaciente);
   const [selectedEntry, setSelectedEntry] = useState<ClinicalEvolutionEntry | null>(null);
 
   // Garantizar objeto PatientListItem completo
@@ -90,7 +92,18 @@ export const ClinicalHistoryListPage: React.FC<ClinicalHistoryListPageProps> = (
                 {entry.profesional.tarjetaProfesional && ` · TP: ${entry.profesional.tarjetaProfesional}`}
               </>
             }
-            action={<StatusBadge tone="neutral">Atención finalizada · Inmutable</StatusBadge>}
+            action={
+              <div className="flex flex-wrap items-center gap-2">
+                {entry.notasAclaratorias && entry.notasAclaratorias.length > 0 && (
+                  <StatusBadge tone="gold">
+                    📝 {entry.notasAclaratorias.length} nota
+                    {entry.notasAclaratorias.length > 1 ? 's' : ''} aclaratoria
+                    {entry.notasAclaratorias.length > 1 ? 's' : ''}
+                  </StatusBadge>
+                )}
+                <StatusBadge tone="neutral">Atención finalizada · Inmutable</StatusBadge>
+              </div>
+            }
           >
             <div className="space-y-4">
               <div className="grid grid-cols-[minmax(0,1fr)] gap-4 md:grid-cols-2">
@@ -98,7 +111,7 @@ export const ClinicalHistoryListPage: React.FC<ClinicalHistoryListPageProps> = (
                 {field('Diagnóstico (CIE-10)', entry.diagnostico)}
               </div>
               {field('Procedimiento realizado', entry.procedimientoRealizado)}
-              <div className="flex justify-end">
+              <div className="flex justify-end gap-2">
                 <DetailAction onClick={() => setSelectedEntry(entry)}>
                   Ver odontograma y detalle completo
                 </DetailAction>
@@ -118,6 +131,9 @@ export const ClinicalHistoryListPage: React.FC<ClinicalHistoryListPageProps> = (
         evolution={selectedEntry}
         isOpen={Boolean(selectedEntry)}
         onClose={() => setSelectedEntry(null)}
+        canAddClarificationNote={canAddClarificationNote}
+        onSaveClarificationNote={saveClarificationNote}
+        patientName={patientName}
       />
     </DetailPageContainer>
   );

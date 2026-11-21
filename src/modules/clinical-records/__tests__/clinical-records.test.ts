@@ -129,6 +129,9 @@ class InMemoryClinicalRecordRepository implements IClinicalRecordRepository {
   }
 
   async addClarificationNote(idEvolucion: number, texto: string, actor: ClinicalWriteActor): Promise<NotaEvolucionRow> {
+    if (!texto || !texto.trim()) {
+      throw new ClinicalDomainError('El texto de la nota aclaratoria es obligatorio.', 'BAD_REQUEST');
+    }
     const nota: NotaEvolucionRow = {
       idNota: Date.now(),
       tipo: 'NOTA_ACLARATORIA',
@@ -521,6 +524,40 @@ describe('MÓDULO C (Parte 2): Historia Clínica, Odontograma y Evolución (RF-H
     const nota = history.historial[0].notasEvolucion.find((n) => n.tipoRegistro === 'NOTA_ACLARATORIA');
     assert.ok(nota);
     assert.strictEqual(nota!.diligenciadoPor.nombreUsuario, 'Dr. Eduar Leal Álvarez');
+  });
+
+  it('RF-HCL-006 & RF-HCL-009: Validación estricta de notas aclaratorias (rechaza texto vacío y autor no asignado)', async () => {
+    const entry = await new CreateClinicalRecordUseCase(repo).execute({
+      idPaciente: 106,
+      idCita: 902,
+      estadoCita: 'En consulta',
+      idProfesionalResponsable: DR_LEAL.idUsuario,
+      actor: DR_LEAL,
+      motivoConsulta: 'Endodoncia',
+      marcarTodoNoAplica: true,
+    });
+    const cita = { idCita: 902, idPaciente: 106, idProfesional: DR_LEAL.idUsuario, nombreProfesional: 'Dr. Leal', estado: 'Atendida' };
+    const leal: any = { idUsuario: DR_LEAL.idUsuario, correo: 'leal@x.co', nombreCompleto: DR_LEAL.nombreUsuario, roles: DR_LEAL.roles, permisos: ['RF-HCL-005', 'RF-HCL-006', 'RF-HCL-008', 'RF-HCL-009'] };
+    const otherDoctor: any = { idUsuario: 999, correo: 'otro@x.co', nombreCompleto: 'Dr. Otro', roles: ['ROL-ODO'], permisos: ['RF-HCL-009'] };
+
+    const autor = ClinicalAccessPolicy.resolveClarificationAuthor(leal, cita);
+
+    // Rechaza nota aclaratoria vacía o con solo espacios
+    await assert.rejects(
+      async () => repo.addClarificationNote(entry.idEvolucion, '   ', autor),
+      /El texto de la nota aclaratoria es obligatorio/
+    );
+
+    // Rechaza si otro profesional que no atendió la cita intenta registrar la nota aclaratoria
+    assert.throws(
+      () => ClinicalAccessPolicy.resolveClarificationAuthor(otherDoctor, cita),
+      /No tiene permiso/
+    );
+
+    // Permite al profesional responsable asentar la nota aclaratoria válida
+    const nota = await repo.addClarificationNote(entry.idEvolucion, 'Paciente refiere disminución de sensibilidad.', autor);
+    assert.strictEqual(nota.tipo, 'NOTA_ACLARATORIA');
+    assert.strictEqual(nota.texto, 'Paciente refiere disminución de sensibilidad.');
   });
 
   it('ClinicalRecordsModulePublicApi: Integración bidireccional con Appointments (IClinicalRecordCheckerPort)', async () => {

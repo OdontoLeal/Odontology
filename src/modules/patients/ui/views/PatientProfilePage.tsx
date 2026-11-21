@@ -123,7 +123,7 @@ export const PatientProfilePage: React.FC<PatientProfilePageProps> = ({
 
   // Historias clínicas reales (solo roles con RF-HCL-008 consultan historial completo)
   const canReadFullHistory = canViewClinicalHistory && !isCoordinator;
-  const { history, isLoading: isHistoryLoading } = useClinicalRecord(
+  const { history, isLoading: isHistoryLoading, saveClarificationNote } = useClinicalRecord(
     patient.idPaciente,
     '/api/v1',
     undefined,
@@ -454,6 +454,11 @@ export const PatientProfilePage: React.FC<PatientProfilePageProps> = ({
                       <span className="min-w-0">
                         <span className="flex flex-wrap items-center gap-2">
                           <span className="text-[14px] font-semibold text-[#1E242B]">{item.fechaRegistro}</span>
+                          {item.notasAclaratorias && item.notasAclaratorias.length > 0 && (
+                            <StatusBadge tone="gold">
+                              📝 {item.notasAclaratorias.length} aclaración{item.notasAclaratorias.length > 1 ? 'es' : ''}
+                            </StatusBadge>
+                          )}
                           <StatusBadge tone="neutral">Solo lectura</StatusBadge>
                         </span>
                         <span className="mt-0.5 block text-[13px] text-[#64748B]">
@@ -611,6 +616,9 @@ export const PatientProfilePage: React.FC<PatientProfilePageProps> = ({
         evolution={selectedEvolutionForView}
         isOpen={Boolean(selectedEvolutionForView)}
         onClose={() => setSelectedEvolutionForView(null)}
+        canAddClarificationNote={!isCoordinator && canStartAttention}
+        onSaveClarificationNote={saveClarificationNote}
+        patientName={patient.nombreCompleto}
       />
 
       {/* Modal de Nueva Cita para el Paciente */}

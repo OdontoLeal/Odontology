@@ -4,6 +4,16 @@ dotenv.config();
 export const envConfig = {
   port: Number(process.env.PORT) || 4000,
   nodeEnv: process.env.NODE_ENV || 'development',
+  isProduction: (process.env.NODE_ENV || 'development') === 'production',
+  security: {
+    forceHttps:
+      process.env.FORCE_HTTPS !== undefined
+        ? process.env.FORCE_HTTPS === 'true'
+        : (process.env.NODE_ENV || 'development') === 'production',
+    hstsMaxAge: Number(process.env.HSTS_MAX_AGE) || 31536000, // 1 año en segundos (RFC 6797)
+    hstsIncludeSubDomains: process.env.HSTS_INCLUDE_SUBDOMAINS !== 'false',
+    hstsPreload: process.env.HSTS_PRELOAD === 'true',
+  },
   db: {
     connectionString: process.env.DATABASE_URL,
     host: process.env.DB_HOST,

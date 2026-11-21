@@ -5,11 +5,17 @@ import fs from 'fs';
 import { envConfig } from './config/env.config';
 import apiRoutes from './routes/api.routes';
 import { CronService } from '../shared/infrastructure/services/cron.service';
+import { enforceHttpsMiddleware } from '../shared/infrastructure/security/https-redirect.middleware';
+import { hstsMiddleware } from '../shared/infrastructure/security/hsts.middleware';
 
 const app = express();
 
 // Habilitar trust proxy para reconocer HTTPS y encabezados detrás del proxy inverso de Heroku
 app.set('trust proxy', 1);
+
+// RQNF-SEG-001: Forzar comunicación segura sobre HTTPS y cabecera HSTS en producción
+app.use(enforceHttpsMiddleware);
+app.use(hstsMiddleware);
 
 // D-05: Restricción estricta de CORS compatible con Heroku y desarrollo local
 const allowedOrigins = [

@@ -480,6 +480,10 @@ export const ClinicalHistoryRoute: React.FC<{
       patientName={patient.nombreCompleto}
       patientDoc={patient.documentoIdentidad}
       patientData={patient}
+      canAddClarificationNote={
+        !capabilities.isCoordinatorOnly &&
+        (capabilities.canEditClinicalOpening || capabilities.canStartAttention)
+      }
       onBack={() => navigate(buildPatientProfilePath(patient.idPaciente), { state: { patient } })}
     />
   );

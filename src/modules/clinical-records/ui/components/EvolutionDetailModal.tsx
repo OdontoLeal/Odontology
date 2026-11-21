@@ -1,23 +1,48 @@
 // src/modules/clinical-records/ui/components/EvolutionDetailModal.tsx
-import React from 'react';
+import React, { useState } from 'react';
 import { ClinicalEvolutionEntry } from '../hooks/useClinicalRecord';
 import { OdontogramCanvas } from './OdontogramCanvas';
 import { Modal } from '../../../../shared/ui/components/Modal';
 import { Button } from '../../../../shared/ui/components/Button';
 import { Badge } from '../../../../shared/ui/components/Badge';
+import { AddClarificationNoteModal } from './AddClarificationNoteModal';
+import { formatDateTimeCO } from '../../../../shared/ui/format';
 
 export interface EvolutionDetailModalProps {
   evolution: ClinicalEvolutionEntry | null;
   isOpen: boolean;
   onClose: () => void;
+  canAddClarificationNote?: boolean;
+  onSaveClarificationNote?: (idCita: number, texto: string) => Promise<any>;
+  patientName?: string;
 }
 
 export const EvolutionDetailModal: React.FC<EvolutionDetailModalProps> = ({
   evolution,
   isOpen,
   onClose,
+  canAddClarificationNote = false,
+  onSaveClarificationNote,
+  patientName,
 }) => {
+  const [isAddNoteModalOpen, setIsAddNoteModalOpen] = useState(false);
+
   if (!evolution) return null;
+
+  const handleSaveClarification = async (texto: string) => {
+    if (!evolution || !onSaveClarificationNote) return;
+    const result = await onSaveClarificationNote(evolution.idCita, texto);
+    const newNote = {
+      idNota: String(result?.idNota || Date.now()),
+      texto: result?.texto || texto,
+      fechaRegistro: result?.fecha ? formatDateTimeCO(result.fecha) : formatDateTimeCO(new Date()),
+      autor: result?.diligenciadoPor?.nombreUsuario || evolution.profesional.nombreCompleto,
+    };
+    if (!evolution.notasAclaratorias) {
+      evolution.notasAclaratorias = [];
+    }
+    evolution.notasAclaratorias = [...evolution.notasAclaratorias, newNote];
+  };
 
   return (
     <Modal
@@ -297,13 +322,87 @@ export const EvolutionDetailModal: React.FC<EvolutionDetailModalProps> = ({
           </div>
         )}
 
-        {/* Footer: Únicamente botón para cerrar */}
-        <div className="flex justify-end pt-3 border-t border-[#E2E6EA]">
+        {/* 6. Notas Aclaratorias Post-Cierre (Resolución 1995 de 1999 / RF-HCL-009) */}
+        <div className="p-4 rounded-2xl bg-[#F8F9FA] border border-[#E2E6EA] space-y-3 text-xs">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="font-extrabold text-[13px] uppercase tracking-wider text-[#8F99A3] block">
+              6. Notas Aclaratorias Post-Cierre (Resolución 1995 de 1999)
+            </span>
+            {evolution.notasAclaratorias && evolution.notasAclaratorias.length > 0 ? (
+              <Badge
+                label={`${evolution.notasAclaratorias.length} registrada${
+                  evolution.notasAclaratorias.length > 1 ? 's' : ''
+                }`}
+                variant="gold"
+                size="sm"
+              />
+            ) : (
+              <Badge label="Sin aclaraciones" variant="neutral" size="sm" />
+            )}
+          </div>
+
+          {evolution.notasAclaratorias && evolution.notasAclaratorias.length > 0 ? (
+            <div className="space-y-2">
+              {evolution.notasAclaratorias.map((nota, i) => (
+                <div
+                  key={nota.idNota || i}
+                  className="p-3.5 rounded-xl bg-white border border-[#E2E6EA] space-y-2 shadow-xs"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-[12px]">
+                    <span className="font-bold text-[#1E242B] flex items-center gap-1.5">
+                      👨‍⚕️ {nota.autor || evolution.profesional.nombreCompleto}
+                    </span>
+                    <span className="text-[#64748B]">{nota.fechaRegistro}</span>
+                  </div>
+                  <p className="text-[#1E242B] text-xs leading-relaxed whitespace-pre-line border-t border-[#F1F3F5] pt-2">
+                    {nota.texto}
+                  </p>
+                  <div className="flex justify-end pt-1">
+                    <span className="text-[11px] font-semibold text-[#D4AF37] italic">
+                      Inmutable · Folio Aditivo (Res. 1995/1999)
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-[#8F99A3] text-xs italic">
+              Esta consulta no cuenta con notas aclaratorias registradas con posterioridad a su cierre.
+            </p>
+          )}
+        </div>
+
+        {/* Footer: Acción para agregar nota aclaratoria + botón para cerrar */}
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-[#E2E6EA]">
+          {canAddClarificationNote && onSaveClarificationNote ? (
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
+              onClick={() => setIsAddNoteModalOpen(true)}
+            >
+              ➕ Agregar Nota Aclaratoria
+            </Button>
+          ) : (
+            <div />
+          )}
           <Button variant="outline" size="sm" onClick={onClose}>
             Cerrar Visualización
           </Button>
         </div>
       </div>
+
+      {/* Modal especializado para registrar nota aclaratoria */}
+      {canAddClarificationNote && onSaveClarificationNote && (
+        <AddClarificationNoteModal
+          isOpen={isAddNoteModalOpen}
+          onClose={() => setIsAddNoteModalOpen(false)}
+          idCita={evolution.idCita}
+          evolutionDate={evolution.fechaRegistro}
+          patientName={patientName}
+          onSave={handleSaveClarification}
+        />
+      )}
     </Modal>
   );
 };
