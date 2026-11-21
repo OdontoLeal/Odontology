@@ -196,7 +196,28 @@ export class CronService {
     return total;
   }
 
+  /**
+   * Citas en 'En consulta' que han superado el límite de tiempo seguro intradía:
+   * 1. La hora de fin programada (último bloque + 30 min) finalizó hace más de 2 horas.
+   * 2. O la atención inició hace más de 3 horas (180 minutos de Hard Timeout).
+   */
+  private static async citasEnConsultaPorTimeout(now: Date): Promise<number[]> {
+    const nowTimestamp = getNowColombiaTimestamp(now);
+    const { rows } = await db.query<{ id_cita: number }>(
+      `SELECT c.id_cita
+         FROM public.cita c
+         JOIN public.bloques_citas bc ON bc.id_cita = c.id_cita
+        WHERE c.estado = 'En consulta'
+        GROUP BY c.id_cita
+       HAVING MAX(bc.id_bloque) + interval '30 minutes' + interval '2 hours' <= $1::timestamp
+           OR MIN(bc.id_bloque) + interval '3 hours' <= $1::timestamp;`,
+      [nowTimestamp]
+    );
+    return rows.map((r) => r.id_cita);
+  }
+
   // RF-AGE-010: En consulta sin finalizar a las 23:59 → Atendida (aun sin motivo de consulta)
+  // Y cierre automático de consultas intradía abandonadas (> 3 horas o > 2 horas tras fin de cita)
   public static async closeOpenConsultations(now: Date = new Date()): Promise<number> {
     const sistemaId = await this.getSistemaId();
     let total = 0;
@@ -213,6 +234,21 @@ export class CronService {
         total++;
       }
     }
+
+    for (const idCita of await this.citasEnConsultaPorTimeout(now)) {
+      if (
+        await this.systemStateChange(
+          idCita,
+          'En consulta',
+          'Atendida',
+          'Cierre automático de la atención por límite de tiempo de consulta excedido (Timeout)',
+          sistemaId
+        )
+      ) {
+        total++;
+      }
+    }
+
     return total;
   }
 

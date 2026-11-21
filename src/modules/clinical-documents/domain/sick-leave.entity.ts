@@ -61,11 +61,11 @@ export class SickLeaveEntity {
 
   public static create(props: SickLeaveProps): SickLeaveEntity {
     if (!props.idPaciente || props.idPaciente <= 0) {
-      throw new Error('Campo [idPaciente]: El identificador del paciente es obligatorio.');
+      throw new Error('Identificador del paciente: El identificador es obligatorio.');
     }
 
     if (!props.idCita || props.idCita <= 0) {
-      throw new Error('Campo [idCita]: El identificador de la cita es obligatorio.');
+      throw new Error('Identificador de la cita: El identificador es obligatorio.');
     }
 
     if (
@@ -76,12 +76,12 @@ export class SickLeaveEntity {
       Number(props.diasIncapacidad) > 30
     ) {
       throw new Error(
-        'Campo [diasIncapacidad]: Los días de incapacidad deben ser un entero entre 1 y 30.'
+        'Días de incapacidad: Los días de incapacidad deben ser un entero entre 1 y 30.'
       );
     }
 
     if (!props.motivoIncapacidad || !props.motivoIncapacidad.trim()) {
-      throw new Error('Campo [motivoIncapacidad]: El motivo de la incapacidad es obligatorio.');
+      throw new Error('Motivo de la incapacidad: La justificación médica es obligatoria.');
     }
 
     const fechaExpedicion = props.fechaExpedicion ?? new Date();
@@ -121,7 +121,7 @@ export class SickLeaveEntity {
   ): number {
     const nacimiento = new Date(fechaNacimientoInput);
     if (Number.isNaN(nacimiento.getTime())) {
-      throw new Error('Campo [fechaNacimiento]: La fecha de nacimiento del paciente no es válida.');
+      throw new Error('Fecha de nacimiento: La fecha de nacimiento del paciente no es válida.');
     }
 
     const hoyColombia = SickLeaveEntity.obtenerPartesFechaColombia(fechaReferencia);

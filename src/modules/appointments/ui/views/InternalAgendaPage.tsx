@@ -8,6 +8,10 @@ import {
   DoctorCandidate,
   PatientCandidate,
 } from '../components/QuickScheduleModal';
+import {
+  ActiveConsultationConflictModal,
+  ActiveConsultationConflictData,
+} from '../components/ActiveConsultationConflictModal';
 import { AppointmentRequestDetailPage, RequestDetailData } from './AppointmentRequestDetailPage';
 import { AppointmentDetailPage, AppointmentDetailPageData } from './AppointmentDetailPage';
 import { usePatients } from '../../../patients/ui/hooks/usePatients';
@@ -154,8 +158,22 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
   const [activeRequestDetail, setActiveRequestDetail] = useState<RequestDetailData | null>(null);
   const [activeAppointmentDetail, setActiveAppointmentDetail] =
     useState<AppointmentDetailPageData | null>(null);
+  const [activeConsultationConflict, setActiveConsultationConflict] = useState<{
+    conflictData: ActiveConsultationConflictData;
+    pendingNewAppointment: {
+      idCita: number;
+      idPaciente: number;
+      patientName: string;
+      doctorName?: string;
+      doctorSignature?: string | null;
+    };
+  } | null>(null);
   const [isHydratingRouteDetail, setIsHydratingRouteDetail] = useState(false);
   const [routeDetailError, setRouteDetailError] = useState<string | null>(null);
+
+  const activeConsultationInAgenda = useMemo(() => {
+    return agendaItems.find((item) => item.estado === 'En consulta');
+  }, [agendaItems]);
 
   const closeDetailView = () => {
     setViewMode('AGENDA');
@@ -593,6 +611,19 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
               });
               setViewMode('AGENDA');
             } catch (err: any) {
+              if (err.code === 'ACTIVE_CONSULTATION_CONFLICT' && err.activeAppointment) {
+                setActiveConsultationConflict({
+                  conflictData: err.activeAppointment,
+                  pendingNewAppointment: {
+                    idCita,
+                    idPaciente,
+                    patientName: activeAppointmentDetail.nombrePaciente,
+                    doctorName: activeAppointmentDetail.doctorNombre,
+                    doctorSignature: activeAppointmentDetail.doctorFirma,
+                  },
+                });
+                return;
+              }
               showAlert({
                 title: 'Error al iniciar atención',
                 message: err.message || 'No se pudo iniciar la consulta clínica.',
@@ -627,6 +658,37 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
             });
           }}
         />
+
+        {activeConsultationConflict && (
+          <ActiveConsultationConflictModal
+            isOpen={Boolean(activeConsultationConflict)}
+            onClose={() => setActiveConsultationConflict(null)}
+            conflictData={activeConsultationConflict.conflictData}
+            newAppointment={activeConsultationConflict.pendingNewAppointment}
+            onGoToActiveConsultation={(activeIdCita, activeIdPaciente) => {
+              const pending = activeConsultationConflict.pendingNewAppointment;
+              setActiveConsultationConflict(null);
+              closeDetailView();
+              onStartAttention?.(activeIdCita, activeIdPaciente, {
+                doctorName: pending.doctorName,
+                doctorSignature: pending.doctorSignature,
+              });
+            }}
+            onConfirmForceCloseAndStartNew={async (activeIdCita, newIdCita) => {
+              await startAttention(newIdCita, {
+                forzarCierreCitaPreviaId: activeIdCita,
+                motivoCierrePrevio: 'Cierre asistido al iniciar nueva atención clínica',
+              });
+              const pending = activeConsultationConflict.pendingNewAppointment;
+              setActiveConsultationConflict(null);
+              closeDetailView();
+              onStartAttention?.(pending.idCita, pending.idPaciente, {
+                doctorName: pending.doctorName,
+                doctorSignature: pending.doctorSignature,
+              });
+            }}
+          />
+        )}
       </>
     );
   }
@@ -675,6 +737,42 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
           ) : undefined
         }
       />
+
+      {activeConsultationInAgenda && (
+        <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#FFFDF7] border border-[#D4AF37]/50 shadow-xs text-sm text-[#1E242B]">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <span className="relative flex h-3 w-3 shrink-0">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#D4AF37] opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-[#D4AF37]"></span>
+            </span>
+            <div className="min-w-0 truncate">
+              <strong className="font-bold text-[#1E242B]">Consulta Activa en Curso:</strong>{' '}
+              <span className="font-semibold text-[#8F741E]">
+                {activeConsultationInAgenda.pacienteNombre}
+              </span>{' '}
+              <span className="text-[#64748B] text-xs">
+                ({activeConsultationInAgenda.horaInicio} - {activeConsultationInAgenda.horaFin})
+              </span>
+            </div>
+          </div>
+          <Button
+            size="sm"
+            variant="primary"
+            onClick={() => {
+              onStartAttention?.(
+                activeConsultationInAgenda.idCita,
+                activeConsultationInAgenda.idPaciente,
+                {
+                  doctorName: activeConsultationInAgenda.doctorNombre,
+                  doctorSignature: activeConsultationInAgenda.doctorFirma,
+                }
+              );
+            }}
+          >
+            Continuar Atención →
+          </Button>
+        </div>
+      )}
 
       <PageToolbar aria-label="Filtros de la agenda">
         <div className="flex w-full min-w-0 flex-col items-stretch gap-3 md:w-auto md:flex-row md:flex-wrap md:items-center md:gap-6">
@@ -1047,6 +1145,38 @@ export const InternalAgendaPage: React.FC<InternalAgendaPageProps> = ({
           initialDate={selectedDate}
           isLoading={isSubmittingSchedule}
           onConfirmSchedule={handleConfirmQuickSchedule}
+        />
+      )}
+
+      {/* Modal de Resolución de Conflicto de Cita Activa (RF-AGE-009) */}
+      {activeConsultationConflict && (
+        <ActiveConsultationConflictModal
+          isOpen={Boolean(activeConsultationConflict)}
+          onClose={() => setActiveConsultationConflict(null)}
+          conflictData={activeConsultationConflict.conflictData}
+          newAppointment={activeConsultationConflict.pendingNewAppointment}
+          onGoToActiveConsultation={(activeIdCita, activeIdPaciente) => {
+            const pending = activeConsultationConflict.pendingNewAppointment;
+            setActiveConsultationConflict(null);
+            closeDetailView();
+            onStartAttention?.(activeIdCita, activeIdPaciente, {
+              doctorName: pending.doctorName,
+              doctorSignature: pending.doctorSignature,
+            });
+          }}
+          onConfirmForceCloseAndStartNew={async (activeIdCita, newIdCita) => {
+            await startAttention(newIdCita, {
+              forzarCierreCitaPreviaId: activeIdCita,
+              motivoCierrePrevio: 'Cierre asistido al iniciar nueva atención clínica',
+            });
+            const pending = activeConsultationConflict.pendingNewAppointment;
+            setActiveConsultationConflict(null);
+            closeDetailView();
+            onStartAttention?.(pending.idCita, pending.idPaciente, {
+              doctorName: pending.doctorName,
+              doctorSignature: pending.doctorSignature,
+            });
+          }}
         />
       )}
 

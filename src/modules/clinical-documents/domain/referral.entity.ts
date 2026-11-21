@@ -55,11 +55,11 @@ export class ReferralEntity {
 
   public static create(props: ReferralProps): ReferralEntity {
     if (!props.idPaciente || props.idPaciente <= 0) {
-      throw new Error('Campo [idPaciente]: El identificador del paciente es obligatorio.');
+      throw new Error('Identificador del paciente: El identificador es obligatorio.');
     }
 
     if (!props.idCita || props.idCita <= 0) {
-      throw new Error('Campo [idCita]: El identificador de la cita es obligatorio.');
+      throw new Error('Identificador de la cita: El identificador es obligatorio.');
     }
 
     if (props.tieneDatosIncompletos || !props.pacienteSexo || !props.pacienteSexo.trim()) {
@@ -70,7 +70,7 @@ export class ReferralEntity {
 
     if (!props.especialidadSeleccionada || !props.especialidadSeleccionada.trim()) {
       throw new Error(
-        'Campo [especialidadDestino]: La especialidad a la que se remite es obligatoria.'
+        'Especialidad de destino: La especialidad a la que se remite es obligatoria.'
       );
     }
 
@@ -80,14 +80,14 @@ export class ReferralEntity {
     if (seleccionNormalizada.toLowerCase() === 'otra') {
       if (!props.otraEspecialidad || !props.otraEspecialidad.trim()) {
         throw new Error(
-          'Campo [otraEspecialidad]: Debe escribir el nombre de la especialidad cuando selecciona "Otra".'
+          'Otra especialidad: Debe escribir el nombre de la especialidad cuando selecciona "Otra".'
         );
       }
       especialidadFinal = props.otraEspecialidad.trim();
     }
 
     if (!props.motivoRemision || !props.motivoRemision.trim()) {
-      throw new Error('Campo [motivoRemision]: El motivo de la remisión es obligatorio.');
+      throw new Error('Motivo de remisión: La justificación de la remisión es obligatoria.');
     }
 
     return new ReferralEntity(props, especialidadFinal);

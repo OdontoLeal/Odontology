@@ -33,7 +33,7 @@ export class CreateUserUseCase {
 
   public async execute(command: CreateUserCommand): Promise<CreateUserResult> {
     if (!Array.isArray(command.rolesIds) || command.rolesIds.length === 0) {
-      throw new Error('Campo rolesIds: Debe asignar al menos un rol al usuario.');
+      throw new Error('Roles de usuario: Debe asignar al menos un rol al usuario.');
     }
 
     // Verificar duplicidad de documento de identidad
@@ -47,7 +47,7 @@ export class CreateUserUseCase {
 
     if (existingByDoc) {
       throw new Error(
-        `Campo documentoIdentidad: El documento ${command.documentoIdentidad.trim()} ya está registrado en el sistema.`
+        `Documento de identidad: El documento ${command.documentoIdentidad.trim()} ya está registrado en el sistema.`
       );
     }
 
@@ -61,7 +61,7 @@ export class CreateUserUseCase {
 
     if (existingByEmail) {
       throw new Error(
-        `Campo correo: El correo electrónico ${normalizedEmail} ya está registrado en el sistema.`
+        `Correo electrónico: El correo electrónico ${normalizedEmail} ya está registrado en el sistema.`
       );
     }
 
@@ -72,7 +72,7 @@ export class CreateUserUseCase {
     for (const idRol of command.rolesIds) {
       const foundRole = catalogRoles.find((r) => Number(r.id_rol) === Number(idRol));
       if (!foundRole) {
-        throw new Error(`Campo rolesIds: El rol con ID ${idRol} no existe en el catálogo.`);
+        throw new Error(`Roles de usuario: El rol con ID ${idRol} no existe en el catálogo.`);
       }
       assignedRoleEntities.push(
         RoleEntity.reconstitute({
@@ -94,7 +94,7 @@ export class CreateUserUseCase {
         ? await this.passwordHasher.hash(command.contrasenaTemporal)
         : command.contrasenaTemporal;
     } else if (!finalPasswordHash) {
-      throw new Error('Campo contrasena: La contraseña temporal es obligatoria.');
+      throw new Error('Contraseña: La contraseña temporal es obligatoria.');
     }
 
     const userEntity = UserEntity.createNew({

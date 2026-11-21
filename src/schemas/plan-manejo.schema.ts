@@ -55,6 +55,20 @@ export const IncapacidadMedicaSchema = z
         'Si requiere incapacidad, la fecha de inicio, culminación y el diagnóstico/justificación son obligatorios.',
       path: ['diagnostico_justificacion'],
     }
+  )
+  .refine(
+    (data) => {
+      if (data.requiere_incapacidad) {
+        if (data.fecha_inicio.trim().length > 0 && data.fecha_culminacion.trim().length > 0) {
+          return data.fecha_culminacion >= data.fecha_inicio;
+        }
+      }
+      return true;
+    },
+    {
+      message: 'La fecha de culminación no puede ser anterior a la fecha de inicio de la incapacidad.',
+      path: ['fecha_culminacion'],
+    }
   );
 
 export const RemisionMedicaSchema = z

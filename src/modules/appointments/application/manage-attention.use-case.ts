@@ -8,12 +8,15 @@ import {
   IClinicalRecordCheckerPort,
 } from '../domain/appointment.repository.interface';
 import { AppointmentEntity } from '../domain/appointment.entity';
+import { ActiveConsultationConflictError } from '../domain/active-consultation-conflict.error';
 
 export interface ManageAttentionCommand {
   accion: 'INICIAR' | 'FINALIZAR';
   idCita: number;
   idProfesionalEjecutor: number;
   nombreProfesionalEjecutor: string;
+  forzarCierreCitaPreviaId?: number;
+  motivoCierrePrevio?: string;
   now?: Date;
 }
 
@@ -59,9 +62,62 @@ export class ManageAttentionUseCase {
         command.idProfesionalEjecutor
       );
 
-      const yaTieneCitaActiva = Boolean(
+      let yaTieneCitaActiva = Boolean(
         activeAppointment && activeAppointment.idCita !== appointment.idCita
       );
+
+      // Si existe conflicto y se solicitó forzar el cierre de la cita previa en conflicto:
+      if (
+        yaTieneCitaActiva &&
+        activeAppointment &&
+        command.forzarCierreCitaPreviaId &&
+        command.forzarCierreCitaPreviaId === activeAppointment.idCita
+      ) {
+        const cierreMotivo =
+          command.motivoCierrePrevio || 'Cierre asistido al iniciar nueva atención clínica';
+
+        activeAppointment.finalizarAtencionPorTimeout({
+          idUsuarioGestor: command.idProfesionalEjecutor,
+          nombreUsuarioGestor: command.nombreProfesionalEjecutor,
+          motivo: cierreMotivo,
+          now,
+        });
+
+        await this.appointmentRepository.updateAppointment(activeAppointment);
+
+        if (this.auditLogger) {
+          await this.auditLogger.log({
+            usuario: command.nombreProfesionalEjecutor,
+            accion: 'Finalizar atención previa (Cierre asistido)',
+            registroAfectado: `cita:${activeAppointment.idCita}`,
+            valorNuevo: {
+              idCita: activeAppointment.idCita,
+              estado: 'Atendida',
+              motivo: cierreMotivo,
+            },
+          });
+        }
+
+        yaTieneCitaActiva = false;
+      } else if (yaTieneCitaActiva && activeAppointment) {
+        const elapsedMinutes = Math.max(
+          0,
+          Math.floor((now.getTime() - activeAppointment.horaInicio.getTime()) / 60000)
+        );
+
+        throw new ActiveConsultationConflictError(
+          'El profesional ya tiene otra cita En consulta.',
+          {
+            idCita: activeAppointment.idCita!,
+            idPaciente: activeAppointment.idPaciente,
+            nombrePaciente: 'Paciente en consulta',
+            horaInicio: ColombiaTime.formatDateTime(activeAppointment.horaInicio),
+            horaFin: ColombiaTime.formatDateTime(activeAppointment.horaFinal),
+            minutosTranscurridos: elapsedMinutes,
+            tiempoExcedido: elapsedMinutes > 45,
+          }
+        );
+      }
 
       // Ejecutar validaciones y cambio de estado en el dominio
       appointment.iniciarAtencion({

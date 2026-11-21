@@ -318,10 +318,14 @@ export function useRealtimeAgenda(apiBaseUrl = '/api/v1') {
     idCita: number,
     nuevoEstado: string,
     motivo: string,
-    liberarBloques?: boolean
+    liberarBloques?: boolean,
+    extraOptions?: {
+      forzarCierreCitaPreviaId?: number;
+      motivoCierrePrevio?: string;
+      ignorarMotivoConsulta?: boolean;
+    }
   ) => {
     try {
-
       const res = await fetch(`${apiBaseUrl}/appointments/${idCita}/state`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -329,11 +333,18 @@ export function useRealtimeAgenda(apiBaseUrl = '/api/v1') {
           nuevoEstado,
           motivo,
           liberarBloques,
+          forzarCierreCitaPreviaId: extraOptions?.forzarCierreCitaPreviaId,
+          motivoCierrePrevio: extraOptions?.motivoCierrePrevio,
+          ignorarMotivoConsulta: extraOptions?.ignorarMotivoConsulta,
         }),
       });
       if (!res.ok) {
         const errJson = await res.json().catch(() => ({}));
-        throw new Error(errJson.message || 'Error al cambiar estado de cita');
+        const err: any = new Error(errJson.message || 'Error al cambiar estado de cita');
+        err.statusCode = res.status;
+        err.code = errJson.code;
+        err.activeAppointment = errJson.data;
+        throw err;
       }
       await fetchAgenda();
     } catch (err: any) {
@@ -343,9 +354,24 @@ export function useRealtimeAgenda(apiBaseUrl = '/api/v1') {
     }
   };
 
-  const startAttention = useCallback((idCita: number) => {
-    return changeStateAPI(idCita, 'En consulta', 'Inicio de atención clínica');
-  }, [changeStateAPI]);
+  const startAttention = useCallback(
+    (
+      idCita: number,
+      options?: {
+        forzarCierreCitaPreviaId?: number;
+        motivoCierrePrevio?: string;
+      }
+    ) => {
+      return changeStateAPI(
+        idCita,
+        'En consulta',
+        'Inicio de atención clínica',
+        false,
+        options
+      );
+    },
+    [changeStateAPI]
+  );
 
   const endAttention = useCallback((idCita: number) => {
     return changeStateAPI(idCita, 'Atendida', 'Atención finalizada con éxito');

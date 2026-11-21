@@ -2,8 +2,26 @@
 import React, { useState, useEffect } from 'react';
 import { OdontogramDataDTO } from '../../infrastructure/clinical-record.model';
 import { OdontogramEntity } from '../../domain/odontogram.entity';
-import { Badge } from '../../../../shared/ui/components/Badge';
 import { Button } from '../../../../shared/ui/components/Button';
+import { ReplaceFindingModal, SurfaceFindingType } from './ReplaceFindingModal';
+
+const SURFACE_LABELS: Record<string, string> = {
+  vestibular: 'Cara Vestibular',
+  palatina: 'Cara Palatina',
+  lingual: 'Cara Lingual',
+  mesial: 'Cara Mesial',
+  distal: 'Cara Distal',
+  oclusal_incisal: 'Cara Oclusal / Incisal',
+};
+
+function getActiveSurfaceFinding(surfaceObj: any): SurfaceFindingType {
+  if (!surfaceObj) return 'none';
+  if (surfaceObj.caries_activa) return 'caries_activa';
+  if (surfaceObj.restauracion_resina) return 'restauracion_resina';
+  if (surfaceObj.sellante_fosas) return 'sellante_fosas';
+  if (surfaceObj.desgaste_faceta) return 'desgaste_faceta';
+  return 'none';
+}
 
 export interface OdontogramCanvasProps {
   initialData?: OdontogramDataDTO;
@@ -52,6 +70,14 @@ export const OdontogramCanvas: React.FC<OdontogramCanvasProps> = ({
   const [activeSymbol, setActiveSymbol] = useState<TechnicalSymbolType>('none');
   const [selectedToothForNote, setSelectedToothForNote] = useState<number | null>(null);
   const [toothNoteInput, setToothNoteInput] = useState('');
+  const [pendingReplacement, setPendingReplacement] = useState<{
+    quadrantKey: 'cuadrante_1' | 'cuadrante_2' | 'cuadrante_3' | 'cuadrante_4';
+    toothCode: string;
+    surface: 'vestibular' | 'palatina' | 'lingual' | 'mesial' | 'distal' | 'oclusal_incisal';
+    surfaceLabel: string;
+    currentFinding: SurfaceFindingType;
+    newFinding: SurfaceFindingType;
+  } | null>(null);
 
   // Cuadrantes estándar FDI
   const q1Keys = ['18', '17', '16', '15', '14', '13', '12', '11'];
@@ -85,6 +111,52 @@ export const OdontogramCanvas: React.FC<OdontogramCanvasProps> = ({
     return '#FFFFFF';
   };
 
+  // Ejecutar actualización de superficie en el estado del odontograma
+  const executeSurfaceUpdate = (
+    quadrantKey: 'cuadrante_1' | 'cuadrante_2' | 'cuadrante_3' | 'cuadrante_4',
+    toothCode: string,
+    surface: 'vestibular' | 'palatina' | 'lingual' | 'mesial' | 'distal' | 'oclusal_incisal',
+    toolToApply: FindingType
+  ) => {
+    setOdontogramData((prev) => {
+      const next = structuredClone(prev);
+      const tooth = next.cuadrantes[quadrantKey]?.piezas[toothCode];
+      if (!tooth) return prev;
+
+      // Si la herramienta activa es borrador (toolToApply === 'none' && activeSymbol === 'none'),
+      // también borramos los símbolos técnicos de esta pieza dental
+      if (toolToApply === 'none' && activeSymbol === 'none') {
+        tooth.simbolos_tecnicos.diente_extraido = false;
+        tooth.simbolos_tecnicos.extraccion_requerida = false;
+        tooth.simbolos_tecnicos.corona = false;
+        tooth.simbolos_tecnicos.implante = false;
+        tooth.simbolos_tecnicos.protesis_fija = false;
+        tooth.simbolos_tecnicos.endodoncia = false;
+        tooth.simbolos_tecnicos.puente = false;
+      }
+
+      const surfaceObj = (tooth.caras as any)[surface];
+      if (!surfaceObj) return prev;
+
+      // Comprobar si ya tenía esta patología activa para permitir deseleccionarla (toggle off)
+      const wasAlreadyActive = toolToApply !== 'none' && Boolean(surfaceObj[toolToApply]);
+
+      // Resetea todas las banderas de esta superficie (invariante: un solo hallazgo por cara)
+      surfaceObj.caries_activa = false;
+      surfaceObj.restauracion_resina = false;
+      surfaceObj.sellante_fosas = false;
+      surfaceObj.desgaste_faceta = false;
+
+      // Si no estaba activa y no es borrador, la activa (si ya estaba activa, se queda en false = toggle off)
+      if (toolToApply !== 'none' && !wasAlreadyActive) {
+        surfaceObj[toolToApply] = true;
+      }
+
+      onChange?.(next);
+      return next;
+    });
+  };
+
   // Manejar clic en cara dental (pentafacial)
   const handleSurfaceClick = (
     quadrantKey: 'cuadrante_1' | 'cuadrante_2' | 'cuadrante_3' | 'cuadrante_4',
@@ -99,43 +171,49 @@ export const OdontogramCanvas: React.FC<OdontogramCanvasProps> = ({
       return;
     }
 
-    setOdontogramData((prev) => {
-      const next = structuredClone(prev);
-      const tooth = next.cuadrantes[quadrantKey]?.piezas[toothCode];
-      if (!tooth) return prev;
+    const tooth = odontogramData.cuadrantes[quadrantKey]?.piezas[toothCode];
+    if (!tooth) return;
+    const surfaceObj = (tooth.caras as any)[surface];
+    if (!surfaceObj) return;
 
-      // Si la herramienta activa es borrador (activeTool === 'none' && activeSymbol === 'none'),
-      // también borramos los símbolos técnicos de esta pieza dental
-      if (activeTool === 'none') {
-        tooth.simbolos_tecnicos.diente_extraido = false;
-        tooth.simbolos_tecnicos.extraccion_requerida = false;
-        tooth.simbolos_tecnicos.corona = false;
-        tooth.simbolos_tecnicos.implante = false;
-        tooth.simbolos_tecnicos.protesis_fija = false;
-        tooth.simbolos_tecnicos.endodoncia = false;
-        tooth.simbolos_tecnicos.puente = false;
-      }
+    // Detectar si la cara ya tiene un hallazgo registrado
+    const currentFinding = getActiveSurfaceFinding(surfaceObj);
 
-      const surfaceObj = (tooth.caras as any)[surface];
-      if (!surfaceObj) return prev;
+    // Caso de conflicto: La cara tiene un hallazgo previo (distinto de 'none'),
+    // la herramienta activa no es borrador ('none'), y es DIFERENTE al hallazgo actual.
+    if (
+      currentFinding !== 'none' &&
+      activeTool !== 'none' &&
+      currentFinding !== activeTool
+    ) {
+      setPendingReplacement({
+        quadrantKey,
+        toothCode,
+        surface,
+        surfaceLabel: SURFACE_LABELS[surface] || surface,
+        currentFinding,
+        newFinding: activeTool,
+      });
+      return;
+    }
 
-      // Comprobar si ya tenía esta patología activa para permitir deseleccionarla (toggle off)
-      const wasAlreadyActive = activeTool !== 'none' && Boolean(surfaceObj[activeTool]);
+    // Sin conflicto (cara limpia, toggle-off del mismo hallazgo o borrador): aplicar directamente
+    executeSurfaceUpdate(quadrantKey, toothCode, surface, activeTool);
+  };
 
-      // Resetea todas las banderas de esta superficie (invariante: un solo hallazgo por cara)
-      surfaceObj.caries_activa = false;
-      surfaceObj.restauracion_resina = false;
-      surfaceObj.sellante_fosas = false;
-      surfaceObj.desgaste_faceta = false;
+  const handleConfirmReplacement = () => {
+    if (!pendingReplacement) return;
+    executeSurfaceUpdate(
+      pendingReplacement.quadrantKey,
+      pendingReplacement.toothCode,
+      pendingReplacement.surface,
+      pendingReplacement.newFinding as FindingType
+    );
+    setPendingReplacement(null);
+  };
 
-      // Si no estaba activa y no es borrador, la activa (si ya estaba activa, se queda en false = toggle off)
-      if (activeTool !== 'none' && !wasAlreadyActive) {
-        surfaceObj[activeTool] = true;
-      }
-
-      onChange?.(next);
-      return next;
-    });
+  const handleCancelReplacement = () => {
+    setPendingReplacement(null);
   };
 
   // Manejar clic en la pieza completa para símbolos técnicos
@@ -564,6 +642,19 @@ export const OdontogramCanvas: React.FC<OdontogramCanvasProps> = ({
             Guardar Odontograma Clínico
           </Button>
         </div>
+      )}
+
+      {/* Modal de confirmación para reemplazo de hallazgo en cara dental */}
+      {pendingReplacement && (
+        <ReplaceFindingModal
+          isOpen={Boolean(pendingReplacement)}
+          onClose={handleCancelReplacement}
+          onConfirm={handleConfirmReplacement}
+          toothCode={pendingReplacement.toothCode}
+          surfaceLabel={pendingReplacement.surfaceLabel}
+          currentFinding={pendingReplacement.currentFinding}
+          newFinding={pendingReplacement.newFinding}
+        />
       )}
     </div>
   );

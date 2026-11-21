@@ -110,6 +110,8 @@ interface ConsultationNavState {
   patient?: PatientListItem;
   doctorName?: string;
   doctorSignature?: string | null;
+  appointmentState?: string;
+  estado?: string;
 }
 
 export const ActiveConsultationRoute: React.FC<{
@@ -137,12 +139,14 @@ export const ActiveConsultationRoute: React.FC<{
     idPaciente: number;
     doctorName?: string;
     doctorSignature?: string | null;
+    estado?: string;
   } | null>(
     navState?.idPaciente
       ? {
           idPaciente: Number(navState.idPaciente),
           doctorName: navState.doctorName,
           doctorSignature: navState.doctorSignature,
+          estado: navState.appointmentState || (navState as any)?.estado,
         }
       : null
   );
@@ -189,6 +193,7 @@ export const ActiveConsultationRoute: React.FC<{
             idPaciente: Number(cita.idPaciente),
             doctorName: cita.nombreProfesional,
             doctorSignature: null,
+            estado: cita.estado,
           });
         }
       })
@@ -261,6 +266,11 @@ export const ActiveConsultationRoute: React.FC<{
     resolvedCitaContext.doctorSignature ??
     (capabilities.canEditClinicalOpening ? currentUserSignature : null);
 
+  const isAppointmentAttended =
+    resolvedCitaContext.estado === 'Atendida' ||
+    navState?.appointmentState === 'Atendida' ||
+    (navState as any)?.estado === 'Atendida';
+
   return (
     <ActiveConsultationPage
       idPaciente={resolvedCitaContext.idPaciente}
@@ -273,6 +283,7 @@ export const ActiveConsultationRoute: React.FC<{
       patientSex={patient?.sexo ?? undefined}
       doctorName={resolvedDoctorName}
       doctorSignature={resolvedDoctorSignature}
+      readOnly={isAppointmentAttended}
       onBackToAgenda={() => navigate(ROUTES.AGENDA)}
       canFinishAttention={capabilities.canStartAttention}
       isAssistantMode={!capabilities.canEditClinicalOpening}
